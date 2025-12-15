@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>オンライン対戦（完全版）</title>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #202020;
+      color: #f5f5f5;
+    }
+    button { padding: 5px 12px; cursor:pointer; }
+    button:disabled { background:#666; cursor:default; }
+
+    .log-container { display: flex; gap: 12px; margin-top: 10px;}
+    .log-box {
+      flex: 1; background:#111; border-radius:6px;
+      padding:6px; height:220px; overflow-y: auto;
+      font-size: 12px; font-family: Consolas;
+    }
+    .battle-log{ color:#ffd54f;}
+    .skill-log{ color:#81d4fa;}
+    .system-log{ color:#a5d6a7;}
+    .error-log{ color:#ef9a9a;}
+    .debug-log{ color:#b0bec5;}
+
+    #skillPopup{
+      display:none; position:fixed; top:0; left:0;
+      width:100%; height:100%; background:rgba(0,0,0,0.7);
+      justify-content:center; align-items:center;
+    }
+    #skillBox{
+      background:#2b2b2b; padding:20px; border-radius:10px;
+      width:380px;
+    }
+    .skillRow{ margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #555;}
+    .skillName{ color:#81d4fa; font-size:16px; }
+    .skillDesc{ white-space:pre-line; font-size:13px; color:#ddd; }
+
+
+   
+    /* ===== 簡易ステータス全体 ===== */
+    .status-area {
+      margin-top: 15px;
+      margin-bottom: 15px;
+      display: flex;
+      gap: 12px;
+    }
+
+    /* ===== 自分 / 相手 共通 ===== */
+    .status-simple {
+      width: 240px;
+      padding: 10px;
+      background: #222;
+      border: 1px solid #555;
+      color: #fff;
+      font-size: 13px;
+    }
+
+    /* ===== 相手側は少し色を変える ===== */
+    #enemy-status-simple {
+      background: #1a1a1a;
+      border-color: #666;
+    }
+    
+
+
+
+  </style>
+</head>
+
+<body>
+<h2>オンライン対戦（完全版）</h2>
+
+<!-- ================= プレイヤー情報入力 ================= -->
+<input id="name" placeholder="名前">
+<select id="job">
+  <option value="1">戦士</option>
+  <option value="2">騎士</option>
+  <option value="3">僧侶</option>
+  <option value="4">盗賊</option>
+  <option value="5">魔導士</option>
+  <option value="6">陰陽師</option>
+  <option value="7">錬金術師</option>
+  <option value="8">弓兵</option>
+</select>
+<button onclick="join()">接続</button>
+
+
+<!-- ===== 簡易ステータス（自分 / 相手） ===== -->
+<div class="status-area">
+  <div id="my-status-simple" class="status-simple"></div>
+  <div id="enemy-status-simple" class="status-simple"></div>
+</div>
+
+<h3>行動</h3>
+<button id="atkBtn" disabled onclick="attack()">攻撃</button>
+<button id="skillBtn" disabled onclick="openSkillUI()">スキル</button>
+<button id="lvupBtn" disabled onclick="tryLevelUp()">レベルアップ</button>
+<button id="itemBtn" disabled onclick="openItemUI()">アイテム</button>
+<button id="shopBtn" disabled onclick="openShop()">ショップ</button>
+
+
+
+<h3>ログ</h3>
+<div class="log-container">
+  <div class="log-box" id="battleBox"><div class="log-title">⚔ 戦闘ログ</div></div>
+  <div class="log-box" id="systemBox"><div class="log-title">▶ システムログ</div></div>
+  <div class="log-box" id="debugBox"><div class="log-title">🛠 デバッグログ</div></div>
+</div>
+
+<!-- ================= スキルポップアップ ================= -->
+<div id="skillPopup">
+  <div id="skillBox">
+    <h3>スキル一覧</h3>
+    <div id="skillList"></div>
+    <button onclick="closeSkillUI()">閉じる</button>
+  </div>
+</div>
+
+<!-- ▼ カテゴリ選択ポップアップ（新規追加） -->
+<div id="itemCategoryPopup"
+     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,0,0,0.7); justify-content:center; align-items:center;">
+  <div style="background:#2b2b2b; padding:20px; border-radius:10px; width:260px;">
+    <h3>カテゴリ選択</h3>
+    <button onclick="openItemCategory('item')">アイテム</button><br><br>
+    <button onclick="openItemCategory('equip')">装備</button><br><br>
+    <button onclick="openItemCategory('special')">特殊装備</button><br><br>
+    <button onclick="closeItemCategory()">閉じる</button>
+  </div>
+</div>
+
+<!-- ================= アイテムポップアップ ================= -->
+<div id="itemPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center;">
+  <div id="itemBox" style="background:#2b2b2b; padding:20px; border-radius:10px; width:380px;">
+    <h3 id="itemPopupTitle">アイテム一覧</h3>
+    <div id="itemList"></div>
+    <button onclick="closeItemUI()">閉じる</button>
+  </div>
+</div>
+
+<!-- ★ 追加：ショップポップアップ -->
+<div id="shopPopup" class="popup" style="display:none;">
+  <div class="popup-inner">
+      <h3>ショップ</h3>
+
+      <div id="shopList"></div>
+
+      <!-- ★ ここに移動させる（popup と連動して消える） -->
+      <button onclick="rerollShop()">ショップ更新(10コイン)</button>
+      <button onclick="closeShopUI()">閉じる</button>
+
+  </div>
+</div>
+
+<!-- ================= ステータス詳細ポップアップ ================= -->
+<div id="statusDetailPopup"
+     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,0,0,0.7); justify-content:center; align-items:center;">
+
+  <div style="background:#2b2b2b; padding:20px; border-radius:10px; width:420px;">
+    <h3 id="statusDetailTitle">ステータス詳細</h3>
+
+    <div id="statusDetailBody" style="font-size:13px; line-height:1.6;"></div>
+
+    <div style="text-align:right; margin-top:10px;">
+      <button onclick="closeStatusDetail()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+let ws;
+let myTurn = false;
+let myJob = null;
+let myLevel = 1;
+
+/* ================= スキル定義（あなたの仕様そのまま） ================= */
+const SKILLS = {
+  1:[ {name:"パワースラッシュ",desc:"防御無視20ダメージ。"},
+      {name:"ブレイブチャージ",desc:"防御無視30＋攻撃+3（3T）"},
+      {name:"ラストブレード",desc:"防御無視(10＋攻撃力)"} ],
+  2:[ {name:"シールドブレイク",desc:"20＋防御+2（4T）"},
+      {name:"アイアンチャージ",desc:"15＋防御力＋防御+4（3T）"},
+      {name:"ジャスティスブレード",desc:"25＋防御力"} ],
+  3:[ {name:"ヒール",desc:"HP27回復"},
+      {name:"ディスペルヒール",desc:"HP32＋デバフ解除"},
+      {name:"グレーターヒール",desc:"HP37＋デバフ解除"} ],
+  4:[ {name:"スラッシュ＆スティール",desc:"25＋盗む"},
+      {name:"ダガーレイド",desc:"25+(アイテム数×2)+盗む"},
+      {name:"シャドウバースト",desc:"全アイテム無料発動"} ],
+  5:[ {name:"魔力チャージ",desc:"魔力+20（1回）"},
+      {name:"エレメントバースト",desc:"魔力30消費・30DMG"},
+      {name:"メテオインパクト",desc:"魔力全消費→(消費-30)"} ],
+  6:[ {name:"式神召喚・初級",desc:"鬼火/猫又/玄武/烏天狗"},
+      {name:"式神召喚・上級",desc:"九尾/白龍含む上級1体"},
+      {name:"二重召喚",desc:"上級式神2体召喚"} ],
+  7:[ {name:"錬成",desc:"装備を2つ生成"},
+      {name:"精錬",desc:"全装備★+1"},
+      {name:"三重合成",desc:"装備3つ合成→特殊武器"} ],
+  8:[ {name:"集中射撃",desc:"3T追撃+1"},
+      {name:"狙い撃ち＋矢拡張",desc:"矢スロ+1＆追撃+1"},
+      {name:"貫通の矢",desc:"全矢が防御貫通化"} ],
+};
+
+/* ==================== ログ追加 ==================== */
+function appendLog(boxId, className, text){
+  const box=document.getElementById(boxId);
+  const div=document.createElement("div");
+  div.className="log-line "+className;
+  div.textContent=text;
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+}
+
+/* ==================== 接続 ==================== */
+function join() {
+  myJob = Number(document.getElementById("job").value);
+
+  // ★ 常に Render の WebSocket サーバーへ接続
+  const wsUrl = "wss://cardbattle-server.onrender.com";
+
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    appendLog("systemBox", "system-log", "🌐 接続しました。対戦相手を待機中…");
+    ws.send(JSON.stringify({
+      type: "join",
+      name: document.getElementById("name").value,
+      job: myJob
+    }));
+  };
+
+  ws.onerror = (e) => {
+    appendLog("systemBox", "system-log", "❌ サーバー接続に失敗しました");
+    console.error("WebSocket error:", e);
+  };
+
+
+
+
+
+
+
+
+  /* ============================================
+     WebSocket メッセージ受信
+     （ここだけで全処理するよう統一）
+     ============================================ */
+  ws.onmessage = (msg)=>{
+    const data = JSON.parse(msg.data);
+
+    if (data.type === "status_simple") {
+
+      const box =
+        data.side === "self"
+          ? document.getElementById("my-status-simple")
+          : document.getElementById("enemy-status-simple");
+
+      let html = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>${data.side === "self" ? "あなた" : "相手"}</strong>
+          <button onclick="openStatusDetail('${data.side}')">詳細</button>
+        </div>
+
+        <div>HP: ${data.hp} / ${data.max_hp}</div>
+        <div>攻撃: ${data.attack}</div>
+        <div>防御: ${data.defense}</div>
+        <div>コイン: ${data.coins}</div>
+        <div>Lv: ${data.level}</div>
+      `;
+
+      if (data.mana !== null) {
+        html += `<div>魔力: ${data.mana} / ${data.mana_max}</div>`;
+      }
+
+      box.innerHTML = html;
+      return;
+    }
+
+
+    if (data.type === "status_detail") {
+
+      document.getElementById("statusDetailTitle").textContent =
+        data.side === "self" ? "あなたの詳細ステータス" : "相手の詳細ステータス";
+
+      let html = `
+        <div><b>HP</b>: ${data.hp} / ${data.max_hp}</div>
+        <div><b>攻撃力</b>: ${data.attack}</div>
+        <div><b>防御力</b>: ${data.defense}</div>
+        <div><b>コイン</b>: ${data.coins}</div>
+        <div><b>Lv</b>: ${data.level}</div>
+        <div><b>EXP</b>: ${data.exp}</div>
+      `;
+
+      if (data.mana !== null) {
+        html += `<div><b>魔力</b>: ${data.mana} / ${data.mana_max}</div>`;
+      }
+
+      if (data.equipment?.length) {
+        html += `<hr><b>装備中</b><br>${data.equipment.join("<br>")}`;
+      }
+
+      if (data.buffs?.length) {
+        html += `<hr><b>バフ</b><br>${data.buffs.join("<br>")}`;
+      }
+
+      if (data.shikigami?.length) {
+        html += `<hr><b>式神</b><br>${data.shikigami.join("<br>")}`;
+      }
+
+      document.getElementById("statusDetailBody").innerHTML = html;
+      document.getElementById("statusDetailPopup").style.display = "flex";
+      return;
+    }
+
+        /* --- HP --- */
+    if(data.type==="hp"){
+      document.getElementById("hp").textContent =
+        `あなたのHP ${data.myHP} / 敵HP ${data.enemyHP}`;
+      return;
+    }
+    
+    if (data.type === "job_info") {
+        window.myJob = data.job;
+        console.log("My Job = ", window.myJob);
+        return;
+    }
+
+    if (data.type === "mana_info") {
+        const now = data.mana;
+        const max = data.mana_max;
+
+        // ステータス欄に魔力を表示
+        document.getElementById("mana_now").textContent = now;
+        document.getElementById("mana_max").textContent = max;
+
+        // 魔導士以外の場合は空欄にする仕様にするならこの一行
+        document.getElementById("mana_block").style.display = "block";
+    }
+
+    /* --- EXP --- */
+    if(data.type==="exp_info"){
+      document.getElementById("exp").textContent = data.exp;
+      return;
+    }
+
+    /* --- レベル情報 --- */
+    if(data.type==="level_info"){
+      myLevel = data.level;
+      document.getElementById("level").textContent = "Lv "+data.level;
+
+      // 自分のラウンドなら押せる
+      // レベルアップボタンは、自分のラウンドなら常に押せる
+      document.getElementById("lvupBtn").disabled = !myTurn;
+
+
+      return;
+    }
+
+
+    if (data.type === "item_list") {
+      window.itemList = data.items;  // グローバル保存
+      renderItemList(data.items);
+      return;
+    }
+    
+    if (data.type === "status_info") {
+
+        window.arrowSlots = data.arrow_slots ?? 1;
+
+        // ★ 自分の職業を参照（サーバーから初回受信時に window.myJob にセットされている前提）
+        const isOnmyoji = (window.myJob === "陰陽師");
+
+        // ★ 式神表示（陰陽師だけ）
+        let shikiHTML = "";
+        if (isOnmyoji) {
+            shikiHTML = `
+                <div id="shikigami-list" style="margin-top:8px; font-size:12px; color:#6cf;">
+                    ${
+                        !data.shikigami || data.shikigami.length === 0
+                        ? "（式神なし）"
+                        : data.shikigami.map(s => `${s}`).join("<br>")
+                    }
+                </div>
+            `;
+        }
+
+        document.getElementById("status-panel").innerHTML = `
+            攻撃力：${data.attack}<br>
+            防御力：${data.defense}<br>
+
+            <div id="buff-list" style="margin-top:8px; font-size:12px; color:#ccc;">
+                ${
+                    data.buffs.length === 0
+                    ? "（バフなし）"
+                    : data.buffs.map(b => `${b}`).join("<br>")
+                }
+            </div>
+
+            ${shikiHTML}  <!-- ★ 陰陽師のときだけ表示される -->
+        `;
+        return;
+    }
+
+
+
+    // ★追加：ショップ商品リスト受信
+    if (data.type === "shop_list") {
+        renderShop(data.items);
+        return;
+    }
+
+
+    /* --- コイン --- */
+    if(data.type==="coin_info"){
+      document.getElementById("coins").textContent = data.coins;
+      return;
+    }
+
+    /* --- 自分のラウンド --- */
+    if(data.type==="your_turn"){
+      myTurn = true;
+      appendLog("systemBox","system-log", data.msg);
+
+      document.getElementById("atkBtn").disabled = false;
+      document.getElementById("skillBtn").disabled = false;
+      document.getElementById("lvupBtn").disabled = false; // 常に押せる
+      document.getElementById("itemBtn").disabled = false;
+      document.getElementById("shopBtn").disabled = false;
+
+      return;
+    }
+
+    /* --- 相手ラウンド --- */
+    if(data.type==="wait_turn"){
+      myTurn = false;
+      appendLog("systemBox","system-log", data.msg);
+
+// ★ 相手ラウンドになったらショップを強制的に閉じる
+      closeShopUI();
+
+      document.getElementById("atkBtn").disabled = true;
+      document.getElementById("skillBtn").disabled = true;
+      document.getElementById("lvupBtn").disabled = true;
+      document.getElementById("itemBtn").disabled = true;
+      document.getElementById("shopBtn").disabled = true;
+
+
+      return;
+    }
+
+    /* --- 戦闘ログ --- */
+    if(data.type==="battle_log"){
+      appendLog("battleBox","battle-log",data.msg);
+      return;
+    }
+    if(data.type==="skill_log"){
+      appendLog("battleBox","skill-log",data.msg);
+      return;
+    }
+
+    /* --- システム --- */
+    if(data.type==="system_log"){
+      appendLog("systemBox","system-log",data.msg);
+      return;
+    }
+
+    /* --- エラー --- */
+    if(data.type==="error_log"){
+      appendLog("systemBox","error-log",data.msg);
+      return;
+    }
+
+    /* --- デバッグ --- */
+    if(data.type==="debug_log"){
+      appendLog("debugBox","debug-log",data.msg);
+      return;
+    }
+
+    /* --- level_up_request の返信 --- */
+    if(data.type==="level_up_check"){
+      if(data.canExp){
+        ws.send(JSON.stringify({type:"level_up_exp"}));
+        return;
+      }
+      if(data.canCoins){
+        if(confirm(`EXP不足！\nコイン${data.needCoins}で補填しますか？`)){
+          ws.send(JSON.stringify({type:"level_up_coins"}));
+        }
+        return;
+      }
+      alert("❌ EXPもコインも足りません！");
+    }
+
+  };
+}
+
+function rerollShop() {
+    ws.send(JSON.stringify({ type: "shop_reroll" }));
+}
+
+/* ================= 行動 ================= */
+function attack(){
+  if(!myTurn) return;
+  ws.send(JSON.stringify({type:"action", action:"攻撃"}));
+}
+
+/* ================= スキル系 ================= */
+function openSkillUI(){
+  const list=document.getElementById("skillList");
+  list.innerHTML="";
+
+  SKILLS[myJob].forEach((s,i)=>{
+    const needLv=i+1;
+
+    const row=document.createElement("div");
+    row.className="skillRow";
+
+    row.innerHTML =
+      `<div class="skillName">【${i+1}】${s.name}</div>
+       <div class="skillDesc">${s.desc}</div>
+       <button onclick="useSkill(${i+1})" ${myLevel<needLv?"disabled":""}>
+         使用
+       </button>`;
+
+    list.appendChild(row);
+  });
+
+  document.getElementById("skillPopup").style.display="flex";
+}
+
+function closeSkillUI(){
+  document.getElementById("skillPopup").style.display="none";
+}
+
+function useSkill(num){
+  if(!myTurn) return;
+  ws.send(JSON.stringify({type:"action", action:"スキル"+num}));
+  closeSkillUI();
+}
+
+/* ================= レベルアップ ================= */
+function tryLevelUp(){
+  ws.send(JSON.stringify({ type:"level_up_request" }));
+}
+
+function openItemUI(){
+  document.getElementById("itemCategoryPopup").style.display = "flex";
+}
+
+
+function useItem(id, action, slot = 1){
+  ws.send(JSON.stringify({
+    type: "use_item",
+    item_id: id,
+    action: action,
+    slot: slot
+  }));
+  closeItemUI();
+}
+
+
+
+function openItemUI(){
+  document.getElementById("itemCategoryPopup").style.display = "flex";
+}
+
+function closeItemCategory(){
+  document.getElementById("itemCategoryPopup").style.display = "none";
+}
+
+function openItemCategory(category){
+  const all = window.itemList || [];
+  const list = all.filter(it => it.category === category);
+
+  const titleMap = {
+    item: "アイテム一覧",
+    equip: "装備一覧",
+    special: "特殊装備一覧" // ★矢もここに含める
+  };
+  document.getElementById("itemPopupTitle").innerText = titleMap[category];
+
+  const box = document.getElementById("itemList");
+  box.innerHTML = "";
+
+  list.forEach(it=>{
+    const row = document.createElement("div");
+    row.className = "skillRow";
+
+    let btn = "";
+    if (category === "item") {
+      btn = `<button onclick="useItem('${it.uid}','use')">使用</button>`;
+    } else if (category === "equip" || category === "special") {
+      btn = `<button onclick="onEquipButtonByUid('${it.uid}')">装備</button>`;
+    }
+
+
+    row.innerHTML = `
+      <div class="skillName">${it.name}</div>
+      <div style="font-size:12px; color:#ccc; white-space:pre-line;">
+          ${it.effect_text ?? ""}
+      </div>
+      <div style="margin-top:5px;">
+          ${btn}
+      </div>
+    `;
+
+    box.appendChild(row);
+  });
+
+  closeItemCategory();
+  document.getElementById("itemPopup").style.display = "flex";
+}
+
+function closeItemUI(){
+  document.getElementById("itemPopup").style.display = "none";
+}
+
+// ========================
+// ★ ショップ機能追加
+// ========================
+
+function openShop(){
+  if (!myTurn) return;
+  ws.send(JSON.stringify({ type: "open_shop" }));
+}
+
+function closeShopUI(){
+  document.getElementById("shopPopup").style.display = "none";
+}
+
+function renderShop(items){
+  const box = document.getElementById("shopList");
+  box.innerHTML = "";
+
+  items.forEach((it, idx) => {
+    if (!it) return;
+
+    const desc = it.effect_text ?? "";
+
+    box.innerHTML += `
+      <div class="skillRow">
+        <div>
+          <div>${it.name}</div>
+          <div>価格: ${it.price} / ${desc}</div>
+        </div>
+        <div><button onclick="buyItem(${idx})">購入</button></div>
+      </div>
+    `;
+  });
+
+  document.getElementById("shopPopup").style.display = "block";
+}
+
+function openStatusDetail(target) {
+  ws.send(JSON.stringify({
+    type: "request_status_detail",
+    target  // "self" or "enemy"
+  }));
+}
+
+function closeStatusDetail() {
+  document.getElementById("statusDetailPopup").style.display = "none";
+}
+
+function onEquipButton(item) {
+
+  // 矢だけ特別扱い
+  if (item.is_arrow || item.equip_type === "arrow") {
+
+    // slot2 が使えるなら選ばせる
+    if (window.arrowSlots >= 2) {
+      const slot = confirm("スロット2に装備しますか？\nOK: スロット2 / キャンセル: スロット1")
+        ? 2
+        : 1;
+
+      useItem(item.uid, "arrow", slot);
+    } else {
+      useItem(item.uid, "arrow", 1);
+    }
+    return;
+  }
+
+  // 以下は今まで通り
+  if (item.equip_type === "mage_equip" ||
+      item.equip_type === "alchemist_unique") {
+    useItem(item.uid, "special");
+  } else {
+    useItem(item.uid, "equip");
+  }
+}
+
+function onEquipButtonByUid(uid) {
+  const item = (window.itemList || []).find(it => it.uid === uid);
+  if (!item) {
+    console.error("item not found:", uid);
+    return;
+  }
+  onEquipButton(item);
+}
+
+
+
+
+function buyItem(index){
+  if (!myTurn) return;
+  ws.send(JSON.stringify({ type:"buy_item", index }));
+  closeShopUI();
+}
+
+// ================================
+// ★ renderItemList（中身は空でOK）
+// ================================
+function renderItemList(items) {
+  // サーバーから受け取った item_list は
+  // window.itemList に保存されているので、
+  // 画面表示は openItemCategory() のときに行われる。
+  // ここでは何もしなくてよい。
+}
+
+function toggleEnemyDetail() {
+  const el = document.getElementById("enemy-detail");
+  el.style.display = (el.style.display === "none") ? "block" : "none";
+}
+document.getElementById("my-status-simple").innerHTML = `
+<b>あなた</b><br>
+HP: 200<br>
+ATK: 30<br>
+DEF: 20<br>
+COIN: 5<br>
+Lv: 1
+`;
+
+document.getElementById("enemy-status-simple").innerHTML = `
+<b>相手</b><br>
+HP: 180<br>
+ATK: 25<br>
+DEF: 15<br>
+COIN: 3<br>
+Lv: 1
+`;
+
+</script>
+
+</body>
+</html>
