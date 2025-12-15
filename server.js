@@ -40,7 +40,7 @@ console.log = (...args) => {
 const server = http.createServer();
 const wss = new WebSocketServer({ server });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
   console.log("Listening on port", PORT);
 });
@@ -854,15 +854,33 @@ class Match {
 
       // ★ 弓兵は矢攻撃を使用
       if (actor.job === "弓兵") {
-        actor.trigger_arrow_attack(target);
-        this.sendBattle(`🏹 ${actor.name} の矢攻撃！`);
+
+        const results = actor.trigger_arrow_attack(target) ?? [];
+        for (const r of results) {
+          this.sendBattle(
+            `🏹 ${actor.name} の追撃（${r.name}）！ ${r.dealt}ダメージ`
+          );
+        }
+
+        // ★ 追撃バフのラウンド消費
+        if (actor.archer_buff && actor.archer_buff.rounds > 0) {
+          actor.archer_buff.rounds -= 1;
+          if (actor.archer_buff.rounds <= 0) {
+            actor.archer_buff = null;
+            this.sendSystem("🏹 追撃効果が終了しました");
+          }
+        }
+
       } else {
+        // ★★★ 弓兵以外の通常攻撃（これが抜けていた） ★★★
         const dmg = actor.get_total_attack();
         const dealt = target.take_damage(dmg);
-        this.sendBattle(`🗡 ${actor.name} の攻撃！ ${dealt}ダメージ！`);
+        this.sendBattle(
+          `🗡 ${actor.name} の攻撃！ ${dealt}ダメージ！`
+        );
       }
 
-      // ★ 烏天狗（既存仕様：そのまま）
+      // ★ 烏天狗（既存仕様）
       const tengu = actor.shikigami_effects?.find(
         e => e.name === "烏天狗" && e.triggers > 0
       );

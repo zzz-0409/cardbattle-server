@@ -78,7 +78,8 @@ export class Player {
         this.arrow = null;                // slot1
         this.arrow2 = null;               // slot2
         this.arrow_slots = 1;             // 初期1スロット
-        this.archer_buff_rounds = 0;       // 追撃バフ（3T）
+        this.archer_buff = null;          // 追撃バフ（{ rounds, extra }）
+       // 追撃バフ（3T）
         this.damage_taken_last_round = 0;  // 前ラウンドダメージ → 反撃矢用
 
         // 弓兵：初期矢装備
@@ -1806,20 +1807,22 @@ if (type === "arrow") {
 
         // ---------- スキル1：追撃 +1（3ラウンド） ----------
         if (stype === "archer_1") {
-            this.archer_buff = { rounds: 3 };   // ★ バフ統一形式
+            this.archer_buff = { rounds: 3, extra: 1 }; // 3Rの間 追撃+1
             log("⚡ 3ラウンドの間、追撃が +1 回になる。");
             this.used_skill_set.add(stype);
             return true;
         }
 
+
         // ---------- スキル2：矢スロット +1 ＆ 追撃+1（3ラウンド） ----------
         if (stype === "archer_2") {
             this.arrow_slots = 2;
-            this.archer_buff = { rounds: 3 };   // ★ バフ統一形式
+            this.archer_buff = { rounds: 3, extra: 1 }; // 3Rの間 追撃+1
             log("🏹 矢スロット +1！追撃も3ラウンド +1。");
             this.used_skill_set.add(stype);
             return true;
         }
+
 
         // ---------- スキル3：全ての矢が防御貫通化 ----------
         if (stype === "archer_3") {
@@ -1840,112 +1843,84 @@ if (type === "arrow") {
     // 弓兵：矢追撃処理（A方式 freeze・毒・会心・反撃対応）
     // ---------------------------------------------------------
     trigger_arrow_attack(opponent) {
-    // ★ 追撃は「追加ダメージ処理」であり行動ではない
-    // ★ ターン・入力・行動管理に一切影響させない
 
         // --- 使用中の矢リスト作成 ---
         const arrows = [];
         if (this.arrow) arrows.push(this.arrow);
         if (this.arrow_slots >= 2 && this.arrow2) arrows.push(this.arrow2);
 
-        if (arrows.length === 0) return;
 
-        // --- 追撃判定（+1回攻撃） ---
-        const extra = (this.archer_buff?.rounds ?? 0) > 0 ? 1 : 0;
-        const total_attacks = arrows.length + extra;
+        // 矢セットの繰り返し回数
+        const repeat =
+            (this.archer_buff && this.archer_buff.rounds > 0)
+                ? (1 + (this.archer_buff.extra ?? 1))
+                : 1;
 
-        for (let i = 0; i < total_attacks; i++) {
+        const results = [];
 
-            // 矢スロット分 → 追加分は slot1 を再利用
-            const arrow = (i < arrows.length) ? arrows[i] : arrows[0];
+        // --- 矢セット × 追撃回数 ---
+        for (let r = 0; r < repeat; r++) {
+            for (const arrow of arrows) {
 
-            const name = arrow.name;
-            let power = arrow.power ?? 0;
-            const pierce = arrow.pierce ?? false;
-            const effect = arrow.effect;
+                const { power, pierce, name, effect } = arrow;
 
-            // -------- 会心処理 --------
-            let isCrit = false;
-            const critRate = arrow.crit_rate ?? arrow.critRate ?? 0;
-            const critDamage = arrow.crit_damage ?? arrow.critDamage ?? 0;
+                const isCrit = Math.random() < this.crit_rate;
+                const finalPower = isCrit ? power * 2 : power;
 
-            if (critRate > 0 && Math.random() < critRate) {
-                isCrit = true;
-                power = Math.floor(power * (1 + critDamage)); // 1.5倍
-            }
+                const dealt = opponent.take_damage(finalPower, pierce);
 
-            // -------- ダメージ処理 --------
-            const dealt = opponent.take_damage(power, pierce);
-
-            console.log(
-                `🏹 弓兵の追撃（${name}）！ ${power} ダメージ`
-                + (isCrit ? " (会心)" : "")
-                + (pierce ? " (防御貫通)" : "")
-            );
-
-            // ======================================================
-            // ▼ 効果別処理（完全版）
-            // ======================================================
-
-            // ★ poison：毒DOT（3 × 2T）
-            if (effect === "poison") {
-                opponent.dot_effects.push({
-                    name: "毒",
-                    power: 3,
-                    turns: 2,   // ★ T仕様
-                    source: this.name,
+                results.push({
+                    name,
+                    power: finalPower,
+                    dealt,
+                    isCrit,
+                    pierce,
+                    effect
                 });
-                console.log("🟣 毒付与！(5×3R)");
-            }
-
-            // ★ freeze：A方式（−2攻撃 × スタック / 各2T）
-            else if (effect === "freeze") {
-
-                if (!opponent.freeze_debuffs) opponent.freeze_debuffs = [];
-
-                // freezeスタックを追加（個別2ラウンド）
-                opponent.freeze_debuffs.push({
-                    atkDown: 2,
-                    rounds: 2,
-                });
-
-
-                const stackCount = opponent.freeze_debuffs.length;
-                const totalDown = stackCount * 2;
 
                 console.log(
-                    `❄ 氷結効果！攻撃力 -2（累積 ${stackCount} 回 → 合計 -${totalDown}）`
+                    `🏹 弓兵の追撃（${name}）！ ${finalPower} ダメージ`
+                    + (isCrit ? " (会心)" : "")
+                    + (pierce ? " (防御貫通)" : "")
                 );
-            }
 
-            // ★ counter：反撃（前ラウンドダメージ 50%）
-            else if (effect === "counter") {
+                // ===== 効果別処理 =====
 
-                const base = this.damage_taken_last_T ?? 0;   // ★ T基準に修正
-                const bonus = Math.floor(base / 2);
+                // poison：毒DOT（3 × 2R）
+                if (effect === "poison") {
+                    opponent.dot_effects.push({
+                        name: "毒",
+                        power: 3,
+                        rounds: 2,
+                        source: this.name,
+                    });
+                }
 
-                if (bonus > 0) {
-                    opponent.take_damage(bonus, false);
-                    console.log(
-                        `🔁 反撃の矢！前ラウンド被ダメ ${base} → 追加 ${bonus}`
-                    );
+                // freeze：攻撃力-2 × スタック（各2R）
+                else if (effect === "freeze") {
+                    if (!opponent.freeze_debuffs) opponent.freeze_debuffs = [];
+                    opponent.freeze_debuffs.push({ atkDown: 2, rounds: 2 });
+                }
+
+                // counter：前ラウンド被ダメ50%
+                else if (effect === "counter") {
+                    const base = this.damage_taken_last_T ?? 0;
+                    const bonus = Math.floor(base / 2);
+                    if (bonus > 0) opponent.take_damage(bonus, false);
+                }
+
+                // critical：会心バフ
+                else if (effect === "critical") {
+                    const applyCritBuff = (ar) => {
+                        ar.crit_rate = 0.25;
+                        ar.crit_damage = 0.5;
+                    };
+                    if (this.arrow) applyCritBuff(this.arrow);
+                    if (this.arrow2) applyCritBuff(this.arrow2);
                 }
             }
-
-            // ★ critical：全矢に会心率50% + ダメ50%を付与
-            else if (effect === "critical") {
-
-                const applyCritBuff = (ar) => {
-                    ar.crit_rate = 0.25;
-                    ar.crit_damage = 0.5;
-                };
-
-                if (this.arrow) applyCritBuff(this.arrow);
-                if (this.arrow2) applyCritBuff(this.arrow2);
-
-                console.log("✨ 会心付与！会心率25%・会心ダメ+50%");
-            }
         }
-    }
 
+        return results;
+    }
 }
