@@ -165,9 +165,26 @@ class Match {
     const actorWS = this.current;
     const actor = (actorWS === this.p1 ? this.P1 : this.P2);
 
+    // ===============================
+    // 氷結（freeze）：付与者のラウンド開始時に減少
+    // ===============================
+    for (const p of [this.P1, this.P2]) {
+      if (!p.freeze_debuffs || p.freeze_debuffs.length === 0) continue;
+
+      p.freeze_debuffs = p.freeze_debuffs
+        .map(d => {
+          if (d.owner === actor) {
+            return { ...d, rounds: d.rounds - 1 };
+          }
+          return d;
+        })
+        .filter(d => d.rounds > 0);
+    }
+
     // ▼ コイン配布
     const bonus = actor.get_coin_bonus_per_round();
     actor.coins += (10 + bonus);
+
 
     // ▼ 魔導士装備パッシブ
     actor.apply_mage_equip_effects();
@@ -1183,6 +1200,7 @@ class Match {
 
     this.applyDots();
     if (this.ended) return;
+
 
     // ラウンド交代
     [this.current, this.enemy] = [this.enemy, this.current];

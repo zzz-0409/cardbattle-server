@@ -1899,7 +1899,7 @@ if (type === "arrow") {
                 // freeze：攻撃力-2 × スタック（各2R）
                 else if (effect === "freeze") {
                     if (!opponent.freeze_debuffs) opponent.freeze_debuffs = [];
-                    opponent.freeze_debuffs.push({ atkDown: 2, rounds: 2 });
+                    opponent.freeze_debuffs.push({ atkDown: 2, rounds: 2, owner: this });
                 }
 
                 // counter：前ラウンド被ダメ50%
