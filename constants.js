@@ -313,7 +313,7 @@ export const ARROW_DATA = {
     effect: "normal",
     equip_type: "arrow",
     price: 20,
-    effect_text: "20ダメージの通常矢",
+    effect_text: "15ダメージの通常矢",
   },
 
   poison: {

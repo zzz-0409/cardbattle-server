@@ -166,6 +166,13 @@ class Match {
     const actor = (actorWS === this.p1 ? this.P1 : this.P2);
 
     // ===============================
+    // 自己バフ：ラウンド開始時に減少
+    // ===============================
+    if (actor.decrease_buffs_start_of_round) {
+      actor.decrease_buffs_start_of_round();
+    }
+
+    // ===============================
     // 氷結（freeze）：付与者のラウンド開始時に減少
     // ===============================
     for (const p of [this.P1, this.P2]) {
@@ -185,24 +192,21 @@ class Match {
     const bonus = actor.get_coin_bonus_per_round();
     actor.coins += (10 + bonus);
 
-
     // ▼ 魔導士装備パッシブ
     actor.apply_mage_equip_effects();
-    // ★ 魔導士装備によるHP/コイン増加を即時反映
     this.updateHP();
     safeSend(actorWS, { type: "coin_info", coins: actor.coins });
 
-    // ★ ここが重要：ラウンド開始時にショップ生成・更新
+    // ▼ ショップ更新
     actor.shop_items = this.generateShopList(actor);
 
-    // ▼ コイン表示更新
     safeSend(actorWS, {
       type: "coin_info",
       coins: actor.coins
     });
 
     // ▼ ラウンド情報送信
-    this.sendRoundInfo(); // ★ 変更（旧 sendTurnInfo）
+    this.sendRoundInfo();
   }
 
 
@@ -1205,11 +1209,6 @@ class Match {
     // ラウンド交代
     [this.current, this.enemy] = [this.enemy, this.current];
     this.round++; // ★ 修正（旧 this.turn++）
-
-    // ----------- バフラウンド処理（Player 側に委譲）-----------
-    if (actor.decrease_buffs_end_of_round) {
-      actor.decrease_buffs_end_of_round();
-    }
 
     // ★ 次のラウンド開始処理（ここでコイン配布）
     this.startRound(); // ★ 修正（旧 startTurn）

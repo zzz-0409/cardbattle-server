@@ -534,15 +534,13 @@ if (type === "arrow") {
                 console.log(`❤️ ${eq.name}: HP ${beforeHP} → ${this.hp}`);
             }
 
-            // 防御バフ（ローブ）
+       
+            // ★ 防御力パッシブ（ローブ：装備中永続）
             if (eq.def_bonus) {
-                this.active_buffs.push({
-                    type: "防御力",
-                    power: eq.def_bonus,
-                    round: 1,  // 毎ラウンド1ラウンドバフを付与 → 重複するとPython同等
-                });
-                console.log(`🛡 ${eq.name}: 防御 +${eq.def_bonus}（1R）`);
+                this.equip_def_bonus += eq.def_bonus;
+                console.log(`🛡 ${eq.name}: 防御 +${eq.def_bonus}（装備中永続）`);
             }
+
 
             // 魔法防御貫通（古代魔導書）
             if (eq.magic_pierce) {
@@ -895,7 +893,7 @@ if (type === "arrow") {
     }
 
 
-    decrease_buffs_end_of_round() {
+    decrease_buffs_start_of_round() {
         const next = [];
 
         for (const b of this.active_buffs) {
@@ -917,6 +915,7 @@ if (type === "arrow") {
             this.skill_sealed = false;
         }
     }
+
 
 
     // ---------------------------------------------------------

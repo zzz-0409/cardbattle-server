@@ -179,14 +179,29 @@ let myTurn = false;
 let myJob = null;
 let myLevel = 1;
 
+// ==================== 環境自動判定 ====================
+// ローカル（file://, localhost）かどうか
+const IS_LOCAL =
+  location.protocol === "file:" ||
+  location.hostname === "localhost";
+
+// WebSocket 接続先を自動切替
+const WS_URL = IS_LOCAL
+  ? "ws://localhost:8080"
+  : "wss://cardbattle-server.onrender.com";
+
+console.log("ENV:", IS_LOCAL ? "LOCAL" : "PRODUCTION");
+console.log("WS_URL:", WS_URL);
+
+
 /* ================= スキル定義（あなたの仕様そのまま） ================= */
 const SKILLS = {
   1:[ {name:"パワースラッシュ",desc:"防御無視20ダメージ。"},
-      {name:"ブレイブチャージ",desc:"防御無視30＋攻撃+3（3T）"},
-      {name:"ラストブレード",desc:"防御無視(10＋攻撃力)"} ],
-  2:[ {name:"シールドブレイク",desc:"20＋防御+2（4T）"},
-      {name:"アイアンチャージ",desc:"15＋防御力＋防御+4（3T）"},
-      {name:"ジャスティスブレード",desc:"25＋防御力"} ],
+      {name:"ブレイブチャージ",desc:"防御無視30＋攻撃+3（3R）"},
+      {name:"ラストブレード",desc:"防御無視(10＋自身の攻撃力分ダメージ増加)"} ],
+  2:[ {name:"シールドブレイク",desc:"20＋防御+2（4R）"},
+      {name:"アイアンチャージ",desc:"15＋防御力＋防御+4（3R）"},
+      {name:"ジャスティスブレード",desc:"25＋自身の防御力分ダメージ増加"} ],
   3:[ {name:"ヒール",desc:"HP27回復"},
       {name:"ディスペルヒール",desc:"HP32＋デバフ解除"},
       {name:"グレーターヒール",desc:"HP37＋デバフ解除"} ],
@@ -221,10 +236,7 @@ function appendLog(boxId, className, text){
 function join() {
   myJob = Number(document.getElementById("job").value);
 
-  // ★ 常に Render の WebSocket サーバーへ接続
-  const wsUrl = "wss://cardbattle-server.onrender.com";
-
-  ws = new WebSocket(wsUrl);
+  ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
     appendLog("systemBox", "system-log", "🌐 接続しました。対戦相手を待機中…");
@@ -239,11 +251,6 @@ function join() {
     appendLog("systemBox", "system-log", "❌ サーバー接続に失敗しました");
     console.error("WebSocket error:", e);
   };
-
-
-
-
-
 
 
 

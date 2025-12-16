@@ -388,8 +388,12 @@ export async function battleLoop(p1, p2, io) {
         // ====================================
         if (cmd === "1") {
 
+          io.log("DEBUG: 攻撃処理に入りました");
+
           const atkTotal = current.get_total_attack();
           const defTotal = opponent.get_total_defense();
+
+
 
           if (current.job === "弓兵") {
             applyCounterBonusToArrows(current);
@@ -411,9 +415,31 @@ export async function battleLoop(p1, p2, io) {
 
           // 弓兵：追撃
           if (current.job === "弓兵" && typeof current.trigger_arrow_attack === "function") {
-            current.trigger_arrow_attack(opponent);
-            clearArrowTempBonus(current);
+              const results = current.trigger_arrow_attack(opponent) ?? [];
+              for (const r of results) {
+                  io.log(`🏹 弓兵の追撃（${r.name}）！ ${r.dealt} ダメージ`
+                    + (r.isCrit ? " (会心)" : "")
+                    + (r.pierce ? " (防御貫通)" : "")
+                  );
+              }
+              clearArrowTempBonus(current);
+
+              // ★ デバッグ
+              io.log(`DEBUG BEFORE rounds = ${current.archer_buff?.rounds}`);
+
+              if (current.archer_buff && current.archer_buff.rounds > 0) {
+                  current.archer_buff.rounds -= 1;
+              }
+
+              io.log(`DEBUG AFTER rounds = ${current.archer_buff?.rounds}`);
+
+              if (current.archer_buff && current.archer_buff.rounds <= 0) {
+                  current.archer_buff = null;
+                  io.log("🏹 追撃効果が終了しました");
+              }
           }
+
+
 
           endedTurn = true;
         }
@@ -624,11 +650,6 @@ export async function battleLoop(p1, p2, io) {
       } else {
         current.skill_sealed  = false;
         opponent.skill_sealed = false;
-      }
-
-      // 弓兵：追撃バフ（R消費）
-      if (current.archer_buff?.rounds > 0) {
-          current.archer_buff.rounds -= 1;
       }
 
 
