@@ -40,6 +40,14 @@ console.log = (...args) => {
 const server = http.createServer();
 const wss = new WebSocketServer({ server });
 
+server.on("request", (req, res) => {
+  if (req.method === "GET" && req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("OK");
+    return;
+  }
+});
+
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
   console.log("Listening on port", PORT);
