@@ -162,8 +162,11 @@ class Match {
 
   // ★ 変更（旧 startTurn）
   startRound() {
+
     const actorWS = this.current;
     const actor = (actorWS === this.p1 ? this.P1 : this.P2);
+
+    this.sendItemList(actorWS, actor);
 
     // ===============================
     // 自己バフ：ラウンド開始時に減少
@@ -187,6 +190,9 @@ class Match {
         })
         .filter(d => d.rounds > 0);
     }
+
+
+
 
     // ▼ コイン配布
     const bonus = actor.get_coin_bonus_per_round();
@@ -287,6 +293,7 @@ class Match {
 
   // ---------- ★購入処理（完全版） ----------
   buyItem(wsPlayer, index) {
+   
     const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
 
     if (!P.shop_items || !P.shop_items[index]) {
@@ -358,32 +365,7 @@ class Match {
       coins: P.coins
     });
 
-    safeSend(wsPlayer, {
-      type: "item_list",
-      items: [
-        ...P.items.map(it => ({
-          uid: it.uid,
-          ...it,
-          category: "item"
-        })),
-        ...P.equipment_inventory.map(it => ({
-          uid: it.uid,
-          ...it,
-          category: "equip"
-        })),
-        ...P.special_inventory.map(it => ({
-          uid: it.uid,
-          ...it,
-          category: "special"
-        })),
-        ...P.arrow_inventory.map(it => ({
-          uid: it.uid,
-          ...it,
-          category: "special"
-        }))
-      ]
-    });
-
+    this.sendItemList(wsPlayer, P);
 
     this.sendSystem(`🛒 ${P.name} は ${item.name} を購入した！`);
 
@@ -478,18 +460,8 @@ class Match {
 
         this.sendSystem(`🏹 ${P.name} が ${item.name} を装備！（slot${equipSlot}）`);
 
-        // ============================
-        // ★ 即時UI更新（重要）
-        // ============================
-        safeSend(wsPlayer, {
-            type: "item_list",
-            items: [
-                ...P.items.map(it => ({ ...it, category: "item" })),
-                ...P.equipment_inventory.map(it => ({ ...it, category: "equip" })),
-                ...P.special_inventory.map(it => ({ ...it, category: "special" })),
-                ...P.arrow_inventory.map(it => ({ ...it, category: "special" }))
-            ]
-        });
+
+        this.sendItemList(wsPlayer, P);
 
         // ★ ステータス即時反映（攻撃力・効果）
         this.sendStatusInfo(wsPlayer, P);
@@ -504,47 +476,7 @@ class Match {
 
 
 
-    // ============================
-    // 2) 消費アイテム（item.js の仕様100%）
-    // ============================
-    if (action === "use" && !item.is_equip && !item.is_arrow) {
-      
-      // ★ 魔導士専用アイテム：魔力水
-      if (item.is_mage_item) {
-          const before = P.mana;
-          P.mana = Math.min(P.mana_max, P.mana + item.power);
 
-          this.sendSystem(`🔮 ${P.name} は魔力水を使用！ 魔力 +${item.power} (${before}→${P.mana})`);
-
-          // ★ 魔力ステータス即時反映
-          safeSend(wsPlayer, {
-              type: "mana_info",
-              mana: P.mana,
-              mana_max: P.mana_max
-          });
-          this.sendSimpleStatusBoth();
-          // 使用後削除
-          P[source] = P[source].filter(x => x.uid !== uid);
-          return;
-      }
-
-      // 攻撃力UP / 防御力UP は Player 側のバフシステムに委譲
-      if (item.effect_type === "攻撃力" || item.effect_type === "防御力") {
-        // ★ active_buffs を使う正式なバフ付与
-        if (P.apply_item) {
-          P.apply_item(item);
-        }
-
-        if (item.effect_type === "攻撃力") {
-          this.sendSystem(`💥 ${P.name} の攻撃力が +${item.power} (${item.duration}R)！`); // ★ 修正
-        } else if (item.effect_type === "防御力") {
-          this.sendSystem(`🛡 ${P.name} の防御力が +${item.power} (${item.duration}R)！`); // ★ 修正
-        }
-      }
-
-      // 使用後削除
-      P[source] = P[source].filter(x => x.uid !== uid);
-    }
 
     // ============================
     // 3) 通常装備（攻撃/防御/コインUP）
@@ -559,7 +491,9 @@ class Match {
         }
 
         P.equipment = item;
-        P[source] = P[source].filter(x => x.uid !== uid);
+        P.items = P.items.filter(x => x.uid !== uid);
+        // ★ 使用後、所持アイテムを再送
+        this.sendItemList(wsPlayer, P);
 
         this.sendSystem(`⚔ ${P.name} が ${item.name} を装備！`);
     }
@@ -584,7 +518,8 @@ class Match {
       P.mage_equips[slot] = item;
 
       // 削除
-      P[source] = P[source].filter(x => x.uid !== uid);
+      P.items = P.items.filter(x => x.uid !== uid);
+
 
       // パッシブ再計算
       if (P.recalc_mage_passives) P.recalc_mage_passives();
@@ -626,23 +561,48 @@ class Match {
     }
     this.sendStatusInfo(wsPlayer, P);
 
+
     // ============================
     // ★ UI 即時同期（これが無いのが原因）
     // ============================
-    safeSend(wsPlayer, {
-      type: "item_list",
-      items: [
-        ...P.items.map(it => ({ ...it, category: "item" })),
-        ...P.equipment_inventory.map(it => ({ ...it, category: "equip" })),
-        ...P.special_inventory.map(it => ({ ...it, category: "special" })),
-        ...P.arrow_inventory.map(it => ({ ...it, category: "special" }))
-      ]
-    });
+    this.sendItemList(wsPlayer, P);
 
     this.sendStatusInfo(wsPlayer, P);
     // ★ 簡易ステ（自分＋相手）
     this.sendSimpleStatusBoth();
   }
+
+    // ===============================
+    // 所持アイテム一覧を送信（共通）
+    // ===============================
+    sendItemList(wsPlayer, P) {
+      safeSend(wsPlayer, {
+        type: "item_list",
+        items: [
+          ...P.items.map(it => ({
+            uid: it.uid,
+            ...it,
+            category: "item"
+          })),
+          ...P.equipment_inventory.map(it => ({
+            uid: it.uid,
+            ...it,
+            category: "equip"
+          })),
+          ...P.special_inventory.map(it => ({
+            uid: it.uid,
+            ...it,
+            category: "special"
+          })),
+          ...P.arrow_inventory.map(it => ({
+            uid: it.uid,
+            ...it,
+            category: "special"
+          }))
+        ]
+      });
+    }
+
 
   // ★ ここに追加
   sendStatusDetail(ws, self, enemy, side) {
@@ -784,8 +744,8 @@ class Match {
         mana: enemy.job === "魔導士" ? enemy.mana : null,
         mana_max: enemy.job === "魔導士" ? enemy.mana_max : null,
       });
-
-
+      this.sendItemList(ws, self);
+      
 
 
       // レベル
@@ -807,15 +767,8 @@ class Match {
       const spInv = self.special_inventory || [];
       const arInv = self.arrow_inventory || [];
 
-      safeSend(ws, {
-        type: "item_list",
-        items: [
-          ...inv.map(it => ({ ...it, category: "item" })),
-          ...eqInv.map(it => ({ ...it, category: "equip" })),
-          ...spInv.map(it => ({ ...it, category: "special" })),
-          ...arInv.map(it => ({ ...it, category: "special" }))
-        ]
-      });
+
+
 
       // 魔力
       if (self.job === "魔導士") {

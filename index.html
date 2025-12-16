@@ -174,6 +174,12 @@
 
 
 <script>
+/* ====================
+   グローバル変数
+==================== */
+
+let currentItemCategory = null;
+let isItemUIOpen = false; // ★ 追加
 let ws;
 let myTurn = false;
 let myJob = null;
@@ -371,10 +377,16 @@ function join() {
 
 
     if (data.type === "item_list") {
-      window.itemList = data.items;  // グローバル保存
-      renderItemList(data.items);
+      window.itemList = data.items;
+
+      // ★「開いているときだけ」再描画
+      if (isItemUIOpen && currentItemCategory !== null) {
+        openItemCategory(currentItemCategory);
+      }
       return;
     }
+
+
     
     if (data.type === "status_info") {
 
@@ -581,14 +593,19 @@ function closeItemCategory(){
   document.getElementById("itemCategoryPopup").style.display = "none";
 }
 
+
+
 function openItemCategory(category){
+  currentItemCategory = category;
+  isItemUIOpen = true; // ★ 開いた
+
   const all = window.itemList || [];
   const list = all.filter(it => it.category === category);
 
   const titleMap = {
     item: "アイテム一覧",
     equip: "装備一覧",
-    special: "特殊装備一覧" // ★矢もここに含める
+    special: "特殊装備一覧"
   };
   document.getElementById("itemPopupTitle").innerText = titleMap[category];
 
@@ -602,31 +619,31 @@ function openItemCategory(category){
     let btn = "";
     if (category === "item") {
       btn = `<button onclick="useItem('${it.uid}','use')">使用</button>`;
-    } else if (category === "equip" || category === "special") {
+    } else {
       btn = `<button onclick="onEquipButtonByUid('${it.uid}')">装備</button>`;
     }
-
 
     row.innerHTML = `
       <div class="skillName">${it.name}</div>
       <div style="font-size:12px; color:#ccc; white-space:pre-line;">
-          ${it.effect_text ?? ""}
+        ${it.effect_text ?? ""}
       </div>
-      <div style="margin-top:5px;">
-          ${btn}
-      </div>
+      <div style="margin-top:5px;">${btn}</div>
     `;
 
     box.appendChild(row);
   });
 
-  closeItemCategory();
   document.getElementById("itemPopup").style.display = "flex";
 }
 
 function closeItemUI(){
   document.getElementById("itemPopup").style.display = "none";
+  isItemUIOpen = false;        // ★ 閉じた
+  currentItemCategory = null; // ★ リセット
 }
+
+
 
 // ========================
 // ★ ショップ機能追加
