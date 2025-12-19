@@ -56,7 +56,7 @@ export const JOB_TEMPLATE = {
   9: {
     name: "人形使い",
     coin: 12,
-    atk_bonus: -19,
+    atk_bonus: -10,
     def_bonus: 0,
     heal_bonus: 0,
     coin_per_turn_bonus: 0,
