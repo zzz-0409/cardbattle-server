@@ -151,6 +151,7 @@ export class Player {
         // ================================
         this.doll = null;
 
+        /* ★★★ この直後に追加 ★★★ */
         if (this.job === "人形使い") {
 
             const randomEffect = () =>
@@ -159,7 +160,7 @@ export class Player {
             this.doll = {
                 // 基礎ステータス
                 base_atk: 13,
-                base_def: 8,
+                base_def: 5,
 
                 // 耐久力
                 max_durability: 100,
@@ -167,11 +168,10 @@ export class Player {
 
                 // 状態
                 is_broken: false,
-
                 is_rampage: false,
                 revive_guard_rounds: 0,
 
-                // ★ 初期衣装（各部位 星1・効果ランダム）
+                // 初期衣装
                 costumes: {
                     head: createDollCostume({
                         part: "head",
@@ -196,6 +196,8 @@ export class Player {
                 }
             };
         }
+        /* ★★★ ここまで ★★★ */
+
     }
 
 

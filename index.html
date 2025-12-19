@@ -330,16 +330,41 @@ function join() {
           <button onclick="openStatusDetail('${data.side}')">詳細</button>
         </div>
 
-        <div>HP: ${data.hp} / ${data.max_hp}</div>
-        <div>攻撃: ${data.attack}</div>
-        <div>防御: ${data.defense}</div>
-        <div>コイン: ${data.coins}</div>
-        <div>Lv: ${data.level}</div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          
+          <!-- 左：プレイヤー -->
+          <div style="flex:1;">
+            <div>HP: ${data.hp} / ${data.max_hp}</div>
+            <div>攻撃: ${data.attack}</div>
+            <div>防御: ${data.defense}</div>
+            <div>コイン: ${data.coins}</div>
+            <div>Lv: ${data.level}</div>
+            ${
+              data.mana !== null
+                ? `<div>魔力: ${data.mana} / ${data.mana_max}</div>`
+                : ""
+            }
+          </div>
+
+          <!-- 右：人形 -->
+          <div style="flex:1; border-left:1px solid #555; padding-left:6px;">
+            ${
+              data.doll
+                ? `
+                  <div style="color:#f6c;">🪆 人形</div>
+                  <div>耐久: ${data.doll.durability} / ${data.doll.max_durability}
+                    ${data.doll.is_broken ? "（破壊）" : ""}
+                  </div>
+                  <div>攻撃: ${data.doll.attack}</div>
+                  <div>防御: ${data.doll.defense}</div>
+                `
+                : `<div style="color:#777;">人形なし</div>`
+            }
+          </div>
+
+        </div>
       `;
 
-      if (data.mana !== null) {
-        html += `<div>魔力: ${data.mana} / ${data.mana_max}</div>`;
-      }
 
       box.innerHTML = html;
       return;
@@ -347,6 +372,7 @@ function join() {
 
 
     if (data.type === "status_detail") {
+      console.log("status_detail data:", data);
 
       document.getElementById("statusDetailTitle").textContent =
         data.side === "self" ? "あなたの詳細ステータス" : "相手の詳細ステータス";
@@ -375,6 +401,39 @@ function join() {
       if (data.shikigami?.length) {
         html += `<hr><b>式神</b><br>${data.shikigami.join("<br>")}`;
       }
+      // ================================
+      // ★ 人形使い：装備中の衣装表示
+      // ================================
+      if (data.doll && data.doll.costumes) {
+
+        html += `<hr><b>🪆 人形</b><br>`;
+        html += `耐久：${data.doll.durability} / ${data.doll.max_durability}`;
+        if (data.doll.is_broken) {
+          html += `（破壊）`;
+        }
+        html += `<br>`;
+        html += `攻撃：${data.doll.attack}<br>`;
+        html += `防御：${data.doll.defense}<br><br>`;
+
+        html += `<b>人形の衣装</b><br>`;
+
+        const parts = {
+          head: "頭",
+          body: "胴",
+          leg: "脚",
+          foot: "足"
+        };
+
+        for (const [part, label] of Object.entries(parts)) {
+          const c = data.doll.costumes[part];
+          if (c) {
+            html += `${label}：★${c.star ?? 1} ${c.name ?? "衣装"}<br>`;
+          } else {
+            html += `${label}：なし<br>`;
+          }
+        }
+      }
+
 
       document.getElementById("statusDetailBody").innerHTML = html;
       document.getElementById("statusDetailPopup").style.display = "flex";

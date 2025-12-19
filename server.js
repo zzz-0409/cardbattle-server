@@ -94,16 +94,23 @@ class Match {
           buffs: actor.getBuffDescriptionList(),
       };
       
-      // ★ 人形使い：人形情報を送信
-      if (actor.job === "人形使い" && actor.doll) {
+      // ★ 人形使い：人形情報を送信（攻撃/防御も含める）
+      const isDollUser = (actor.job === "人形使い" || Number(actor.job) === 9);
+
+      if (isDollUser && actor.doll) {
           payload.doll = {
               durability: actor.doll.durability,
               max_durability: actor.doll.max_durability,
-              is_broken: actor.doll.is_broken
+              is_broken: actor.doll.is_broken,
+
+              // ※ getDollAttack は「壊れていると本体攻撃を返す」実装なので、表示上は 0 にする
+              attack: actor.doll.is_broken ? 0 : actor.getDollAttack(),
+              defense: actor.getDollDefense(),
           };
       } else {
           payload.doll = null;
       }
+
 
 
       // ★ 陰陽師だけ式神情報を送る
@@ -842,6 +849,42 @@ class Match {
   // ★ ここに追加
   sendStatusDetail(ws, self, enemy, side) {
     const P = side === "self" ? self : enemy;
+    // ===== 装備一覧生成（request_status_detail と同じ内容をここへ統一）=====
+    const equipmentList = [];
+
+    // 通常装備
+    if (P.equipment) {
+      equipmentList.push(`通常装備：${P.equipment.name}`);
+    }
+
+    // 錬金術師装備
+    if (P.alchemist_equip) {
+      equipmentList.push(`錬金装備：${P.alchemist_equip.name}`);
+    }
+
+    // 弓兵の矢
+    if (P.arrow) {
+      equipmentList.push(`矢(slot1)：${P.arrow.name}`);
+    }
+    if (P.arrow2) {
+      equipmentList.push(`矢(slot2)：${P.arrow2.name}`);
+    }
+
+    // 魔導士装備
+    if (P.mage_equips) {
+      for (const [slot, eq] of Object.entries(P.mage_equips)) {
+        if (!eq) continue;
+
+        const slotName = {
+          staff: "杖",
+          book: "本",
+          ring: "指輪",
+          robe: "ローブ"
+        }[slot] ?? slot;
+
+        equipmentList.push(`魔導士装備（${slotName}）：${eq.name}`);
+      }
+    }
 
     safeSend(ws, {
       type: "status_detail",
@@ -854,8 +897,24 @@ class Match {
       buffs: P.getBuffDescriptionList(),
       debuffs: [],
 
-      equipment: P.equipment ? P.equipment.name : "なし",
+      equipment: equipmentList,
+
       special: P.alchemist_equip?.name ?? null,
+
+      doll: ((P.job === "人形使い" || Number(P.job) === 9) && P.doll)
+        ? {
+            durability: P.doll.durability,
+            max_durability: P.doll.max_durability,
+            is_broken: P.doll.is_broken,
+
+            attack: P.doll.is_broken ? 0 : P.getDollAttack(),
+            defense: P.getDollDefense(),
+
+            // ★ 人形衣装（詳細表示用）
+            costumes: P.doll.costumes ?? {}
+          }
+        : null,
+
 
       arrows: {
         slot1: P.arrow?.name ?? null,
@@ -871,6 +930,7 @@ class Match {
           ? `${s.name}（${s.rounds}R）`
           : s.name
       ) ?? []
+      
     });
   }
 
@@ -906,7 +966,18 @@ class Match {
         level: self.level,
         mana: self.job === "魔導士" ? self.mana : null,
         mana_max: self.job === "魔導士" ? self.mana_max : null,
+
+        doll: ((self.job === "人形使い" || Number(self.job) === 9) && self.doll)
+          ? {
+              durability: self.doll.durability,
+              max_durability: self.doll.max_durability,
+              is_broken: self.doll.is_broken,
+              attack: self.doll.is_broken ? 0 : self.getDollAttack(),
+              defense: self.getDollDefense(),
+            }
+          : null,
       });
+
 
       // 相手
       safeSend(ws, {
@@ -920,7 +991,18 @@ class Match {
         level: enemy.level,
         mana: enemy.job === "魔導士" ? enemy.mana : null,
         mana_max: enemy.job === "魔導士" ? enemy.mana_max : null,
+
+        doll: ((enemy.job === "人形使い" || Number(enemy.job) === 9) && enemy.doll)
+          ? {
+              durability: enemy.doll.durability,
+              max_durability: enemy.doll.max_durability,
+              is_broken: enemy.doll.is_broken,
+              attack: enemy.doll.is_broken ? 0 : enemy.getDollAttack(),
+              defense: enemy.getDollDefense(),
+            }
+          : null,
       });
+
     };
 
     send(this.p1, this.P1, this.P2);
@@ -969,18 +1051,28 @@ class Match {
       const enemy = (self === this.P1) ? this.P2 : this.P1;
       safeSend(ws, {
         type: "status_simple",
-        side: "enemy",
-        hp: enemy.hp,
-        max_hp: enemy.max_hp,
-        attack: enemy.get_total_attack(),
-        defense: enemy.get_total_defense(),
-        coins: enemy.coins,
-        level: enemy.level,
-        mana: enemy.job === "魔導士" ? enemy.mana : null,
-        mana_max: enemy.job === "魔導士" ? enemy.mana_max : null,
+        side: "self",
+        hp: self.hp,
+        max_hp: self.max_hp,
+        attack: self.get_total_attack(),
+        defense: self.get_total_defense(),
+        coins: self.coins,
+        level: self.level,
+        mana: self.job === "魔導士" ? self.mana : null,
+        mana_max: self.job === "魔導士" ? self.mana_max : null,
+
+        // ★★★ ここに入れる ★★★
+        doll: ((self.job === "人形使い" || Number(self.job) === 9) && self.doll)
+          ? {
+              durability: self.doll.durability,
+              max_durability: self.doll.max_durability,
+              is_broken: self.doll.is_broken,
+              attack: self.doll.is_broken ? 0 : self.getDollAttack(),
+              defense: self.getDollDefense(),
+            }
+          : null,
       });
-      this.sendItemList(ws, self);
-      
+
 
 
       // レベル
@@ -1012,23 +1104,36 @@ class Match {
           mana: self.mana,
           mana_max: self.mana_max
         });
+        
       } else {
         safeSend(ws, { type: "mana_hide" });
       }
+      
 
       // ★ ステータス（ここが核心）
       safeSend(ws, {
-        type: "status_info",
-        attack: self.get_total_attack(),
-        defense: self.get_total_defense(),
-        buffs: self.getBuffDescriptionList(),
-        arrow_slots: self.arrow_slots ?? 1,
-        shikigami: self.shikigami_effects.map(s =>
-          s.rounds !== undefined
-            ? `${s.name}（残り${s.rounds}R）`
-            : `${s.name}`
-        )
+        type: "status_simple",
+        side: "enemy",
+        hp: enemy.hp,
+        max_hp: enemy.max_hp,
+        attack: enemy.get_total_attack(),
+        defense: enemy.get_total_defense(),
+        coins: enemy.coins,
+        level: enemy.level,
+        mana: enemy.job === "魔導士" ? enemy.mana : null,
+        mana_max: enemy.job === "魔導士" ? enemy.mana_max : null,
+
+        doll: ((enemy.job === "人形使い" || Number(enemy.job) === 9) && enemy.doll)
+          ? {
+              durability: enemy.doll.durability,
+              max_durability: enemy.doll.max_durability,
+              is_broken: enemy.doll.is_broken,
+              attack: enemy.doll.is_broken ? 0 : enemy.getDollAttack(),
+              defense: enemy.getDollDefense(),
+            }
+          : null,
       });
+
     };
 
 
@@ -1559,8 +1664,6 @@ wss.on("connection", (ws) => {
           // 人形使い：スキル1 確定（着せ替え）
           // ================================
           if (m.type === "use_doll_skill1") {
-            console.log("[DEBUG] doll skill1 part =", m.part);
-            console.log("[DEBUG] costumes =", P.doll.costumes);
 
             // 自分のラウンド以外は不可
             if (sock !== match.current) {
@@ -1723,81 +1826,24 @@ wss.on("connection", (ws) => {
           }
 
           // ================================
-          // ★ 詳細ステータス要求（新規）
+          // ★ 詳細ステータス要求（統一版）
           // ================================
           if (m.type === "request_status_detail") {
 
             const self = (sock === match.p1 ? match.P1 : match.P2);
             const enemy = (self === match.P1 ? match.P2 : match.P1);
 
-            const target =
-              m.target === "enemy" ? enemy : self;
-            // ===== 装備一覧生成 =====
-            const equipmentList = [];
-
-            // 通常装備
-            if (target.equipment) {
-              equipmentList.push(`通常装備：${target.equipment.name}`);
-            }
-
-            // 錬金術師装備
-            if (target.alchemist_equip) {
-              equipmentList.push(`錬金装備：${target.alchemist_equip.name}`);
-            }
-
-            // 弓兵の矢
-            if (target.arrow) {
-              equipmentList.push(`矢(slot1)：${target.arrow.name}`);
-            }
-            if (target.arrow2) {
-              equipmentList.push(`矢(slot2)：${target.arrow2.name}`);
-            }
-
-            // ★ 魔導士装備（ここが追加点）
-            if (target.mage_equips) {
-              for (const [slot, eq] of Object.entries(target.mage_equips)) {
-                if (!eq) continue;
-
-                const slotName = {
-                  staff: "杖",
-                  book: "本",
-                  ring: "指輪",
-                  robe: "ローブ"
-                }[slot] ?? slot;
-
-                equipmentList.push(`魔導士装備（${slotName}）：${eq.name}`);
-              }
-            }
-
-            safeSend(sock, {
-              type: "status_detail",
-              side: m.target,
-
-              hp: target.hp,
-              max_hp: target.max_hp,
-              attack: target.get_total_attack(),
-              defense: target.get_total_defense(),
-              coins: target.coins,
-              level: target.level,
-              exp: target.exp,
-
-              mana: target.job === "魔導士" ? target.mana : null,
-              mana_max: target.job === "魔導士" ? target.mana_max : null,
-
-              equipment: equipmentList,   // ← ★ ここ
-
-              buffs: target.getBuffDescriptionList?.() ?? [],
-
-              shikigami: target.shikigami_effects?.map(s =>
-                s.rounds !== undefined
-                  ? `${s.name}（残り${s.rounds}R）`
-                  : s.name
-              ) ?? []
-            });
-
+            // ★ 既存の共通関数に丸投げする
+            match.sendStatusDetail(
+              sock,
+              self,
+              enemy,
+              m.target === "enemy" ? "enemy" : "self"
+            );
 
             return;
           }
+
 
 
 
