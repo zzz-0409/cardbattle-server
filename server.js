@@ -890,48 +890,43 @@ class Match {
       type: "status_detail",
       side,
 
+      // ===== 基本ステータス（★これが無いと undefined）=====
+      hp: P.hp,
+      max_hp: P.max_hp,
+      attack: P.get_total_attack(),
+      defense: P.get_total_defense(),
+      coins: P.coins,
       level: P.level,
       exp: P.exp,
-      next_exp: LEVEL_REQUIREMENTS[P.level] ?? null,
 
-      buffs: P.getBuffDescriptionList(),
-      debuffs: [],
+      // ===== 魔導士 =====
+      mana: P.job === "魔導士" ? P.mana : null,
+      mana_max: P.job === "魔導士" ? P.mana_max : null,
 
+      // ===== 装備・バフ =====
       equipment: equipmentList,
+      buffs: P.getBuffDescriptionList?.() ?? [],
 
-      special: P.alchemist_equip?.name ?? null,
+      // ===== 式神 =====
+      shikigami: P.shikigami_effects?.map(s =>
+        s.rounds !== undefined
+          ? `${s.name}（残り${s.rounds}R）`
+          : s.name
+      ) ?? [],
 
+      // ===== 人形（人形使い）=====
       doll: ((P.job === "人形使い" || Number(P.job) === 9) && P.doll)
         ? {
             durability: P.doll.durability,
             max_durability: P.doll.max_durability,
             is_broken: P.doll.is_broken,
-
             attack: P.doll.is_broken ? 0 : P.getDollAttack(),
             defense: P.getDollDefense(),
-
-            // ★ 人形衣装（詳細表示用）
             costumes: P.doll.costumes ?? {}
           }
-        : null,
-
-
-      arrows: {
-        slot1: P.arrow?.name ?? null,
-        slot2: P.arrow2?.name ?? null
-      },
-
-      mana: P.job === "魔導士"
-        ? { now: P.mana, max: P.mana_max }
-        : null,
-
-      shikigami: P.shikigami_effects?.map(s =>
-        s.rounds != null
-          ? `${s.name}（${s.rounds}R）`
-          : s.name
-      ) ?? []
-      
+        : null
     });
+
   }
 
   /* =========================================================
