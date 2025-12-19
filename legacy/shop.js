@@ -6,6 +6,7 @@ import { generateEquipmentForLevel } from "./equip.js";
 import { generateOneShopItem } from "./item.js";
 import { ARROW_DATA, JOB_TEMPLATE } from "./constants.js";
 
+
 function generateRandomArrow() {
     const keys = Object.keys(ARROW_DATA);
     const k = keys[Math.floor(Math.random() * keys.length)];
@@ -59,9 +60,27 @@ function getMageEquipPool() {
     ];
 }
 
-import { MAGE_EQUIPS, MAGE_MANA_ITEMS } from "./constants.js";
+import { 
+    MAGE_EQUIPS,
+    MAGE_MANA_ITEMS,
+    DOLL_REPAIR_KIT
+} from "./constants.js";
 
 export function generateShop(player) {
+console.log("SHOP job =", player.job, typeof player.job);
+
+    // =========================================
+    // 人形使い専用ショップ（最優先）
+    // =========================================
+    if (Number(player.job) === 9) {
+        const list = [];
+        for (let i = 0; i < 5; i++) {
+            list.push(DOLL_REPAIR_KIT);
+        }
+        return list;
+    }
+
+
     const list = [];
 
     for (let i = 0; i < 5; i++) {
@@ -82,15 +101,11 @@ export function generateShop(player) {
                 const pool = getMageEquipPool();
                 entry = pool[Math.floor(Math.random() * pool.length)];
             } else {
-                // ★ 30%枠：魔導士用アイテム
                 const r2 = Math.random();
-
                 if (r2 < 0.5) {
-                    // 50%の確率で魔力水（小/中/大）のどれか
                     const pool = MAGE_MANA_ITEMS;
                     entry = pool[Math.floor(Math.random() * pool.length)];
                 } else {
-                    // 残りは通常の装備 or アイテム
                     entry = Math.random() < 0.5
                         ? generateEquipmentForLevel(player.level)
                         : generateOneShopItem(player.level);
@@ -99,7 +114,6 @@ export function generateShop(player) {
             list.push(entry);
             continue;
         }
-
 
         entry = (r < 50)
             ? generateEquipmentForLevel(player.level)
@@ -110,6 +124,8 @@ export function generateShop(player) {
 
     return list;
 }
+
+
 
 export async function buyFromShop(player, item, io) {
   let price = item.price ?? 0;

@@ -53,6 +53,16 @@ export const JOB_TEMPLATE = {
   6: { name: "陰陽師", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
   7: { name: "錬金術師", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
   8: { name: "弓兵", coin: 10, atk_bonus: -5, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
+  9: {
+    name: "人形使い",
+    coin: 12,
+    atk_bonus: 0,
+    def_bonus: 0,
+    heal_bonus: 0,
+    coin_per_turn_bonus: 0,
+    skill_bonus: 0,
+  },
+
 };
 
 // ============================================
@@ -303,6 +313,33 @@ export const JOB_SKILLS = {
       description: "装備中のすべての矢が防御貫通になる。",
     },
   ],
+  
+  "人形使い": [
+    {
+      type: "doll_1",
+      name: "人形召喚",
+      min_level: 1,
+      power: null,
+      effect: "人形を召喚",
+      description: "人形を召喚し、戦闘に参加させる。",
+    },
+    {
+      type: "doll_2",
+      name: "人形修復",
+      min_level: 2,
+      power: null,
+      effect: "HP→耐久変換",
+      description: "HPを消費して人形の耐久を回復する（10刻み、上限100）。",
+    },
+    {
+      type: "doll_3",
+      name: "暴走",
+      min_level: 3,
+      power: null,
+      effect: "人形暴走",
+      description: "一定ラウンドの間、人形を暴走状態にする。",
+    },
+  ],
 
 };
 
@@ -355,6 +392,7 @@ export const ARROW_DATA = {
   },
 };
 
+
 // 魔導士専用：魔力回復アイテム
 export const MAGE_MANA_ITEMS = [
   {
@@ -378,3 +416,73 @@ export const MAGE_EQUIPS = [
   { name: "魔導士のローブ", price: 10, is_equip: true, equip_type: "mage_equip", mana_gain: 3, def_bonus: 2, effect_text: "毎ラウンド魔力+3 / 防御+2" },
   { name: "古代魔導書", price: 25, is_equip: true, equip_type: "mage_equip", mana_gain: 5, magic_pierce: true, effect_text: "毎ラウンド魔力+5 / 魔法防御貫通" }
 ];
+
+// ================================
+// 人形使い専用：修理キット
+// ================================
+export const DOLL_REPAIR_KIT = {
+  name: "修理キット",
+  price: 12,
+  category: "item",
+  is_doll_item: true,
+  effect_text: "人形の耐久を回復／破壊時は復活（1T無敵）",
+};
+
+// =========================================================
+// 人形使い：衣装アイテム定義
+// =========================================================
+export const DOLL_COSTUME_PARTS = ["head", "body", "leg", "foot"];
+export const DOLL_COSTUME_TYPES = ["ATK", "DEF", "DUR"];
+
+// ★ 衣装生成用ヘルパー
+export function createDollCostume({ part, effect_type, star }) {
+
+  // 効果量計算
+  const value =
+    effect_type === "DUR"
+      ? 1 + star
+      : 1 + star * 2;
+
+  // 効果説明文
+  let effect_text = "";
+  if (effect_type === "ATK") {
+    effect_text = `人形の攻撃力 +${value}`;
+  } else if (effect_type === "DEF") {
+    effect_text = `人形の防御力 +${value}`;
+  } else if (effect_type === "DUR") {
+    effect_text = `人形の耐久力 毎R +${value}`;
+  }
+
+  return {
+    uid: crypto.randomUUID(),
+
+    // ★ 表示名（一覧用）
+    name: `★${star}${DOLL_EFFECT_LABEL[effect_type]}${DOLL_PART_LABEL[part]}`,
+
+    // ★ 効果表示（詳細用）
+    effect_text,
+
+    is_doll_costume: true,
+    part,
+    effect_type,
+    star,
+
+    price: 10 + star * 5
+  };
+}
+
+
+
+// 人形衣装：表示用ラベル
+export const DOLL_PART_LABEL = {
+  head: "帽子",
+  body: "服",
+  leg:  "ズボン",
+  foot: "靴"
+};
+
+export const DOLL_EFFECT_LABEL = {
+  ATK: "攻撃",
+  DEF: "防御",
+  DUR: "耐久"
+};

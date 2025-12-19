@@ -2,7 +2,14 @@
 // Python版 player.py をベースにした JS 版 Player（Step1: 土台＋アイテムまで）
 
 
-import { MAGE_EQUIPS, MAGE_MANA_ITEMS, ARROW_DATA } from "./constants.js";
+import {
+  MAGE_EQUIPS,
+  MAGE_MANA_ITEMS,
+  ARROW_DATA,
+  createDollCostume,
+  DOLL_COSTUME_TYPES
+} from "./constants.js";
+
 import crypto from "crypto";
 
 // ---------------------------------------------------------
@@ -13,6 +20,13 @@ export function getMageSlot(eq) {
     if (eq.regen_hp)       return "ring";     // 指輪
     if (eq.def_bonus)      return "robe";     // ローブ
     return "book";                             // 古代魔導書など
+}
+
+// ---------------------------------------------------------
+// 人形衣装スロット判定
+// ---------------------------------------------------------
+export function getDollCostumeSlot(item) {
+  return item.part; // "head" | "body" | "leg" | "foot"
 }
 
 import {
@@ -132,6 +146,56 @@ export class Player {
         // 式神の継続効果（烏天狗など）
         this.shikigami_effects = [];
 
+        // ================================
+        // 人形使い：人形オブジェクト（フェーズ1-1）
+        // ================================
+        this.doll = null;
+
+        if (this.job === "人形使い") {
+
+            const randomEffect = () =>
+                DOLL_COSTUME_TYPES[Math.floor(Math.random() * DOLL_COSTUME_TYPES.length)];
+
+            this.doll = {
+                // 基礎ステータス
+                base_atk: 13,
+                base_def: 8,
+
+                // 耐久力
+                max_durability: 100,
+                durability: 50,
+
+                // 状態
+                is_broken: false,
+
+                is_rampage: false,
+                revive_guard_rounds: 0,
+
+                // ★ 初期衣装（各部位 星1・効果ランダム）
+                costumes: {
+                    head: createDollCostume({
+                        part: "head",
+                        effect_type: randomEffect(),
+                        star: 1
+                    }),
+                    body: createDollCostume({
+                        part: "body",
+                        effect_type: randomEffect(),
+                        star: 1
+                    }),
+                    leg: createDollCostume({
+                        part: "leg",
+                        effect_type: randomEffect(),
+                        star: 1
+                    }),
+                    foot: createDollCostume({
+                        part: "foot",
+                        effect_type: randomEffect(),
+                        star: 1
+                    })
+                }
+            };
+        }
     }
 
 
@@ -178,6 +242,29 @@ export class Player {
         if (this.alchemist_equip) {
             total += this.alchemist_equip.atk ?? 0;
         }
+        
+        // ============================
+        // ★ 人形使い：衣装効果の可否
+        // ============================
+        if (this.job === "人形使い") {
+
+            // 人形が存在しない or 壊れている → 衣装効果なし
+            if (!this.doll || this.doll.is_broken) {
+                // 何も足さない（衣装効果無効）
+            } else {
+                // ここで「衣装の攻撃力効果」を足す
+                if (this.costume?.type === "ATK") {
+                    let bonus = 1 + this.costume.star * 2;
+
+                    // ぼろぼろ補正
+                    if (this.costume.is_broken) {
+                        bonus = Math.max(0, bonus - 1);
+                    }
+
+                    total += bonus;
+                }
+            }
+        }
 
         // ============================
         // freeze デバフ
@@ -196,6 +283,17 @@ export class Player {
 
 
     get_total_defense() {
+
+        // ============================
+        // 人形使い：人形防御を最優先
+        // ============================
+        if (this.job === "人形使い" && this.doll && !this.doll.is_broken) {
+            return this.getDollDefense();
+        }
+
+        // ============================
+        // 以下は既存の本体防御ロジック
+        // ============================        
         let total = this.base_defense + this.get_def_buff_total();
 
         // ============================
@@ -300,6 +398,10 @@ export class Player {
         if (stype.startsWith("archer_")) {
             return this._use_archer_skill(stype, opponent);
         }
+        if (stype.startsWith("doll_")) {
+            return await this._use_doll_skill(stype, opponent, io);
+        }
+
 
         io.log("未実装のスキルタイプ");
         return false;
@@ -669,6 +771,12 @@ if (type === "arrow") {
     } else {
       io.log("バフ: なし");
     }
+    if (this.job === "人形使い") {
+        io.log(
+            `人形：耐久 ${this.doll.durability}/${this.doll.max_durability} ` +
+            `破壊:${this.doll.is_broken}`
+        );
+    }
 
     io.log("======================================");
   }
@@ -715,34 +823,279 @@ if (type === "arrow") {
     // ---------------------------------------------------------
     // ダメージ処理（Python: take_damage）
     // ---------------------------------------------------------
-    take_damage(raw_attack, ignore_def = false, isExtraAttack = false) {
+    take_damage(raw_attack, ignore_def = false, attacker = null, isExtraAttack = false) {
 
+        // =========================================
+        // 人形使い：人形がダメージを肩代わり
+        // =========================================
+        if (this.job === "人形使い" && this.doll) {
+
+            // --- 人形が壊れていない場合 ---
+            if (!this.doll.is_broken) {
+
+                // 復活直後の無敵（1ターン）
+                if (this.doll.revive_guard_rounds > 0) {
+                    log("🪆 修理直後の人形は破壊されない！");
+                    this.doll.revive_guard_rounds -= 1;
+                    return 0;
+                }
+
+                // 人形の防御力
+                const dollDef = this.getDollDefense();
+
+                const final = ignore_def
+                    ? raw_attack
+                    : Math.max(1, raw_attack - dollDef);
+
+                this.doll.durability = Math.max(
+                    0,
+                    this.doll.durability - final
+                );
+
+                log(`🪆 人形が ${final} ダメージを受けた！ 耐久: ${this.doll.durability}/${this.doll.max_durability}`);
+
+                // -----------------------------
+                // 人形破壊判定
+                // -----------------------------
+                if (this.doll.durability <= 0) {
+
+                    this.doll.is_broken = true;
+
+                    // ★ 暴走中に破壊された場合
+                    if (this.doll.is_rampage) {
+
+                        this.doll.is_rampage = false;
+                        log("💥 暴走中の人形が破壊された！");
+
+                        // 自分に防御無視40ダメージ
+                        this.hp = Math.max(0, this.hp - 40);
+                        log(`💀 ${this.name} は反動で 40 ダメージを受けた！`);
+
+                        // 攻撃者に防御無視20ダメージ
+                        if (attacker) {
+                            attacker.hp = Math.max(0, attacker.hp - 20);
+                            log(`🔥 ${attacker.name} は暴走の反動で 20 ダメージ！`);
+                        }
+                    }
+
+                    // 衣装状態遷移
+                    for (const key of Object.keys(this.doll.costumes)) {
+                        const costume = this.doll.costumes[key];
+                        if (!costume) continue;
+
+                        if (costume.condition === "boroboro") {
+                            this.doll.costumes[key] = null;
+                        } else {
+                            costume.condition = "boroboro";
+                            this.updateCostumeDisplayName(costume);
+                        }
+                    }
+
+                    log(`💥 ${this.name} の人形が破壊された！`);
+                }
+
+                return final;
+            }
+
+            // --- 人形が壊れている場合：本体が2倍ダメージ ---
+            raw_attack *= 2;
+        }
+
+        // =========================================
         // 玄武バリア
+        // =========================================
         if (this.barrier > 0) {
             log(`🛡 ${this.name} は玄武バリアで攻撃を無効化！`);
             this.barrier -= 1;
             return 0;
         }
 
-        // ダメージ計算
+        // =========================================
+        // 通常ダメージ処理
+        // =========================================
         const final = ignore_def
             ? raw_attack
             : Math.max(1, raw_attack - this.get_total_defense());
 
-        // HP減少
         this.hp = Math.max(0, this.hp - final);
 
         log(`${this.name} は ${final} ダメージを受けた！ 残りHP: ${this.hp}/${this.max_hp}`);
 
-        // ★ 通常攻撃のみ被ダメ記録を更新（追撃・式神・DOTは除外）
+        // ★ 被ダメ記録（反撃矢など用）
         if (!isExtraAttack) {
-            this.damage_taken_last_T = final;
+            this.damage_taken_last_turn = final;
+            this.last_attacker = attacker;
         }
 
         return final;
     }
 
 
+    // ---------------------------------------------------------
+    // 人形：最終攻撃力取得
+    // ---------------------------------------------------------
+    getDollAttack() {
+
+        // 人形が存在しない or 壊れている → 本体攻撃
+        if (!this.doll || this.doll.is_broken) {
+            return this.base_attack;
+        }
+
+        let atk = this.doll.base_atk;
+        let bonus = 0;
+
+        for (const c of Object.values(this.doll.costumes)) {
+            if (!c) continue;
+            if (c.effect_type !== "ATK") continue;
+
+            let value = 1 + c.star * 2;
+
+            // ★ ぼろぼろ補正
+            if (c.condition === "boroboro") {
+                value = Math.floor(value * 0.5);
+            }
+
+            if (this.doll.is_rampage) {
+                value *= 2;
+            }
+
+            bonus += value;
+        }
+
+        return atk + bonus;
+    }
+
+
+    // ---------------------------------------------------------
+    // 人形：最終防御力取得
+    // ---------------------------------------------------------
+    getDollDefense() {
+        
+
+        if (!this.doll) return 0;
+
+        // 人形が壊れている間は防御不可
+        if (this.doll.is_broken) return 0;
+
+        let def = this.doll.base_def;
+        let bonus = 0;
+
+        for (const c of Object.values(this.doll.costumes)) {
+            if (!c) continue;
+            if (c.effect_type !== "DEF") continue;
+
+            let value = 1 + c.star * 2;
+
+            // ぼろぼろ補正
+            if (c.condition === "boroboro") {
+                value = Math.floor(value * 0.5);
+            }
+            if (this.doll.is_rampage) {
+                value *= 2;
+            }
+
+            bonus += value;
+        }
+
+        return def + bonus;
+    }
+    // ---------------------------------------------------------
+    // 人形：耐久力リジェネ適用
+    // ---------------------------------------------------------
+    applyDollRegen() {
+
+        if (!this.doll) return;
+        if (this.doll.is_rampage) return;
+
+        // 壊れている間は回復しない
+        if (this.doll.is_broken) return;
+
+        let regen = 0;
+
+        for (const c of Object.values(this.doll.costumes)) {
+            if (!c) continue;
+            if (c.effect_type !== "DUR") continue;
+
+            let value = 1 + c.star;
+
+            if (c.condition === "boroboro") {
+                value = Math.max(0, value - 1);
+            }
+
+            regen += value;
+        }
+
+        if (regen > 0) {
+            this.doll.durability = Math.min(
+                this.doll.max_durability,
+                this.doll.durability + regen
+            );
+        }
+    }
+
+    // ============================
+    // 衣装：効果量計算（共通）
+    // ============================
+    getCostumeEffectValue(costume) {
+        if (!costume) return 0;
+
+        let value = 0;
+
+        switch (costume.effect_type) {
+            case "ATK":
+            case "DEF":
+                value = 1 + costume.star * 2;
+                break;
+            case "DUR":
+                value = 1 + costume.star;
+                break;
+        }
+
+        // ぼろぼろ補正
+        if (costume.condition === "boroboro") {
+            if (costume.effect_type === "DUR") {
+                value = Math.max(0, value - 1);
+            } else {
+                value = Math.floor(value * 0.5);
+            }
+        }
+
+        return value;
+    }
+    // ============================
+    // 衣装：表示名＆説明生成
+    // ============================
+    updateCostumeDisplayName(costume) {
+        if (!costume) return;
+
+        const starText = `★${costume.star}`;
+
+        const effectLabel = {
+            ATK: "攻撃",
+            DEF: "防御",
+            DUR: "耐久"
+        }[costume.effect_type];
+
+        const partLabel = {
+            head: "帽子",
+            body: "服",
+            leg: "ズボン",
+            foot: "靴"
+        }[costume.part];
+
+        const conditionText =
+            costume.condition === "boroboro" ? "ぼろぼろの" : "";
+
+        const value = this.getCostumeEffectValue(costume);
+
+        // ★ 表示名（効果量は入れない）
+        costume.name =
+            `${starText}${conditionText}${effectLabel}${partLabel}`;
+
+        // ★ 説明文（ここに効果を書く）
+        costume.effect_text =
+            `人形の${effectLabel}力 +${value}`;
+    }
 
     // ---------------------------------------------------------
     // アイテム使用（Python: apply_item）
@@ -769,16 +1122,40 @@ if (type === "arrow") {
             return;
         }
 
+    // =========================================
+    // 人形使い：修理キット
+    // =========================================
+    if (item.is_doll_item && this.job === "人形使い") {
+
+        if (!this.doll) {
+            return;
+        }
+
+        // --- 人形が壊れていない場合 ---
+        if (!this.doll.is_broken) {
+            this.doll.durability = Math.min(
+                this.doll.max_durability,
+                this.doll.durability + 20
+            );
+            return;
+        }
+
+        // --- 人形が壊れている場合 ---
+        this.doll.is_broken = false;
+        this.doll.durability = 15;
+        this.doll.revive_guard_rounds = 1;
+        return;
+    }
 
         // HP回復
         if (et === "HP") {
             const heal_bonus = this.job_data ? this.job_data.heal_bonus : 0;
             const heal = item.power + heal_bonus;
             this.hp = Math.min(this.max_hp, this.hp + heal);
-            log(`${this.name} は ${item.name} を使った！ HP +${heal}`);
             this.used_items_this_round += 1;
             return;
         }
+
 
         // バフ（攻撃力 / 防御力）
         let duration = item.duration;
@@ -1838,6 +2215,7 @@ if (type === "arrow") {
 
         return false;
     }
+    
     // ---------------------------------------------------------
     // 弓兵：矢追撃処理（A方式 freeze・毒・会心・反撃対応）
     // ---------------------------------------------------------
@@ -1922,4 +2300,83 @@ if (type === "arrow") {
 
         return results;
     }
+
+    // ---------------------------------------------------------
+    // 人形使いスキル
+    // ---------------------------------------------------------
+    async _use_doll_skill(stype, opponent, io) {
+
+
+
+        // スキル封印チェック
+        if (this.skill_sealed) {
+            io.log("❌ スキルは封印されている！");
+            return false;
+        }
+
+        // 人形が存在しない or 壊れている → 発動不可
+        if (!this.doll || this.doll.is_broken) {
+            io.log("❌ 人形が使用不能のため発動できない！");
+            return false;
+        }
+
+        // ---------- スキル2：HP → 耐久変換 ----------
+        if (stype === "doll_2") {
+
+            // HPが10以下なら発動不可
+            if (this.hp <= 10) {
+                io.log("❌ HPが足りない！（10以下では使用不可）");
+                return false;
+            }
+
+            // 上限100、10の倍数で選択
+            const maxSpend = Math.min(100, this.hp - 1);
+            const options = [];
+
+            for (let v = 10; v <= maxSpend; v += 10) {
+                options.push(v);
+            }
+
+            io.log("消費するHPを選択してください（10の倍数）");
+            options.forEach((v, i) => {
+                io.log(`${i + 1}: HP ${v} → 耐久 +${Math.floor(v / 2)}`);
+            });
+            io.log("0: キャンセル");
+
+            let sel;
+            while (true) {
+                const c = (await io.input("番号: ")).trim();
+                if (c === "0") return false;
+
+                const n = Number(c);
+                if (Number.isInteger(n) && n >= 1 && n <= options.length) {
+                    sel = options[n - 1];
+                    break;
+                }
+                io.log("無効な入力です");
+            }
+
+            // HP消費
+            this.hp -= sel;
+
+            // 耐久回復（半分）
+            const gain = Math.floor(sel / 2);
+            this.doll.durability = Math.min(
+                this.doll.max_durability,
+                this.doll.durability + gain
+            );
+
+            io.log(
+                `🪆 HP ${sel} を消費し、人形の耐久が +${gain} 回復した！`
+            );
+
+            this.used_skill_set.add(stype);
+            return true;
+        }
+
+        io.log("未実装の人形使いスキル");
+        return false;
+    }
+
+    
 }

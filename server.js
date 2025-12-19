@@ -1,7 +1,7 @@
 // （import 群は変更なし）
 import WebSocket, { WebSocketServer } from "ws";
 import { Player } from "./player.js";
-import { LEVEL_REQUIREMENTS, JOB_TEMPLATE, ARROW_DATA } from "./constants.js";
+import { LEVEL_REQUIREMENTS, JOB_TEMPLATE, ARROW_DATA, createDollCostume, DOLL_COSTUME_PARTS, DOLL_COSTUME_TYPES } from "./constants.js";
 import crypto from "crypto";
 import { generateOneShopItem } from "./item.js";
 import { generateEquipmentForLevel } from "./equip.js";
@@ -9,6 +9,7 @@ import { MAGE_EQUIPS } from "./equip.js";
 import { getMageSlot } from "./player.js";
 import { MAGE_MANA_ITEMS } from "./mage_items.js";
 import http from "http";
+
 
 
 // デバッグログ ON/OFF
@@ -92,6 +93,18 @@ class Match {
           defense: actor.get_total_defense(),
           buffs: actor.getBuffDescriptionList(),
       };
+      
+      // ★ 人形使い：人形情報を送信
+      if (actor.job === "人形使い" && actor.doll) {
+          payload.doll = {
+              durability: actor.doll.durability,
+              max_durability: actor.doll.max_durability,
+              is_broken: actor.doll.is_broken
+          };
+      } else {
+          payload.doll = null;
+      }
+
 
       // ★ 陰陽師だけ式神情報を送る
       if (actor.job === "陰陽師") {
@@ -208,6 +221,51 @@ class Match {
 
     // ▼ 魔導士装備パッシブ
     actor.apply_mage_equip_effects();
+
+    // ================================
+    // ★ 人形使い：暴走ラウンド進行（ラウンド開始時）
+    // ================================
+    if (
+      (actor.job === "人形使い" || Number(actor.job) === 9) &&
+      actor.doll &&
+      actor.doll.is_rampage
+    ) {
+      actor.doll.rampage_rounds -= 1;
+
+      this.sendSystem(
+        `🔥 人形は暴走中… 残り ${actor.doll.rampage_rounds}R`
+      );
+
+      // --- 3R経過 → 自爆 ---
+      if (actor.doll.rampage_rounds <= 0) {
+        this.sendSystem("💥 暴走が限界に達した！人形が自爆した！");
+
+        // 相互ダメージ（防御無視）
+        actor.take_damage(20, true);
+        const enemy = actorWS === this.p1 ? this.P2 : this.P1;
+        enemy.take_damage(20, true);
+
+
+        // 人形破壊・暴走解除
+        actor.doll.is_broken = true;
+        actor.doll.is_rampage = false;
+
+        this.sendSystem("🪆 人形は完全に破壊された…");
+      }
+    }
+
+    // ================================
+    // ★ 人形使い：耐久リジェネ（ラウンド開始時）
+    // ================================
+    if (
+      (actor.job === "人形使い" || Number(actor.job) === 9) &&
+      actor.applyDollRegen &&
+      !actor.doll?.is_rampage   // ★ 暴走中は回復しない
+    ) {
+      actor.applyDollRegen();
+    }
+
+
     this.updateHP();
     safeSend(actorWS, { type: "coin_info", coins: actor.coins });
 
@@ -234,6 +292,47 @@ class Match {
     for (let i = 0; i < 5; i++) {
       let entry = null;
       const r = Math.random() * 100;
+
+      // ================================
+      // 人形使い：衣装＋修理キットのみ
+      // ================================
+      if (Number(P.job) === 9 || P.job === "人形使い") {
+
+        // 25%：修理キット
+        if (Math.random() < 0.25) {
+          entry = {
+            uid: crypto.randomUUID(),
+            name: "修理キット",
+            price: 12,
+            is_doll_item: true,
+            effect_text: "人形の耐久を回復／破壊時は復活（1T無敵）"
+          };
+        }
+        // 75%：衣装
+        else {
+          const part =
+            DOLL_COSTUME_PARTS[Math.floor(Math.random() * DOLL_COSTUME_PARTS.length)];
+
+          const effect_type =
+            DOLL_COSTUME_TYPES[Math.floor(Math.random() * DOLL_COSTUME_TYPES.length)];
+
+          const star = Math.random() < 0.6
+            ? 1
+            : Math.random() < 0.85
+              ? 2
+              : 3;
+
+          entry = createDollCostume({
+            part,
+            effect_type,
+            star
+          });
+        }
+
+        list.push({ ...entry });
+        continue;
+      }
+
 
       // 弓兵：70%で矢
       if (P.job === "弓兵") {
@@ -346,6 +445,13 @@ class Match {
         P.arrow_inventory.push(item);
 
     } else if (
+        item.is_doll_costume &&
+        P.job === "人形使い"
+    ) {
+        // 人形衣装 → 特殊装備インベントリ
+        P.special_inventory.push(item);
+
+    } else if (
         item.equip_type === "mage_equip" ||
         item.equip_type === "alchemist_unique"
     ) {
@@ -442,6 +548,7 @@ class Match {
       return;
     }
 
+
     // ============================
     // 0) 矢装備（slot 指定対応・即時UI更新）
     // ============================
@@ -499,8 +606,8 @@ class Match {
         }
 
         P.equipment = item;
-        P.items = P.items.filter(x => x.uid !== uid);
-        // ★ 使用後、所持アイテムを再送
+        P[source] = P[source].filter(x => x.uid !== uid);
+                // ★ 使用後、所持アイテムを再送
         this.sendItemList(wsPlayer, P);
 
         this.sendSystem(`⚔ ${P.name} が ${item.name} を装備！`);
@@ -526,7 +633,7 @@ class Match {
       P.mage_equips[slot] = item;
 
       // 削除
-      P.items = P.items.filter(x => x.uid !== uid);
+      P[source] = P[source].filter(x => x.uid !== uid);
 
 
       // パッシブ再計算
@@ -553,21 +660,141 @@ class Match {
         this.sendSystem(`⚗ ${P.name} が ${item.name} を装備！`);
     }
 
+    // ============================
+    // ★ 人形使い：衣装装備
+    // ============================
+    else if (
+      action === "special" &&
+      item.is_doll_costume &&
+      P.job === "人形使い"
+    ) {
+        if (!P.doll) {
+            this.sendError("❌ 人形が存在しません。", wsPlayer);
+            return;
+        }
+
+        const part = item.part; // head / body / leg / foot
+
+        if (!P.doll.costumes || !P.doll.costumes[part]) {
+            this.sendError("❌ 不正な衣装部位です。", wsPlayer);
+            return;
+        }
+
+        // 既存衣装があれば戻す
+        const prev = P.doll.costumes[part];
+        if (prev) {
+            P.special_inventory.push(prev);
+        }
+
+        // 装備
+        P.doll.costumes[part] = item;
+
+        // インベントリから削除
+        P[source] = P[source].filter(x => x.uid !== uid);
+
+        this.sendSystem(
+          `🪆 ${P.name} は ${part} の衣装を装備した！`
+        );
+
+        // UI更新
+        this.sendItemList(wsPlayer, P);
+        this.sendStatusInfo(wsPlayer, P);
+        this.sendSimpleStatusBoth();
+        return;
+    }
+
+    // ============================
+    // ★ 人形使い：修理キット使用
+    // ============================
+    if (
+      action === "use" &&
+      item.name === "修理キット" &&
+      Number(P.job) === 9
+    ) {
+        // ★ 暴走中は修理キット使用不可
+        if (P.doll?.is_rampage) {
+            this.sendError(
+                "❌ 人形が暴走中は修理キットを使用できません。",
+                wsPlayer
+            );
+            return;
+        }
+
+        if (!P.doll) {
+            this.sendError("❌ 人形が存在しません。", wsPlayer);
+            return;
+        }
+
+        if (!P.doll.is_broken) {
+            const before = P.doll.durability;
+            P.doll.durability = Math.min(
+                P.doll.max_durability,
+                P.doll.durability + 20
+            );
+            this.sendSystem(
+              `🔧 修理キット使用：人形耐久 ${before} → ${P.doll.durability}`
+            );
+        } else {
+            P.doll.is_broken = false;
+            P.doll.durability = 15;
+            P.doll.revive_guard_rounds = 1;
+            this.sendSystem(
+              "🔧 人形を修理し、戦闘に復帰させた！（1T無敵）"
+            );
+        }
+
+        P[source] = P[source].filter(x => x.uid !== uid);
+
+        this.sendItemList(wsPlayer, P);
+        this.sendStatusInfo(wsPlayer, P);
+        this.sendSimpleStatusBoth();
+        return;
+    }
+    // ============================
+    // ★ 消費アイテム共通処理
+    // ============================
+    if (action === "use" && !item.is_equip) {
+
+      // オフライン版と同じ入口
+      if (P.apply_item) {
+        P.apply_item(item);
+      }
+      // ★ ここを追加
+      this.sendSystem(`🧪 ${P.name} が ${item.name} を使用した！`);
+      // インベントリから削除
+      P[source] = P[source].filter(x => x.uid !== uid);
+
+      // UI 更新
+      this.sendItemList(wsPlayer, P);
+      this.sendStatusInfo(wsPlayer, P);
+      this.sendSimpleStatusBoth();
+
+      return; // ★ ここで必ず終了
+    }
+
+    // ============================
+    // HP回復アイテム
+    // ============================
+    if (action === "use" && item.effect_type === "HP") {
+        const before = P.hp;
+        P.hp = Math.min(P.max_hp, P.hp + item.power);
+        this.sendSystem(
+          `💖 ${P.name} のHPが ${P.hp - before} 回復した！`
+        );
+
+        this.updateHP();
+        P[source] = P[source].filter(x => x.uid !== uid);
+
+        this.sendItemList(wsPlayer, P);
+        this.sendStatusInfo(wsPlayer, P);
+        this.sendSimpleStatusBoth();
+        return;
+    }
 
     // ============================
     // 6) ステータス再計算
     // ============================
     if (P.recalc_stats) P.recalc_stats();
-
-    if (action === "use" && item.effect_type === "HP") {
-        const before = P.hp;
-        P.hp = Math.min(P.max_hp, P.hp + item.power);
-        this.sendSystem(`💖 ${P.name} のHPが ${P.hp - before} 回復した！`);
-        this.updateHP();
-        P[source] = P[source].filter(x => x.uid !== uid);
-        // ★ recalc_stats をここでは呼ばない
-    }
-    this.sendStatusInfo(wsPlayer, P);
 
 
     // ============================
@@ -854,13 +1081,22 @@ class Match {
         }
 
       } else {
-        // ★★★ 弓兵以外の通常攻撃（これが抜けていた） ★★★
-        const dmg = actor.get_total_attack();
-        const dealt = target.take_damage(dmg);
+        // ★ 人形使いは人形で攻撃（壊れていれば本体）
+        const dmg =
+          (actor.job === "人形使い" && actor.doll && !actor.doll.is_broken)
+            ? actor.getDollAttack()
+            : actor.get_total_attack();
+
+        const dealt = target.take_damage(dmg, false, actor);
+
+
         this.sendBattle(
-          `🗡 ${actor.name} の攻撃！ ${dealt}ダメージ！`
+          actor.job === "人形使い" && actor.doll && !actor.doll.is_broken
+            ? `🪆 人形の攻撃！ ${dealt}ダメージ！`
+            : `🗡 ${actor.name} の攻撃！ ${dealt}ダメージ！`
         );
       }
+
 
       // ★ 烏天狗（既存仕様）
       const tengu = actor.shikigami_effects?.find(
@@ -887,7 +1123,11 @@ class Match {
     }
 
     /* ---------- スキル（失敗ならラウンド消費しない） ---------- */
-    if (action === "スキル1" || action === "スキル2" || action === "スキル3") {
+    if (
+      (action === "スキル1" || action === "スキル2" || action === "スキル3") &&
+      actor.job !== "人形使い" &&
+      Number(actor.job) !== 9
+    ) {
 
       const num = Number(action.replace("スキル", ""));
       const success = await this.useSkill(wsPlayer, actor, target, num);
@@ -1166,6 +1406,21 @@ class Match {
     this.applyDots();
     if (this.ended) return;
 
+    // ============================
+    // 人形使い：DUR 回復（ラウンド終了時）
+    // ============================
+    if (actor.job === "人形使い" && actor.applyDollRegen) {
+      const before = actor.doll?.durability;
+      actor.applyDollRegen();
+      const after = actor.doll?.durability;
+
+      if (before != null && after != null && after > before) {
+        this.sendSystem(
+          `🪆 人形の耐久が ${before} → ${after} に回復した`
+        );
+      }
+    }
+
 
     // ラウンド交代
     [this.current, this.enemy] = [this.enemy, this.current];
@@ -1261,12 +1516,198 @@ wss.on("connection", (ws) => {
 
         const match = new Match(p1, p2);
 
-        // 共通メッセージハンドラ
-          const handlePlayerMessage = async (sock, raw2) => {
+        // =====================================
+        // 共通メッセージハンドラ（正）
+        // =====================================
+        const handlePlayerMessage = async (sock, raw2) => {
           const m = JSON.parse(raw2.toString());
           const P = sock === p1 ? match.P1 : match.P2;
+          // ================================
+          // 人形使い：スキル1 入口（着せ替え）
+          // ================================
+          if (m.type === "request_doll_skill1") {
 
+            console.log("[SERVER] use_doll_skill1 received:", m);
+
+            // 自分のラウンド以外は不可
+            if (sock !== match.current) {
+              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              return;
+            }
+
+            // 職業チェック
+            if (P.job !== "人形使い" && Number(P.job) !== 9) {
+              match.sendError("❌ 人形使い専用スキルです。", sock);
+              return;
+            }
+
+            // 1試合1回制限
+            if (P.used_skill_set?.has("doll_1")) {
+              match.sendError("❌ このスキルはすでに使用済みです。", sock);
+              return;
+            }
+
+            // ★ 部位選択UIを要求
+            safeSend(sock, {
+              type: "request_doll_part_select"
+            });
+
+            return;
+          }
+
+          // ================================
+          // 人形使い：スキル1 確定（着せ替え）
+          // ================================
+          if (m.type === "use_doll_skill1") {
+            console.log("[DEBUG] doll skill1 part =", m.part);
+            console.log("[DEBUG] costumes =", P.doll.costumes);
+
+            // 自分のラウンド以外は不可
+            if (sock !== match.current) {
+              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              return;
+            }
+
+            if (!P.doll) {
+              match.sendError("❌ 人形が存在しません。", sock);
+              return;
+            }
+
+            // 仮衣装データ初期化
+            if (!P.doll.costumes) {
+              P.doll.costumes = {
+                head: { star: 1 },
+                body: { star: 1 },
+                leg:  { star: 1 },
+                foot: { star: 1 }
+              };
+            }
+
+            const c = P.doll.costumes[m.part];
+
+            if (!c) {
+              match.sendError("❌ 不正な部位です。", sock);
+              return;
+            }
+
+            if (c.star >= 4) {
+              match.sendError("❌ これ以上強化できません。", sock);
+              return;
+            }
+
+            c.star += 1;
+            P.used_skill_set.add("doll_1");
+
+            match.sendSystem(
+              `🪆 ${P.name} は ${m.part} を強化した！（★${c.star}）`
+            );
+
+            match.sendStatusInfo(sock, P);
+            match.sendSimpleStatusBoth();
+            match.endRound();
+            return;
+          }
+          // ================================
+          // 人形使い：スキル2（生命縫合）
+          // ================================
+          if (m.type === "use_doll_skill2") {
+
+            // 自分のラウンド以外は不可
+            if (sock !== match.current) {
+              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              return;
+            }
+
+            // スキル2使用済み
+            if (P.used_skill_set?.has("doll_2")) {
+              match.sendError("❌ このスキルは既に使用済みです。", sock);
+              return;
+            }
+
+            if (!P.doll) {
+              match.sendError("❌ 人形が存在しません。", sock);
+              return;
+            }
+
+            if (P.doll.is_broken) {
+              match.sendError("❌ 人形が破壊されている間は使用できません。", sock);
+              return;
+            }
+
+            const hpCost = Number(m.hpCost);
+
+            // 10の倍数 / 10〜100
+            if (!Number.isFinite(hpCost) || hpCost % 10 !== 0 || hpCost < 10 || hpCost > 100) {
+              match.sendError("❌ HPは10の倍数（10〜100）で指定してください。", sock);
+              return;
+            }
+
+            // HP0不可（HP - hpCost >= 1）
+            if (P.hp - hpCost < 1) {
+              match.sendError("❌ HP0にはできません（HPが足りません）。", sock);
+              return;
+            }
+
+            // 適用：人形耐久 + (hpCost/2)
+            const gain = Math.floor(hpCost / 2);
+            const beforeHp = P.hp;
+            const beforeDur = P.doll.durability;
+
+            P.hp -= hpCost;
+            P.doll.durability = Math.min(P.doll.max_durability, P.doll.durability + gain);
+
+            P.used_skill_set.add("doll_2");
+
+            match.sendSkill(
+              `🧵 ${P.name} は生命縫合！ HP-${hpCost}（${beforeHp}→${P.hp}） / 人形耐久+${gain}（${beforeDur}→${P.doll.durability}）`
+            );
+
+            match.updateHP?.();               // あるなら呼ぶ
+            match.sendStatusInfo(sock, P);
+            match.sendSimpleStatusBoth();
+
+            match.endRound();
+            return;
+          }
+          // ================================
+          // 人形使い：スキル3（暴走）
+          // ================================
+          if (m.type === "request_doll_skill3") {
+
+              if (sock !== match.current) {
+                  match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+                  return;
+              }
+
+              if (!P.doll || P.doll.is_broken) {
+                  match.sendError("❌ 人形が壊れています。", sock);
+                  return;
+              }
+
+              if (P.doll.durability < 10) {
+                  match.sendError("❌ 耐久力が足りません。", sock);
+                  return;
+              }
+
+              // 発動
+              P.doll.durability = Math.floor(P.doll.durability / 2);
+              P.doll.is_rampage = true;
+              P.doll.rampage_rounds = 3;
+
+              P.used_skill_set.add("doll_3");
+
+              match.sendSystem(
+                  `🪆 ${P.name} の人形が暴走した！`
+              );
+
+              match.sendStatusInfo(sock, P);
+              match.sendSimpleStatusBoth();
+              match.endRound();
+          }
+
+          // ================================
           // 対戦終了後は何もさせない
+          // ================================
           if (match.ended && m.type !== "debug") {
             safeSend(sock, {
               type: "system_log",
