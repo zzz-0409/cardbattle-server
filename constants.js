@@ -56,7 +56,7 @@ export const JOB_TEMPLATE = {
   9: {
     name: "人形使い",
     coin: 12,
-    atk_bonus: 0,
+    atk_bonus: -19,
     def_bonus: 0,
     heal_bonus: 0,
     coin_per_turn_bonus: 0,
@@ -313,7 +313,7 @@ export const JOB_SKILLS = {
       description: "装備中のすべての矢が防御貫通になる。",
     },
   ],
-  
+
   "人形使い": [
     {
       type: "doll_1",
