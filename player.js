@@ -873,11 +873,13 @@ if (type === "arrow") {
                         this.hp = Math.max(0, this.hp - 40);
                         log(`💀 ${this.name} は反動で 40 ダメージを受けた！`);
 
-                        // 攻撃者に防御無視20ダメージ
-                        if (attacker) {
-                            attacker.hp = Math.max(0, attacker.hp - 20);
-                            log(`🔥 ${attacker.name} は暴走の反動で 20 ダメージ！`);
+                        // 相手に防御無視20ダメージ
+                        const opponent = this.opponent;
+                        if (opponent) {
+                            opponent.hp = Math.max(0, opponent.hp - 20);
+                            log(`🔥 ${opponent.name} は暴走の反動で 20 ダメージ！`);
                         }
+
                     }
 
                     // 衣装状態遷移
