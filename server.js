@@ -69,7 +69,9 @@ class Match {
 
     this.P1 = p1.player;
     this.P2 = p2.player;
-
+    // ★ ここ！！（この直後）
+    this.P1.opponent = this.P2;
+    this.P2.opponent = this.P1;
     // ★ ラウンドカウンタ
     this.round = 1;
 
