@@ -1119,12 +1119,21 @@ if (type === "arrow") {
         
         // ★ 魔導士専用：魔力水
         if (item.is_mage_item) {
+
+            // 安全対策
+            if (this.job !== "魔導士") {
+                return false;
+            }
+
+            if (this.mana == null) this.mana = 0;
+            if (this.mana_max == null) this.mana_max = 0;
+
             const before = this.mana;
             this.mana = Math.min(this.mana_max, this.mana + item.power);
 
-            io.log(`🔮 魔力水を使用！ 魔力 +${item.power} (${before}→${this.mana})`);
-            return;
+            return true; // ★ ログは出さない
         }
+
 
     // =========================================
     // 人形使い：修理キット
