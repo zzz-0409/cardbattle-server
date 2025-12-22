@@ -90,11 +90,15 @@ class Match {
   sendStatusInfo(ws, actor) {
 
       const payload = {
-          type: "status_info",
-          attack: actor.get_total_attack(),
-          defense: actor.get_total_defense(),
-          buffs: actor.getBuffDescriptionList(),
+        type: "status_info",
+        attack: actor.get_total_attack(),
+        defense: actor.get_total_defense(),
+        buffs: actor.getBuffDescriptionList(),
+
+        // ★ これを必ず追加
+        arrow_slots: actor.arrow_slots ?? 1,
       };
+
       
       // ★ 人形使い：人形情報を送信（攻撃/防御も含める）
       const isDollUser = (actor.job === "人形使い" || Number(actor.job) === 9);
@@ -162,6 +166,19 @@ class Match {
     safeSend(this.p2, { type: "job_info", job: this.P2.job });
 
     this.updateHP();
+
+  // ★ 弓兵：初期矢を server 側で装備（状態決定はここだけ）
+  for (const P of [this.P1, this.P2]) {
+    if (P.job === "弓兵" && !P.arrow) {
+      const basicArrow = {
+        ...ARROW_DATA.normal,
+        uid: crypto.randomUUID(),
+        is_arrow: true,
+        equip_type: "arrow"
+      };
+      P.arrow = basicArrow;
+    }
+  }
 
     // ★ 先攻1ラウンド目用：ショップを事前生成
     this.P1.shop_items = this.generateShopList(this.P1);
@@ -563,20 +580,36 @@ class Match {
     // ============================
     if (action === "arrow" && (item.is_arrow || item.equip_type === "arrow")) {
 
-        const equipSlot = slot ?? 1; // デフォルト slot1
+        // ★ slot 正規化（"2" → 2）
+        const equipSlot = Number(slot || 1);
 
-        if (equipSlot === 2 && P.arrow_slots >= 2) {
-            // ---- slot2 装備 ----
+        // ---- slot2 指定 ----
+        if (equipSlot === 2) {
+
+            if (P.arrow_slots < 2) {
+                this.sendError("❌ 矢スロット2は解放されていません。", wsPlayer);
+                return;
+            }
+
             if (P.arrow2) {
                 P.arrow_inventory.push(P.arrow2);
             }
+
             P.arrow2 = item;
-        } else {
-            // ---- slot1 装備 ----
+        }
+        // ---- slot1 指定 ----
+        else if (equipSlot === 1) {
+
             if (P.arrow) {
                 P.arrow_inventory.push(P.arrow);
             }
+
             P.arrow = item;
+        }
+        // ---- 不正 slot ----
+        else {
+            this.sendError("❌ 不正な矢スロット指定です。", wsPlayer);
+            return;
         }
 
         // インベントリから削除
@@ -584,17 +617,13 @@ class Match {
 
         this.sendSystem(`🏹 ${P.name} が ${item.name} を装備！（slot${equipSlot}）`);
 
-
         this.sendItemList(wsPlayer, P);
-
-        // ★ ステータス即時反映（攻撃力・効果）
         this.sendStatusInfo(wsPlayer, P);
-
-        // ★ 簡易ステ（ここ）
         this.sendSimpleStatusBoth();
 
-        return; // ★ ここで必ず終了
+        return;
     }
+
 
 
 
@@ -964,6 +993,8 @@ class Match {
         mana: self.job === "魔導士" ? self.mana : null,
         mana_max: self.job === "魔導士" ? self.mana_max : null,
 
+        arrow_slots: self.arrow_slots ?? 1,
+
         doll: ((self.job === "人形使い" || Number(self.job) === 9) && self.doll)
           ? {
               durability: self.doll.durability,
@@ -988,6 +1019,8 @@ class Match {
         level: enemy.level,
         mana: enemy.job === "魔導士" ? enemy.mana : null,
         mana_max: enemy.job === "魔導士" ? enemy.mana_max : null,
+
+        arrow_slots: enemy.arrow_slots ?? 1,
 
         doll: ((enemy.job === "人形使い" || Number(enemy.job) === 9) && enemy.doll)
           ? {

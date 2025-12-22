@@ -88,25 +88,17 @@ export class Player {
         this.skill_sealed_rounds = 0;   // ← これが絶対必要！
 
         // --- 弓兵専用フィールド ---
-        this.arrow_inventory = [];        // 所持している矢
-        this.arrow = null;                // slot1
-        this.arrow2 = null;               // slot2
-        this.arrow_slots = 1;             // 初期1スロット
+        this.arrow_inventory = [];   // 所持している矢
+        this.arrow = null;           // slot1
+        this.arrow2 = null;          // slot2
+
+        // ★ オンライン版では常に初期値を明示
+        this.arrow_slots = 1;
+
+
         this.archer_buff = null;          // 追撃バフ（{ rounds, extra }）
-       // 追撃バフ（3T）
-        this.damage_taken_last_round = 0;  // 前ラウンドダメージ → 反撃矢用
+        this.damage_taken_last_round = 0; // 前ラウンドダメージ → 反撃矢用
 
-        // 弓兵：初期矢装備
-        if (this.job === "弓兵") {
-            const basicArrow = {
-                ...ARROW_DATA.normal,
-                uid: crypto.randomUUID(), // ★ 必須
-                is_arrow: true,           // ★ 念のため明示
-                equip_type: "arrow"       // ★ 念のため明示
-            };
-
-            this.arrow = basicArrow;   // slot1 に装備
-        }
 
         // freeze（A方式：スタックごとに2T）
         this.freeze_debuffs = [];  // [{atkDown:2, rounds:2}, ...]
@@ -548,9 +540,9 @@ if (type === "mage") {
 }
 
 
-// -------------------------------
+// ⚠ ローカル版専用（オンラインでは未使用）
 // 弓兵：矢の装着（交換対応版）
-// -------------------------------
+
 if (type === "arrow") {
 
   // 現在のスロット状況
@@ -2203,14 +2195,24 @@ if (type === "arrow") {
         }
 
 
-        // ---------- スキル2：矢スロット +1 ＆ 追撃+1（3ラウンド） ----------
+        // ---------- スキル2：矢筒拡張 ----------
         if (stype === "archer_2") {
-            this.arrow_slots = 2;
-            this.archer_buff = { rounds: 3, extra: 1 }; // 3Rの間 追撃+1
-            log("🏹 矢スロット +1！追撃も3ラウンド +1。");
+
+            // ▼ 矢スロットを恒久的に +1
+            if (this.arrow_slots < 2) {
+                this.arrow_slots = 2;
+            }
+
+            // ▼ 追撃バフ（3R）
+            this.archer_buff_turns = 3;
+
+            log("🏹 矢筒拡張！ 矢スロット+1 ＆ 追撃+1（3R）");
+
             this.used_skill_set.add(stype);
             return true;
         }
+
+
 
 
         // ---------- スキル3：全ての矢が防御貫通化 ----------
