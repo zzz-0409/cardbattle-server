@@ -1002,13 +1002,15 @@ class Match {
 
         doll: ((self.job === "人形使い" || Number(self.job) === 9) && self.doll)
           ? {
-              durability: enemy.doll.durability,
-              max_durability: enemy.doll.max_durability,
-              is_broken: enemy.doll.is_broken,
-              attack: enemy.doll.is_broken ? 0 : enemy.getDollAttack(),
-              defense: enemy.getDollDefense(),
+              durability: self.doll.durability,
+              max_durability: self.doll.max_durability,
+              is_broken: self.doll.is_broken,
+              attack: self.doll.is_broken ? 0 : self.getDollAttack(),
+              defense: self.getDollDefense(),
             }
           : null,
+
+
       });
 
 
@@ -1029,7 +1031,7 @@ class Match {
 
         arrow_slots: enemy.arrow_slots ?? 1,
 
-        doll: ((enemy.job === "人形使い" || Number(enemy.job) === 9) && enemy.doll)
+        doll: (enemy.doll != null)
           ? {
               durability: enemy.doll.durability,
               max_durability: enemy.doll.max_durability,
@@ -1038,6 +1040,8 @@ class Match {
               defense: enemy.getDollDefense(),
             }
           : null,
+
+
       });
 
     };
