@@ -383,7 +383,8 @@ class Match {
       }
 
       // 魔導士：70%魔導士装備、30%魔力水/通常アイテム/装備
-      if (P.job === 5) {
+      if (P.job === "魔導士") {
+
         if (r < 70) {
           const pool = MAGE_EQUIPS;
           entry = { ...pool[Math.floor(Math.random() * pool.length)] };
@@ -936,8 +937,9 @@ class Match {
       exp: P.exp,
 
       // ===== 魔導士 =====
-      mana: P.job === 5 ? P.mana : null,
-      mana_max: P.job === 5 ? P.mana_max : null,
+      mana: P.job === "魔導士" ? P.mana : null,
+      mana_max: P.job === "魔導士" ? P.mana_max : null,
+
 
       // ===== 装備・バフ =====
       equipment: equipmentList,
@@ -1224,7 +1226,8 @@ class Match {
     }
 
     // -------- 2) 使用済みチェック --------
-    if (!(actor.job === 5 && (stype === "mage_2" || stype === "mage_3"))) {
+    if (!(actor.job === "魔導士" && (stype === "mage_2" || stype === "mage_3"))) {
+
       if (actor.used_skill_set.has(stype)) {
         this.sendError("❌ このスキルはすでに使用済みです！", wsPlayer);
         this.skill_lock = false;
@@ -1267,18 +1270,19 @@ class Match {
     }
 
     // -------- 5) 使用済みに登録（成功時のみ） --------
-    if (!(actor.job === 5 && (stype === "mage_2" || stype === "mage_3"))) {
+    if (!(actor.job === "魔導士" && (stype === "mage_2" || stype === "mage_3"))) {
       actor.used_skill_set.add(stype);
     }
 
     // 魔導士の魔力更新
-    if (actor.job === 5) {
+    if (actor.job === "魔導士") {
       safeSend(wsPlayer, {
         type: "mana_info",
         mana: actor.mana,
         mana_max: actor.mana_max
       });
     }
+
 
     // 弓兵・陰陽師の追加処理（成功時のみ）
 
