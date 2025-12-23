@@ -72,7 +72,8 @@ console.log("SHOP job =", player.job, typeof player.job);
     // =========================================
     // 人形使い専用ショップ（最優先）
     // =========================================
-    if (Number(player.job) === 9) {
+    if (player.job === "人形使い") {
+
         const list = [];
         for (let i = 0; i < 5; i++) {
             list.push(DOLL_REPAIR_KIT);

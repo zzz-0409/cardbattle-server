@@ -102,7 +102,8 @@ class Match {
 
       
       // ★ 人形使い：人形情報を送信（攻撃/防御も含める）
-      const isDollUser = (actor.job === 9 || Number(actor.job) === 9);
+      const isDollUser = actor.job === "人形使い"
+
 
       if (isDollUser && actor.doll) {
           payload.doll = {
@@ -253,7 +254,7 @@ class Match {
     // ★ 人形使い：暴走ラウンド進行（ラウンド開始時）
     // ================================
     if (
-      (actor.job === 9 || Number(actor.job) === 9) &&
+      actor.job === "人形使い" &&
       actor.doll &&
       actor.doll.is_rampage
     ) {
@@ -285,7 +286,7 @@ class Match {
     // ★ 人形使い：耐久リジェネ（ラウンド開始時）
     // ================================
     if (
-      (actor.job === 9 || Number(actor.job) === 9) &&
+      actor.job === "人形使い" &&
       actor.applyDollRegen &&
       !actor.doll?.is_rampage   // ★ 暴走中は回復しない
     ) {
@@ -323,7 +324,7 @@ class Match {
       // ================================
       // 人形使い：衣装＋修理キットのみ
       // ================================
-      if (Number(P.job) === 9 || P.job === 9) {
+      if (P.job === "人形使い") {
 
         // 25%：修理キット
         if (Math.random() < 0.25) {
@@ -473,8 +474,9 @@ class Match {
 
     } else if (
         item.is_doll_costume &&
-        P.job === 9
+        P.job === "人形使い"
     ) {
+
         // 人形衣装 → 特殊装備インベントリ
         P.special_inventory.push(item);
 
@@ -705,7 +707,8 @@ class Match {
     else if (
       action === "special" &&
       item.is_doll_costume &&
-      P.job === 9
+      P.job === "人形使い"
+
     ) {
         if (!P.doll) {
             this.sendError("❌ 人形が存在しません。", wsPlayer);
@@ -748,7 +751,8 @@ class Match {
     if (
       action === "use" &&
       item.name === "修理キット" &&
-      Number(P.job) === 9
+      P.job === "人形使い"
+
     ) {
         // ★ 暴走中は修理キット使用不可
         if (P.doll?.is_rampage) {
@@ -947,7 +951,7 @@ class Match {
       ) ?? [],
 
       // ===== 人形（人形使い）=====
-      doll: ((P.job === 9 || Number(P.job) === 9) && P.doll)
+      doll: (P.job === "人形使い" && P.doll)
         ? {
             durability: P.doll.durability,
             max_durability: P.doll.max_durability,
@@ -1000,7 +1004,7 @@ class Match {
 
         arrow_slots: self.arrow_slots ?? 1,
 
-        doll: ((self.job === "人形使い" || Number(self.job) === 9) && self.doll)
+        doll: (self.job === "人形使い"  && self.doll)
           ? {
               durability: self.doll.durability,
               max_durability: self.doll.max_durability,
@@ -1130,20 +1134,17 @@ class Match {
         }
 
       } else {
-        // ★ 人形使いは人形で攻撃（壊れていれば本体）
-        const dmg =
-          (actor.job === 9 && actor.doll && !actor.doll.is_broken)
-            ? actor.getDollAttack()
-            : actor.get_total_attack();
-
+        const dmg = actor.getActualAttack();
         const dealt = target.take_damage(dmg, false, actor);
 
-
         this.sendBattle(
-          actor.job === 9 && actor.doll && !actor.doll.is_broken
+          actor.job === "人形使い" &&
+          actor.doll &&
+          !actor.doll.is_broken
             ? `🪆 人形の攻撃！ ${dealt}ダメージ！`
             : `🗡 ${actor.name} の攻撃！ ${dealt}ダメージ！`
         );
+
       }
 
 
@@ -1458,7 +1459,7 @@ class Match {
     // ============================
     // 人形使い：DUR 回復（ラウンド終了時）
     // ============================
-    if (actor.job === 9 && actor.applyDollRegen) {
+    if (actor.job === "人形使い" && actor.applyDollRegen) {
       const before = actor.doll?.durability;
       actor.applyDollRegen();
       const after = actor.doll?.durability;
@@ -1590,10 +1591,15 @@ wss.on("connection", (ws) => {
             }
 
             // 職業チェック
-            if (P.job !== 9 && Number(P.job) !== 9) {
-              match.sendError("❌ 人形使い専用スキルです。", sock);
-              return;
-            }
+            console.log("DEBUG doll skill:", {
+            job: P.job,
+            jobType: typeof P.job,
+            hasDoll: !!P.doll,
+            name: P.name
+          });
+
+
+
 
             // 1試合1回制限
             if (P.used_skill_set?.has("doll_1")) {

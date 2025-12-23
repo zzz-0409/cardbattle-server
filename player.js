@@ -187,6 +187,17 @@ export class Player {
                     })
                 }
             };
+            // ★ 人形初期衣装の共通初期化（後付け衣装と完全互換）
+            for (const c of Object.values(this.doll.costumes)) {
+                if (!c) continue;
+
+                // 状態が未定義なら新品
+                c.condition ??= "normal";
+
+                // 表示名・効果文を確定させる
+                this.updateCostumeDisplayName(c);
+            }
+
         }
         /* ★★★ ここまで ★★★ */
 
@@ -238,29 +249,6 @@ export class Player {
         }
         
         // ============================
-        // ★ 人形使い：衣装効果の可否
-        // ============================
-        if (this.job === "人形使い") {
-
-            // 人形が存在しない or 壊れている → 衣装効果なし
-            if (!this.doll || this.doll.is_broken) {
-                // 何も足さない（衣装効果無効）
-            } else {
-                // ここで「衣装の攻撃力効果」を足す
-                if (this.costume?.type === "ATK") {
-                    let bonus = 1 + this.costume.star * 2;
-
-                    // ぼろぼろ補正
-                    if (this.costume.is_broken) {
-                        bonus = Math.max(0, bonus - 1);
-                    }
-
-                    total += bonus;
-                }
-            }
-        }
-
-        // ============================
         // freeze デバフ
         // ============================
         let freezeDown = 0;
@@ -272,6 +260,17 @@ export class Player {
         total -= freezeDown;
 
         return total;
+    }
+
+    // ★ 実際に使用する攻撃力（人形 or 本体）
+    getActualAttack() {
+        // 人形使い：人形が生きていれば人形攻撃
+        if (this.job === "人形使い" && this.doll && !this.doll.is_broken) {
+            return this.getDollAttack();
+        }
+
+        // それ以外は本体攻撃
+        return this.get_total_attack();
     }
 
 
@@ -885,6 +884,7 @@ if (type === "arrow") {
                             costume.condition = "boroboro";
                             this.updateCostumeDisplayName(costume);
                         }
+                        
                     }
 
                     log(`💥 ${this.name} の人形が破壊された！`);
@@ -960,6 +960,7 @@ if (type === "arrow") {
 
         return atk + bonus;
     }
+
 
 
     // ---------------------------------------------------------
