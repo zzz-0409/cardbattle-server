@@ -2318,81 +2318,126 @@ if (type === "arrow") {
     }
 
     // ---------------------------------------------------------
-    // 人形使いスキル
+    // 人形使いスキル（server.js 完全移植・最終版）
     // ---------------------------------------------------------
-    async _use_doll_skill(stype, opponent, io) {
+    async _use_doll_skill(stype, opponent) {
 
+    // スキル封印中
+    if (this.skill_sealed) return false;
 
+    // 人形チェック
+    if (!this.doll || this.doll.is_broken) return false;
 
-        // スキル封印チェック
-        if (this.skill_sealed) {
-            io.log("❌ スキルは封印されている！");
-            return false;
+    // =========================
+    // スキル1：仕立て直し
+    // =========================
+    if (stype === "doll_1") {
+
+        if (!this.doll?.costumes) {
+            return { ok: false, reason: "人形が存在しません" };
         }
 
-        // 人形が存在しない or 壊れている → 発動不可
-        if (!this.doll || this.doll.is_broken) {
-            io.log("❌ 人形が使用不能のため発動できない！");
-            return false;
+        const part = this.selected_doll_part;
+        if (!part) {
+            return { ok: false, reason: "強化部位が未選択です" };
         }
 
-        // ---------- スキル2：HP → 耐久変換 ----------
-        if (stype === "doll_2") {
-
-            // HPが10以下なら発動不可
-            if (this.hp <= 10) {
-                io.log("❌ HPが足りない！（10以下では使用不可）");
-                return false;
-            }
-
-            // 上限100、10の倍数で選択
-            const maxSpend = Math.min(100, this.hp - 1);
-            const options = [];
-
-            for (let v = 10; v <= maxSpend; v += 10) {
-                options.push(v);
-            }
-
-            io.log("消費するHPを選択してください（10の倍数）");
-            options.forEach((v, i) => {
-                io.log(`${i + 1}: HP ${v} → 耐久 +${Math.floor(v / 2)}`);
-            });
-            io.log("0: キャンセル");
-
-            let sel;
-            while (true) {
-                const c = (await io.input("番号: ")).trim();
-                if (c === "0") return false;
-
-                const n = Number(c);
-                if (Number.isInteger(n) && n >= 1 && n <= options.length) {
-                    sel = options[n - 1];
-                    break;
-                }
-                io.log("無効な入力です");
-            }
-
-            // HP消費
-            this.hp -= sel;
-
-            // 耐久回復（半分）
-            const gain = Math.floor(sel / 2);
-            this.doll.durability = Math.min(
-                this.doll.max_durability,
-                this.doll.durability + gain
-            );
-
-            io.log(
-                `🪆 HP ${sel} を消費し、人形の耐久が +${gain} 回復した！`
-            );
-
-            this.used_skill_set.add(stype);
-            return true;
+        const c = this.doll.costumes[part];
+        if (!c) {
+            return { ok: false, reason: "不正な衣装部位です" };
         }
 
-        io.log("未実装の人形使いスキル");
-        return false;
+        if (c.star >= 4) {
+            return { ok: false, reason: "これ以上強化できません" };
+        }
+
+        c.star += 1;
+        this.used_skill_set.add(stype);
+
+        // ★ 一時データ消去
+        this.selected_doll_part = null;
+
+        return {
+            ok: true,
+            logs: [
+                `🪆 ${part} の衣装を仕立て直した！`,
+                `⭐ ★${c.star - 1} → ★${c.star}`
+            ]
+        };
     }
 
-    
+
+    // =========================
+    // スキル2：生命縫合
+    // =========================
+    if (stype === "doll_2") {
+
+        const hpCost = this.pending_hp_cost;
+        if (!Number.isFinite(hpCost)) {
+            return { ok: false, reason: "消費HPが未指定です" };
+        }
+
+        if (hpCost % 10 !== 0 || hpCost < 10 || hpCost > 100) {
+            return { ok: false, reason: "HPは10〜100の10刻みで指定してください" };
+        }
+
+        if (this.hp - hpCost < 1) {
+            return { ok: false, reason: "HPが不足しています" };
+        }
+
+        const gain = Math.floor(hpCost / 2);
+
+        this.hp -= hpCost;
+        this.doll.durability = Math.min(
+            this.doll.max_durability,
+            this.doll.durability + gain
+        );
+
+        this.used_skill_set.add(stype);
+
+        // ★ 一時データ消去
+        this.pending_hp_cost = null;
+
+        return {
+            ok: true,
+            logs: [
+                `🩸 HPを ${hpCost} 消費した`,
+                `🪆 人形の耐久が ${gain} 回復した`
+            ]
+        };
+    }
+
+
+    // =========================
+    // スキル3：人形暴走
+    // =========================
+    if (stype === "doll_3") {
+
+        if (this.doll.durability < 10) {
+            return { ok: false, reason: "耐久が足りません" };
+        }
+
+        const before = this.doll.durability;
+
+        this.doll.durability = Math.floor(this.doll.durability / 2);
+        this.doll.is_rampage = true;
+        this.doll.rampage_rounds = 3;
+
+        this.used_skill_set.add(stype);
+
+        return {
+            ok: true,
+            logs: [
+                "🔥 人形が暴走状態に入った！",
+                `🪆 耐久 ${before} → ${this.doll.durability}`,
+                "⚠ パーツ効果が2倍になる（3R）"
+            ]
+        };
+    }
+
+    return { ok: false, reason: "不明な人形スキルです" };
+
+
+
+    }
 }

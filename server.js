@@ -1198,10 +1198,47 @@ class Match {
   /* =========================================================
      スキル発動処理
      ========================================================= */
-  async useSkill(wsPlayer, actor, target, num) {
+    async useSkill(wsPlayer, actor, target, num) {
 
-    if (this.skill_lock) return false;
-    this.skill_lock = true;
+      if (this.skill_lock) return false;
+      this.skill_lock = true;
+
+      // ★ 人形使いは Player._use_doll_skill に直接委譲
+      if (actor.job === "人形使い") {
+
+        const stype = `doll_${num}`;
+
+        let result = actor._use_doll_skill(stype, target);
+        if (result && typeof result.then === "function") {
+          result = await result;
+        }
+
+        if (!result || !result.ok) {
+          this.sendError(
+            `❌ スキル失敗：${result?.reason ?? "不明なエラー"}`,
+            wsPlayer
+          );
+          this.skill_lock = false;
+          return false;
+        }
+
+        // ★ ログは server が出す
+        for (const msg of result.logs ?? []) {
+          this.sendSkill(msg);
+        }
+
+        this.updateHP();
+        this.sendStatusInfo(wsPlayer, actor);
+        this.sendSimpleStatusBoth();
+
+        this.skill_lock = false;
+        this.endRound();
+        return true;
+      }
+
+
+      // ===== ここから下は既存の通常職 =====
+
 
     const job = actor.job;
     const prefix = {
@@ -1212,7 +1249,7 @@ class Match {
       "魔導士": "mage",
       "陰陽師": "onmyoji",
       "錬金術師": "alchemist",
-      "弓兵": "archer"
+      "弓兵": "archer",
     }[job];
 
     const stype = `${prefix}_${num}`;
@@ -1582,28 +1619,15 @@ wss.on("connection", (ws) => {
           const m = JSON.parse(raw2.toString());
           const P = sock === p1 ? match.P1 : match.P2;
           // ================================
-          // 人形使い：スキル1 入口（着せ替え）
+          // 人形使い：スキル1 入口（部位選択UI）
           // ================================
           if (m.type === "request_doll_skill1") {
-
-            console.log("[SERVER] use_doll_skill1 received:", m);
 
             // 自分のラウンド以外は不可
             if (sock !== match.current) {
               match.sendError("❌ 今はあなたのラウンドではありません。", sock);
               return;
             }
-
-            // 職業チェック
-            console.log("DEBUG doll skill:", {
-            job: P.job,
-            jobType: typeof P.job,
-            hasDoll: !!P.doll,
-            name: P.name
-          });
-
-
-
 
             // 1試合1回制限
             if (P.used_skill_set?.has("doll_1")) {
@@ -1611,20 +1635,18 @@ wss.on("connection", (ws) => {
               return;
             }
 
-            // ★ 部位選択UIを要求
+            // 部位選択UIを要求
             safeSend(sock, {
               type: "request_doll_part_select"
             });
-
             return;
           }
 
           // ================================
-          // 人形使い：スキル1 確定（着せ替え）
+          // 人形使い：スキル1 確定（仕立て直し）
           // ================================
           if (m.type === "use_doll_skill1") {
 
-            // 自分のラウンド以外は不可
             if (sock !== match.current) {
               match.sendError("❌ 今はあなたのラウンドではありません。", sock);
               return;
@@ -1635,54 +1657,21 @@ wss.on("connection", (ws) => {
               return;
             }
 
-            // 仮衣装データ初期化
-            if (!P.doll.costumes) {
-              P.doll.costumes = {
-                head: { star: 1 },
-                body: { star: 1 },
-                leg:  { star: 1 },
-                foot: { star: 1 }
-              };
-            }
+            // ★ 選択部位を Player に渡す
+            P.selected_doll_part = m.part;
 
-            const c = P.doll.costumes[m.part];
-
-            if (!c) {
-              match.sendError("❌ 不正な部位です。", sock);
-              return;
-            }
-
-            if (c.star >= 4) {
-              match.sendError("❌ これ以上強化できません。", sock);
-              return;
-            }
-
-            c.star += 1;
-            P.used_skill_set.add("doll_1");
-
-            match.sendSystem(
-              `🪆 ${P.name} は ${m.part} を強化した！（★${c.star}）`
-            );
-
-            match.sendStatusInfo(sock, P);
-            match.sendSimpleStatusBoth();
-            match.endRound();
+            // ★ 共通スキル処理へ
+            await match.useSkill(sock, P, P.opponent, 1);
             return;
           }
+
           // ================================
           // 人形使い：スキル2（生命縫合）
           // ================================
           if (m.type === "use_doll_skill2") {
 
-            // 自分のラウンド以外は不可
             if (sock !== match.current) {
               match.sendError("❌ 今はあなたのラウンドではありません。", sock);
-              return;
-            }
-
-            // スキル2使用済み
-            if (P.used_skill_set?.has("doll_2")) {
-              match.sendError("❌ このスキルは既に使用済みです。", sock);
               return;
             }
 
@@ -1691,81 +1680,34 @@ wss.on("connection", (ws) => {
               return;
             }
 
-            if (P.doll.is_broken) {
-              match.sendError("❌ 人形が破壊されている間は使用できません。", sock);
-              return;
-            }
+            // ★ 消費HPを Player に渡す
+            P.pending_hp_cost = Number(m.hpCost);
 
-            const hpCost = Number(m.hpCost);
-
-            // 10の倍数 / 10〜100
-            if (!Number.isFinite(hpCost) || hpCost % 10 !== 0 || hpCost < 10 || hpCost > 100) {
-              match.sendError("❌ HPは10の倍数（10〜100）で指定してください。", sock);
-              return;
-            }
-
-            // HP0不可（HP - hpCost >= 1）
-            if (P.hp - hpCost < 1) {
-              match.sendError("❌ HP0にはできません（HPが足りません）。", sock);
-              return;
-            }
-
-            // 適用：人形耐久 + (hpCost/2)
-            const gain = Math.floor(hpCost / 2);
-            const beforeHp = P.hp;
-            const beforeDur = P.doll.durability;
-
-            P.hp -= hpCost;
-            P.doll.durability = Math.min(P.doll.max_durability, P.doll.durability + gain);
-
-            P.used_skill_set.add("doll_2");
-
-            match.sendSkill(
-              `🧵 ${P.name} は生命縫合！ HP-${hpCost}（${beforeHp}→${P.hp}） / 人形耐久+${gain}（${beforeDur}→${P.doll.durability}）`
-            );
-
-            match.updateHP?.();               // あるなら呼ぶ
-            match.sendStatusInfo(sock, P);
-            match.sendSimpleStatusBoth();
-
-            match.endRound();
+            // ★ 共通スキル処理へ
+            await match.useSkill(sock, P, P.opponent, 2);
             return;
           }
+
           // ================================
           // 人形使い：スキル3（暴走）
           // ================================
           if (m.type === "request_doll_skill3") {
 
-              if (sock !== match.current) {
-                  match.sendError("❌ 今はあなたのラウンドではありません。", sock);
-                  return;
-              }
+            if (sock !== match.current) {
+              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              return;
+            }
 
-              if (!P.doll || P.doll.is_broken) {
-                  match.sendError("❌ 人形が壊れています。", sock);
-                  return;
-              }
+            if (!P.doll) {
+              match.sendError("❌ 人形が存在しません。", sock);
+              return;
+            }
 
-              if (P.doll.durability < 10) {
-                  match.sendError("❌ 耐久力が足りません。", sock);
-                  return;
-              }
-
-              // 発動
-              P.doll.durability = Math.floor(P.doll.durability / 2);
-              P.doll.is_rampage = true;
-              P.doll.rampage_rounds = 3;
-
-              P.used_skill_set.add("doll_3");
-
-              match.sendSystem(
-                  `🪆 ${P.name} の人形が暴走した！`
-              );
-
-              match.sendStatusInfo(sock, P);
-              match.sendSimpleStatusBoth();
-              match.endRound();
+            // ★ 共通スキル処理へ
+            await match.useSkill(sock, P, P.opponent, 3);
+            return;
           }
+
 
           // ================================
           // 対戦終了後は何もさせない
