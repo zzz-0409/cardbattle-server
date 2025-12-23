@@ -12,6 +12,7 @@ import http from "http";
 
 
 
+
 // デバッグログ ON/OFF
 const DEBUG = true;
 
@@ -101,7 +102,7 @@ class Match {
 
       
       // ★ 人形使い：人形情報を送信（攻撃/防御も含める）
-      const isDollUser = (actor.job === "人形使い" || Number(actor.job) === 9);
+      const isDollUser = (actor.job === 9 || Number(actor.job) === 9);
 
       if (isDollUser && actor.doll) {
           payload.doll = {
@@ -252,7 +253,7 @@ class Match {
     // ★ 人形使い：暴走ラウンド進行（ラウンド開始時）
     // ================================
     if (
-      (actor.job === "人形使い" || Number(actor.job) === 9) &&
+      (actor.job === 9 || Number(actor.job) === 9) &&
       actor.doll &&
       actor.doll.is_rampage
     ) {
@@ -284,7 +285,7 @@ class Match {
     // ★ 人形使い：耐久リジェネ（ラウンド開始時）
     // ================================
     if (
-      (actor.job === "人形使い" || Number(actor.job) === 9) &&
+      (actor.job === 9 || Number(actor.job) === 9) &&
       actor.applyDollRegen &&
       !actor.doll?.is_rampage   // ★ 暴走中は回復しない
     ) {
@@ -322,7 +323,7 @@ class Match {
       // ================================
       // 人形使い：衣装＋修理キットのみ
       // ================================
-      if (Number(P.job) === 9 || P.job === "人形使い") {
+      if (Number(P.job) === 9 || P.job === 9) {
 
         // 25%：修理キット
         if (Math.random() < 0.25) {
@@ -381,7 +382,7 @@ class Match {
       }
 
       // 魔導士：70%魔導士装備、30%魔力水/通常アイテム/装備
-      if (P.job === "魔導士") {
+      if (P.job === 5) {
         if (r < 70) {
           const pool = MAGE_EQUIPS;
           entry = { ...pool[Math.floor(Math.random() * pool.length)] };
@@ -472,7 +473,7 @@ class Match {
 
     } else if (
         item.is_doll_costume &&
-        P.job === "人形使い"
+        P.job === 9
     ) {
         // 人形衣装 → 特殊装備インベントリ
         P.special_inventory.push(item);
@@ -704,7 +705,7 @@ class Match {
     else if (
       action === "special" &&
       item.is_doll_costume &&
-      P.job === "人形使い"
+      P.job === 9
     ) {
         if (!P.doll) {
             this.sendError("❌ 人形が存在しません。", wsPlayer);
@@ -931,8 +932,8 @@ class Match {
       exp: P.exp,
 
       // ===== 魔導士 =====
-      mana: P.job === "魔導士" ? P.mana : null,
-      mana_max: P.job === "魔導士" ? P.mana_max : null,
+      mana: P.job === 5 ? P.mana : null,
+      mana_max: P.job === 5 ? P.mana_max : null,
 
       // ===== 装備・バフ =====
       equipment: equipmentList,
@@ -946,7 +947,7 @@ class Match {
       ) ?? [],
 
       // ===== 人形（人形使い）=====
-      doll: ((P.job === "人形使い" || Number(P.job) === 9) && P.doll)
+      doll: ((P.job === 9 || Number(P.job) === 9) && P.doll)
         ? {
             durability: P.doll.durability,
             max_durability: P.doll.max_durability,
@@ -990,18 +991,22 @@ class Match {
         defense: self.get_total_defense(),
         coins: self.coins,
         level: self.level,
+        job: self.job ?? "不明",
+
         mana: self.job === "魔導士" ? self.mana : null,
         mana_max: self.job === "魔導士" ? self.mana_max : null,
+        
+
 
         arrow_slots: self.arrow_slots ?? 1,
 
         doll: ((self.job === "人形使い" || Number(self.job) === 9) && self.doll)
           ? {
-              durability: self.doll.durability,
-              max_durability: self.doll.max_durability,
-              is_broken: self.doll.is_broken,
-              attack: self.doll.is_broken ? 0 : self.getDollAttack(),
-              defense: self.getDollDefense(),
+              durability: enemy.doll.durability,
+              max_durability: enemy.doll.max_durability,
+              is_broken: enemy.doll.is_broken,
+              attack: enemy.doll.is_broken ? 0 : enemy.getDollAttack(),
+              defense: enemy.getDollDefense(),
             }
           : null,
       });
@@ -1017,6 +1022,8 @@ class Match {
         defense: enemy.get_total_defense(),
         coins: enemy.coins,
         level: enemy.level,
+        job: enemy.job ?? "不明",
+
         mana: enemy.job === "魔導士" ? enemy.mana : null,
         mana_max: enemy.job === "魔導士" ? enemy.mana_max : null,
 
@@ -1053,124 +1060,27 @@ class Match {
       type: "your_turn",
       msg: `▶ あなたのラウンド（ラウンド${this.round}）`
     });
+
     safeSend(this.enemy, {
       type: "wait_turn",
       msg: `⏳ 相手のラウンド（ラウンド${this.round}）`
     });
 
     // ---------------------------------
-    // ★ 各プレイヤーに「自分の」状態を送る
+    // ★ 簡易ステータスはここで一元送信
+    // （相手が ? になる問題の根本対策）
     // ---------------------------------
-      const sendSelfStatus = (ws, self) => {
-      // ★ 簡易ステータス（自分用）
-      safeSend(ws, {
-        type: "status_simple",
-        side: "self",
-        hp: self.hp,
-        max_hp: self.max_hp,
-        attack: self.get_total_attack(),
-        defense: self.get_total_defense(),
-        coins: self.coins,
-        level: self.level,
-        mana: self.job === "魔導士" ? self.mana : null,
-        mana_max: self.job === "魔導士" ? self.mana_max : null,
-      });
+    this.sendSimpleStatusBoth();
 
-
-      // ★ 簡易ステータス（相手用）
-      const enemy = (self === this.P1) ? this.P2 : this.P1;
-      safeSend(ws, {
-        type: "status_simple",
-        side: "self",
-        hp: self.hp,
-        max_hp: self.max_hp,
-        attack: self.get_total_attack(),
-        defense: self.get_total_defense(),
-        coins: self.coins,
-        level: self.level,
-        mana: self.job === "魔導士" ? self.mana : null,
-        mana_max: self.job === "魔導士" ? self.mana_max : null,
-
-        // ★★★ ここに入れる ★★★
-        doll: ((self.job === "人形使い" || Number(self.job) === 9) && self.doll)
-          ? {
-              durability: self.doll.durability,
-              max_durability: self.doll.max_durability,
-              is_broken: self.doll.is_broken,
-              attack: self.doll.is_broken ? 0 : self.getDollAttack(),
-              defense: self.getDollDefense(),
-            }
-          : null,
-      });
-
-
-
-      // レベル
-      safeSend(ws, {
-        type: "level_info",
-        level: self.level,
-        canLevelUp: self.can_level_up()
-      });
-
-      // EXP
-      safeSend(ws, {
-        type: "exp_info",
-        exp: self.exp
-      });
-
-      // アイテム
-      const inv   = self.inventory || [];
-      const eqInv = self.equipment_inventory || [];
-      const spInv = self.special_inventory || [];
-      const arInv = self.arrow_inventory || [];
-
-
-
-
-      // 魔力
-      if (self.job === "魔導士") {
-        safeSend(ws, {
-          type: "mana_info",
-          mana: self.mana,
-          mana_max: self.mana_max
-        });
-        
-      } else {
-        safeSend(ws, { type: "mana_hide" });
-      }
-      
-
-      // ★ ステータス（ここが核心）
-      safeSend(ws, {
-        type: "status_simple",
-        side: "enemy",
-        hp: enemy.hp,
-        max_hp: enemy.max_hp,
-        attack: enemy.get_total_attack(),
-        defense: enemy.get_total_defense(),
-        coins: enemy.coins,
-        level: enemy.level,
-        mana: enemy.job === "魔導士" ? enemy.mana : null,
-        mana_max: enemy.job === "魔導士" ? enemy.mana_max : null,
-
-        doll: ((enemy.job === "人形使い" || Number(enemy.job) === 9) && enemy.doll)
-          ? {
-              durability: enemy.doll.durability,
-              max_durability: enemy.doll.max_durability,
-              is_broken: enemy.doll.is_broken,
-              attack: enemy.doll.is_broken ? 0 : enemy.getDollAttack(),
-              defense: enemy.getDollDefense(),
-            }
-          : null,
-      });
-
-    };
-
-
-    // 自分には自分の式神を送る
-    sendSelfStatus(this.p1, this.P1);
-    sendSelfStatus(this.p2, this.P2);
+    // ---------------------------------
+    // 以降は「ws / self / enemy」を
+    // 使わない処理だけにする
+    // ---------------------------------
   }
+
+
+
+   
 
   /* =========================================================
      行動処理
@@ -1218,7 +1128,7 @@ class Match {
       } else {
         // ★ 人形使いは人形で攻撃（壊れていれば本体）
         const dmg =
-          (actor.job === "人形使い" && actor.doll && !actor.doll.is_broken)
+          (actor.job === 9 && actor.doll && !actor.doll.is_broken)
             ? actor.getDollAttack()
             : actor.get_total_attack();
 
@@ -1226,7 +1136,7 @@ class Match {
 
 
         this.sendBattle(
-          actor.job === "人形使い" && actor.doll && !actor.doll.is_broken
+          actor.job === 9 && actor.doll && !actor.doll.is_broken
             ? `🪆 人形の攻撃！ ${dealt}ダメージ！`
             : `🗡 ${actor.name} の攻撃！ ${dealt}ダメージ！`
         );
@@ -1260,7 +1170,7 @@ class Match {
     /* ---------- スキル（失敗ならラウンド消費しない） ---------- */
     if (
       (action === "スキル1" || action === "スキル2" || action === "スキル3") &&
-      actor.job !== "人形使い" &&
+      actor.job !== 9 &&
       Number(actor.job) !== 9
     ) {
 
@@ -1309,7 +1219,7 @@ class Match {
     }
 
     // -------- 2) 使用済みチェック --------
-    if (!(actor.job === "魔導士" && (stype === "mage_2" || stype === "mage_3"))) {
+    if (!(actor.job === 5 && (stype === "mage_2" || stype === "mage_3"))) {
       if (actor.used_skill_set.has(stype)) {
         this.sendError("❌ このスキルはすでに使用済みです！", wsPlayer);
         this.skill_lock = false;
@@ -1352,12 +1262,12 @@ class Match {
     }
 
     // -------- 5) 使用済みに登録（成功時のみ） --------
-    if (!(actor.job === "魔導士" && (stype === "mage_2" || stype === "mage_3"))) {
+    if (!(actor.job === 5 && (stype === "mage_2" || stype === "mage_3"))) {
       actor.used_skill_set.add(stype);
     }
 
     // 魔導士の魔力更新
-    if (actor.job === "魔導士") {
+    if (actor.job === 5) {
       safeSend(wsPlayer, {
         type: "mana_info",
         mana: actor.mana,
@@ -1544,7 +1454,7 @@ class Match {
     // ============================
     // 人形使い：DUR 回復（ラウンド終了時）
     // ============================
-    if (actor.job === "人形使い" && actor.applyDollRegen) {
+    if (actor.job === 9 && actor.applyDollRegen) {
       const before = actor.doll?.durability;
       actor.applyDollRegen();
       const after = actor.doll?.durability;
@@ -1676,7 +1586,7 @@ wss.on("connection", (ws) => {
             }
 
             // 職業チェック
-            if (P.job !== "人形使い" && Number(P.job) !== 9) {
+            if (P.job !== 9 && Number(P.job) !== 9) {
               match.sendError("❌ 人形使い専用スキルです。", sock);
               return;
             }
