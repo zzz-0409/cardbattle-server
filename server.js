@@ -1599,11 +1599,12 @@ wss.on("connection", (ws) => {
   ws.on("message", (raw) => {
     const msg = JSON.parse(raw.toString());
 
-    /* ---------- JOIN ---------- */
     // ---------------------------------------------------------
     // 接続: join
     // ---------------------------------------------------------
-    if (msg.type === "join") {
+    /* ---------- JOIN ---------- */
+    if (msg.type === "join" || msg.type === "join_random") {
+
 
         const name = msg.name;
         let jobKey = msg.job;
@@ -1650,6 +1651,10 @@ wss.on("connection", (ws) => {
         });
 
         const match = new Match(p1, p2);
+
+        // ★ これを追加
+        safeSend(p1, { type: "match_start" });
+        safeSend(p2, { type: "match_start" });
 
         // =====================================
         // 共通メッセージハンドラ（正）
