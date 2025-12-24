@@ -288,10 +288,24 @@ class Match {
     if (
       actor.job === "人形使い" &&
       actor.applyDollRegen &&
-      !actor.doll?.is_rampage   // ★ 暴走中は回復しない
+      actor.doll &&
+      !actor.doll.is_broken &&
+      !actor.doll.is_rampage
     ) {
+      const before = actor.doll.durability;
+
       actor.applyDollRegen();
+
+      const after = actor.doll.durability;
+
+      // ★ 実際に回復したときだけログ
+      if (after > before) {
+        this.sendSystem(
+          `🪆 人形の耐久が ${before} → ${after} に回復した`
+        );
+      }
     }
+
 
 
     this.updateHP();
@@ -718,10 +732,12 @@ class Match {
 
         const part = item.part; // head / body / leg / foot
 
-        if (!P.doll.costumes || !P.doll.costumes[part]) {
+        // ★ 衣装スロットが存在しない場合のみエラー
+        if (!P.doll.costumes || !(part in P.doll.costumes)) {
             this.sendError("❌ 不正な衣装部位です。", wsPlayer);
             return;
         }
+
 
         // 既存衣装があれば戻す
         const prev = P.doll.costumes[part];
@@ -786,6 +802,13 @@ class Match {
               "🔧 人形を修理し、戦闘に復帰させた！（1T無敵）"
             );
         }
+        // ★ 衣装スロットが undefined なら null で初期化
+        P.doll.costumes ??= {
+            head: null,
+            body: null,
+            leg: null,
+            foot: null
+        };
 
         P[source] = P[source].filter(x => x.uid !== uid);
 
@@ -1496,21 +1519,6 @@ class Match {
 
     this.applyDots();
     if (this.ended) return;
-
-    // ============================
-    // 人形使い：DUR 回復（ラウンド終了時）
-    // ============================
-    if (actor.job === "人形使い" && actor.applyDollRegen) {
-      const before = actor.doll?.durability;
-      actor.applyDollRegen();
-      const after = actor.doll?.durability;
-
-      if (before != null && after != null && after > before) {
-        this.sendSystem(
-          `🪆 人形の耐久が ${before} → ${after} に回復した`
-        );
-      }
-    }
 
 
     // ラウンド交代
