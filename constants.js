@@ -422,7 +422,7 @@ export const MAGE_EQUIPS = [
 // ================================
 export const DOLL_REPAIR_KIT = {
   name: "修理キット",
-  price: 12,
+  price: 25,
   category: "item",
   is_doll_item: true,
   effect_text: "人形の耐久を回復／破壊時は復活（1T無敵）",

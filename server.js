@@ -345,7 +345,7 @@ class Match {
           entry = {
             uid: crypto.randomUUID(),
             name: "修理キット",
-            price: 12,
+            price: 25,
             is_doll_item: true,
             effect_text: "人形の耐久を回復／破壊時は復活（1T無敵）"
           };
