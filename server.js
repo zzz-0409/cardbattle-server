@@ -345,7 +345,7 @@ class Match {
           entry = {
             uid: crypto.randomUUID(),
             name: "修理キット",
-            price: 25,
+            price: 20,
             is_doll_item: true,
             effect_text: "人形の耐久を回復／破壊時は復活（1T無敵）"
           };
@@ -536,7 +536,7 @@ class Match {
   shopReroll(wsPlayer) {
     const actor = (wsPlayer === this.p1 ? this.P1 : this.P2);
 
-    const cost = 10;
+    const cost = 5;
     if (actor.coins < cost) {
       safeSend(wsPlayer, {
         type: "error_log",

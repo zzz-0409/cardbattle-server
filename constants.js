@@ -55,8 +55,8 @@ export const JOB_TEMPLATE = {
   8: { name: "弓兵", coin: 10, atk_bonus: -5, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
   9: {
     name: "人形使い",
-    coin: 12,
-    atk_bonus: -10,
+    coin: 10,
+    atk_bonus: -19,
     def_bonus: 0,
     heal_bonus: 0,
     coin_per_turn_bonus: 0,
@@ -422,7 +422,7 @@ export const MAGE_EQUIPS = [
 // ================================
 export const DOLL_REPAIR_KIT = {
   name: "修理キット",
-  price: 25,
+  price: 20,
   category: "item",
   is_doll_item: true,
   effect_text: "人形の耐久を回復／破壊時は復活（1T無敵）",
