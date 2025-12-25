@@ -25,6 +25,70 @@ function safeSend(ws, payload) {
   }
 }
 
+
+function createBotSocket() {
+  return {
+    isBot: true,
+    readyState: WebSocket.OPEN,
+    send() {
+      // CPUには送らない
+    }
+  };
+}
+// =========================================================
+// ★ CPU専用：UIを通さず「Player.apply_item」でアイテム効果を適用（最新版準拠）
+//   - item.js の effect_type（"攻撃力"/"防御力"/"HP"）に対応
+//   - category は付いていないことがあるので見ない
+// =========================================================
+function cpuUseItemDirect(match, ws, item) {
+  const P = ws.player;
+
+  // 1) P.items に存在する「通常アイテム」だけ対象
+  //    （装備・特殊・矢は別処理）
+  if (!item) return false;
+  if (item.is_equip) return false;
+  if (item.is_arrow || item.equip_type === "arrow") return false;
+  if (item.equip_type === "mage_equip" || item.equip_type === "alchemist_unique") return false;
+  if (item.is_doll_costume) return false;
+
+  // 2) HPが満タンなら HP回復アイテムは使わない（無駄撃ち防止）
+  if (item.effect_type === "HP" && (P.hp >= P.max_hp)) return false;
+
+  // 3) 効果適用（人間と同じ入口に統一）
+  if (typeof P.apply_item !== "function") {
+    // apply_item が無いなら諦める（ここをフォールバックで増やしたいなら後で足す）
+    return false;
+  }
+
+  // 適用前ログ用
+  const beforeHp = P.hp;
+
+  P.apply_item(item);
+
+  // 4) ログ（item.js の仕様に合わせる）
+  if (item.effect_type === "HP") {
+    match.sendSystem(
+      `🧪 ${P.name} が ${item.name} を使用（HP ${beforeHp} → ${P.hp}）`
+    );
+  } else {
+    const dur = item.duration ?? 0;
+    match.sendSystem(
+      `🧪 ${P.name} が ${item.name} を使用（${item.effect_type}+${item.power}${dur > 0 ? ` / ${dur}R` : ""}）`
+    );
+  }
+
+  // 5) インベントリから削除（P.items から消す）
+  P.items = (P.items ?? []).filter(i => i.uid !== item.uid);
+
+  // 6) UI同期（重要）
+  match.sendItemList(ws, P);
+  match.sendStatusInfo(ws, P);
+  match.sendSimpleStatusBoth();
+
+  return true;
+}
+
+
 function debugLog(msg) {
   if (!DEBUG) return;
   for (const c of clients) {
@@ -206,7 +270,9 @@ class Match {
     safeSend(this.p1, { type: "exp_info", exp: this.P1.exp });
     safeSend(this.p2, { type: "exp_info", exp: this.P2.exp });
 
-    this.sendRoundInfo(); // ★ 変更（旧 sendTurnInfo）
+    this.startRound();      // ★ これを追加
+    this.sendRoundInfo();
+
   }
 
   // ★ 変更（旧 startTurn）
@@ -1533,6 +1599,12 @@ class Match {
     safeSend(this.p2, { type: "coin_info", coins: this.P2.coins });
 
     this.sendRoundInfo(); // ★ 修正（旧 sendTurnInfo）
+
+  // ★ 次がCPUのラウンドなら行動させる
+  if (this.current.isBot) {
+    maybeCpuTurn(this);
+  }
+    
   }
 
   // ---------- ★修正版：ショップを開く ----------
@@ -1550,6 +1622,808 @@ class Match {
 
 }
 
+function startCpuMatch(humanWS) {
+  const botWS = createBotSocket();
+
+  // ===============================
+  // ★ CPU職業：指定があればそれを使う
+  // ===============================
+  let cpuJobKey = humanWS.player.cpu_job;
+
+  // 職業名で来た場合 → JOB_TEMPLATE の番号に変換
+  if (typeof cpuJobKey === "string") {
+    const found = Object.entries(JOB_TEMPLATE)
+      .find(([_, v]) => v.name === cpuJobKey);
+    cpuJobKey = found ? Number(found[0]) : null;
+  }
+
+  // 未指定 or 不正 → ランダム
+  if (cpuJobKey == null || isNaN(cpuJobKey)) {
+    const keys = Object.keys(JOB_TEMPLATE);
+    cpuJobKey = Number(
+      keys[Math.floor(Math.random() * keys.length)]
+    );
+  }
+
+  const cpuPlayer = new Player("CPU", cpuJobKey);
+  botWS.player = cpuPlayer;
+
+  const match = new Match(humanWS, botWS);
+
+
+  // =================================================
+  // ★ CPU戦：人間側メッセージをこの match に流す
+  // =================================================
+  const handleCpuMessage = async (raw2) => {
+    const m = JSON.parse(raw2.toString());
+    const sock = humanWS;
+    const P = match.P1; // human は必ず P1
+
+    if (match.ended) return;
+
+    // ---------- 人形使い：スキルUI系 ----------
+    if (m.type === "request_doll_skill1") {
+      if (sock !== match.current) {
+        match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+        return;
+      }
+      safeSend(sock, { type: "request_doll_part_select" });
+      return;
+    }
+
+    if (m.type === "use_doll_skill1") {
+      P.selected_doll_part = m.part;
+      await match.useSkill(sock, P, P.opponent, 1);
+      return;
+    }
+
+    if (m.type === "use_doll_skill2") {
+      P.pending_hp_cost = Number(m.hpCost);
+      await match.useSkill(sock, P, P.opponent, 2);
+      return;
+    }
+
+    if (m.type === "request_doll_skill3") {
+      await match.useSkill(sock, P, P.opponent, 3);
+      return;
+    }
+
+    // ---------- 行動 ----------
+    if (m.type === "action") {
+      await match.handleAction(sock, m.action);
+      return;
+    }
+
+    // ---------- ステータス詳細 ----------
+    if (m.type === "request_status_detail") {
+      match.sendStatusDetail(
+        sock,
+        match.P1,
+        match.P2,
+        m.target === "enemy" ? "enemy" : "self"
+      );
+      return;
+    }
+
+    // ---------- アイテム ----------
+    if (m.type === "use_item") {
+      match.useItem(sock, m.item_id, m.action, m.slot);
+      return;
+    }
+
+    // ---------- ショップ ----------
+    if (m.type === "open_shop") {
+      match.openShop(sock);
+      return;
+    }
+    if (m.type === "buy_item") {
+      match.buyItem(sock, m.index);
+      return;
+    }
+    if (m.type === "shop_reroll") {
+      match.shopReroll(sock);
+      return;
+    }
+
+    // ---------- レベルアップ ----------
+    if (m.type === "level_up_request") {
+      const req = LEVEL_REQUIREMENTS[P.level];
+      if (!req) {
+        safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false });
+        return;
+      }
+      const need = req - P.exp;
+      if (need <= 0) {
+        safeSend(sock, { type: "level_up_check", canExp: true, canCoins: false });
+      } else if (P.coins >= need) {
+        safeSend(sock, {
+          type: "level_up_check",
+          canExp: false,
+          canCoins: true,
+          needCoins: need
+        });
+      } else {
+        safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false });
+      }
+      return;
+    }
+
+    if (m.type === "level_up_exp") {
+      const res = P.try_level_up_auto?.();
+      if (!res?.auto) return;
+      safeSend(sock, { type: "level_info", level: P.level, canLevelUp: P.can_level_up() });
+      safeSend(sock, { type: "exp_info", exp: P.exp });
+      match.sendSimpleStatusBoth();
+      return;
+    }
+
+    if (m.type === "level_up_coins") {
+      const res = P.try_level_up_with_coins?.();
+      if (!res?.success) return;
+      safeSend(sock, { type: "level_info", level: P.level, canLevelUp: P.can_level_up() });
+      safeSend(sock, { type: "exp_info", exp: P.exp });
+      safeSend(sock, { type: "coin_info", coins: P.coins });
+      match.sendSimpleStatusBoth();
+      return;
+    }
+  };
+
+  humanWS.on("message", handleCpuMessage);
+
+  safeSend(humanWS, { type: "match_start" });
+
+  // ★ CPUが後攻なら即思考開始
+  setTimeout(() => maybeCpuTurn(match), 300);
+}
+
+// =========================================================
+// ★ CPU用：装備比較（true = 付け替える価値あり）
+// =========================================================
+function isBetterEquip(newItem, currentItem) {
+  if (!currentItem) return true; // 何も付けていないならOK
+
+  // 攻撃力
+  const newAtk = newItem.power ?? newItem.atk ?? 0;
+  const curAtk = currentItem.power ?? currentItem.atk ?? 0;
+
+  // 防御力
+  const newDef = newItem.def ?? 0;
+  const curDef = currentItem.def ?? 0;
+
+  // シンプルな合計評価
+  return (newAtk + newDef) > (curAtk + curDef);
+}
+
+// =========================================================
+// ★ 弓兵AI：矢の優先度
+// =========================================================
+function getArrowPriority(it) {
+  if (!it) return 0;
+
+  // 名前ベース（ARROW_DATA の name に依存）
+  if (it.name?.includes("会心")) return 5;
+  if (it.name?.includes("毒")) return 4;
+  if (it.name?.includes("氷結")) return 3;
+  if (it.name?.includes("反撃")) return 2;
+
+  return 1; // 普通の矢
+}
+
+// =========================================================
+// ★ CPU用：人形スキル2のHP消費量自動決定
+// =========================================================
+function decideCpuDollSkill2Cost(P) {
+  if (!P.doll || P.doll.is_broken) return null;
+
+  const hpRate = P.hp / P.max_hp;
+
+  if (hpRate >= 0.7) return 40;
+  if (hpRate >= 0.4) return 30;
+  if (hpRate >= 0.2) return 20;
+  if (hpRate >= 0.1) return 10;
+
+  return null; // 危険域では使わない
+}
+
+// =========================================================
+// ★ CPU用：スキル使用可否を完全判定（使用済み・条件不足防止）
+// =========================================================
+function canUseCpuSkill(P, id) {
+  let key;
+
+  // ★ CPU：人形使いスキル2はHP条件を満たす時のみ使用可
+  if (P.job === "人形使い" && id === 2) {
+    const cost = decideCpuDollSkill2Cost(P);
+    if (!cost) return false;
+  }
+
+  if (P.job === "人形使い") {
+    key = `doll_${id}`;
+  } else {
+    const prefix = {
+      "戦士": "warrior",
+      "騎士": "knight",
+      "僧侶": "priest",
+      "盗賊": "thief",
+      "魔導士": "mage",
+      "陰陽師": "onmyoji",
+      "錬金術師": "alchemist",
+      "弓兵": "archer",
+    }[P.job];
+
+    if (!prefix) return false; // 念のため
+    key = `${prefix}_${id}`;
+  }
+
+  // 使用済み
+  if (P.used_skill_set?.has(key)) return false;
+
+  // レベル不足
+  if (P.level < id) return false;
+
+  // 魔導士マナ
+  if (P.job === "魔導士") {
+    if (id === 2 && P.mana < 30) return false;
+    if (id === 3 && P.mana < 60) return false;
+  }
+
+  return true;
+}
+
+// =========================================================
+// ★ CPU AI：状態分析（修正版）
+// =========================================================
+function analyzeCpuState(match, ws) {
+  const P = ws.player;
+  const E = P.opponent;
+
+  // ★ item.js の仕様に合わせる：effect_type は "攻撃力"/"防御力"/"HP"
+  //    category/effect は見ない（付いていない）
+  const usableItem =
+    (P.items ?? []).find(it => {
+      if (!it) return false;
+
+      // 装備系は除外（P.items に混ざってても弾く）
+      if (it.is_equip) return false;
+      if (it.is_arrow || it.equip_type === "arrow") return false;
+      if (it.equip_type === "mage_equip" || it.equip_type === "alchemist_unique") return false;
+      if (it.is_doll_costume) return false;
+
+      // HP満タンなら回復は使わない
+      if (it.effect_type === "HP" && P.hp >= P.max_hp) return false;
+
+      // 上記以外は「使える」とみなす
+      return true;
+    }) ?? null;
+
+
+  // =========================
+  // ★ CPU用：装備候補選定（returnの前）
+  // =========================
+  const equipCandidate =
+    (P.equipment_inventory ?? []).find(it =>
+      isBetterEquip(it, P.equipment)
+    ) ?? null;
+
+  // =========================
+  // ★ CPU用：特殊装備候補（性能が上がる場合のみ）
+  // =========================
+  const specialCandidate =
+    (P.special_inventory ?? []).find(it => {
+
+      // ---------- 人形衣装 ----------
+      if (it.is_doll_costume) {
+        if (!P.doll) return false;
+
+        const cur = P.doll.costumes?.[it.part];
+        if (!cur) return true; // 未装備ならOK
+
+        // ★ 性能が上がらないなら除外
+        if (
+          (it.star ?? 1) <= (cur.star ?? 1) &&
+          (it.attack ?? 0) <= (cur.attack ?? 0) &&
+          (it.defense ?? 0) <= (cur.defense ?? 0)
+        ) {
+          return false;
+        }
+        return true;
+      }
+
+      // ---------- 矢 ----------
+      if (it.is_arrow || it.equip_type === "arrow") {
+        if (P.arrow?.uid === it.uid) return false;
+        if (P.arrow2?.uid === it.uid) return false;
+        return true;
+      }
+
+    // ---------- 魔導士装備（部位別で判定） ----------
+    if (it.equip_type === "mage_equip") {
+      const slot = getMageSlot(it);
+      const cur = P.mage_equips?.[slot];
+
+      // 未装備なら OK
+      if (!cur) return true;
+
+      // ★ すでに同じ部位を持っている → 基本的にスキップ
+      // （性能比較したいならここで isBetterMageEquip を入れる）
+      return false;
+    }
+
+
+      // ---------- その他の特殊装備 ----------
+      if (P.special_equipped) {
+        if (P.special_equipped.uid === it.uid) return false;
+      }
+
+      return true;
+    }) ?? null;
+
+  // =========================
+  // ★ CPU用：矢の装備候補（優先度ルール確定版）
+  // =========================
+  let arrowCandidate = null;
+
+  if (P.job === "弓兵") {
+
+    const inv = (P.arrow_inventory ?? [])
+      .filter(it => it && (it.is_arrow || it.equip_type === "arrow"));
+
+    // 所持矢の中で最優先度
+    const bestOwned = inv.reduce((best, it) => {
+      if (!best) return it;
+      return getArrowPriority(it) > getArrowPriority(best)
+        ? it
+        : best;
+    }, null);
+
+    if (bestOwned) {
+
+      // ① slot2 が空いている → 同優先度でも装備（枠埋め）
+      if (P.arrow_slots >= 2 && !P.arrow2) {
+        arrowCandidate = bestOwned;
+      }
+
+      // ② 両方埋まっている → 低い方と比較
+      else if (P.arrow && P.arrow2) {
+        const p1 = getArrowPriority(P.arrow);
+        const p2 = getArrowPriority(P.arrow2);
+
+        const lowEquipped = (p1 <= p2) ? P.arrow : P.arrow2;
+
+        const bestP = getArrowPriority(bestOwned);
+        const lowP  = getArrowPriority(lowEquipped);
+
+        // 所持 ＞ 装備中 のときだけ入れ替え
+        if (bestP > lowP) {
+          arrowCandidate = bestOwned;
+        }
+      }
+    }
+  }
+
+  let specialAlreadyEquipped = false;
+
+  if (specialCandidate?.is_doll_costume && P.doll?.costumes) {
+    const cur = P.doll.costumes[specialCandidate.part];
+    if (cur && cur.uid === specialCandidate.uid) {
+      specialAlreadyEquipped = true;
+    }
+  }
+
+
+  return {
+    hpRate: P.hp / P.max_hp,
+    enemyHpRate: E.hp / E.max_hp,
+
+    coins: P.coins,
+
+    usableItem,
+    hasUsableItem: !!usableItem,
+
+
+    // ★ ここが重要
+    hasEquip: !!P.equipment,
+    equipItem: equipCandidate,
+
+    hasSpecialEquip: !!specialCandidate,
+    specialEquip: specialCandidate,
+    specialAlreadyEquipped,
+
+    arrowEquip: arrowCandidate,
+    hasArrowEquip: !!arrowCandidate,
+
+    canBuy:
+      (P.coins ?? 0) >= 5 &&
+      Array.isArray(P.shop_items) &&
+      P.shop_items.length > 0,
+
+    canSkill1: canUseCpuSkill(P, 1),
+    canSkill2: canUseCpuSkill(P, 2),
+    canSkill3: canUseCpuSkill(P, 3),
+
+  };
+
+}
+
+
+function decideCpuAction(state) {
+  // =========================
+  // 1) 準備行動（ラウンド非消費）
+  // =========================
+
+  // 回復（HPが減っていて、回復アイテムを持っている）
+  if (state.hasUsableItem) {
+    return { type: "use_item" };
+  }
+
+  // =========================
+  // ★ 矢装備（最優先）
+  // =========================
+  if (state.hasArrowEquip) {
+    return { type: "arrow" };
+  }
+
+  // 特殊装備（本当に付け替え価値がある場合のみ）
+  if (state.hasSpecialEquip) {
+
+    // ★ 人形使い：同じ部位の付け直しは禁止
+    if (
+      state.specialEquip?.is_doll_costume &&
+      state.specialEquip.part &&
+      state.specialEquipAlreadyEquipped === true
+    ) {
+      // 何もしない（次へ）
+    } else {
+      return { type: "special" };
+    }
+  }
+
+
+  // 通常装備（未装備なら装備）
+  if (!state.hasEquip && state.equipItem) {
+    return { type: "equip" };
+  }
+
+  // ショップ（“必要があるときだけ”行く：まだ整ってない要素がある時）
+  // ※ ここが「shop連打」になりにくいポイント
+  if (
+    state.canBuy &&
+    (
+      !state.hasEquip ||              // 装備なし
+      state.hasSpecialEquip ||        // 特殊をまだ付けたい
+      (state.hpRate < 0.7 && !state.hasHealItem) // 回復したいのにアイテムが無い
+    )
+  ) {
+    return { type: "shop" };
+  }
+
+  // =========================
+  // 2) 消費行動（ラウンド消費）
+  // =========================
+  if (state.canSkill3) return { type: "skill", id: 3 };
+  if (state.canSkill2) return { type: "skill", id: 2 };
+  if (state.canSkill1) return { type: "skill", id: 1 };
+
+  return { type: "attack" };
+}
+
+
+// =========================================================
+// ★ CPU AI：ターン処理（1ラウンドで準備→最後に消費）
+// =========================================================
+async function maybeCpuTurn(match) {
+  if (match.ended) return;
+  if (!match.current?.isBot) return;
+
+  if (match._cpuThinking) return;
+  match._cpuThinking = true;
+
+  const botWS = match.current;
+  const P = botWS.player; // ★ これが必要
+
+
+  try {
+    // =========================
+    // 準備行動フェーズ（最大3回）
+    // =========================
+    const MAX_PREP = 3;
+
+    for (let k = 0; k < MAX_PREP; k++) {
+      if (match.ended) return;
+      if (match.current !== botWS) return; // 手番が変わったら中止
+
+      const state = analyzeCpuState(match, botWS);
+      const action = decideCpuAction(state);
+
+      // 「消費行動」になったら準備終了→この後に実行する
+      if (action.type === "skill" || action.type === "attack") {
+        break;
+      }
+
+      switch (action.type) {
+
+        case "use_item":
+          if (state.usableItem) {
+            cpuUseItemDirect(match, botWS, state.usableItem);
+          }
+          break;
+
+        // =========================
+        // ★ 矢装備（正しい独立ケース）
+        // =========================
+        case "arrow":
+          if (state.arrowEquip) {
+            const slot =
+              (P.arrow_slots >= 2 && !P.arrow2) ? 2 : 1;
+
+            match.useItem(
+              botWS,
+              state.arrowEquip.uid,
+              "arrow",
+              slot
+            );
+          }
+          break;
+
+        case "equip":
+          if (state.equipItem) {
+            match.useItem(botWS, state.equipItem.uid, "equip");
+          }
+          break;
+
+        case "special":
+          if (state.specialEquip) {
+
+            // ============================
+            // ★ 人形使い：衣装交換優先制御
+            // ============================
+            if (
+              P.job === "人形使い" &&
+              state.specialEquip.is_doll_costume &&
+              P.doll?.costumes
+            ) {
+              const newIt = state.specialEquip;
+              const part = newIt.part;
+
+              const candidates = [];
+
+              const equipped = P.doll.costumes[part];
+              if (equipped) candidates.push(equipped);
+
+              for (const it of P.special_inventory ?? []) {
+                if (it.is_doll_costume && it.part === part) {
+                  candidates.push(it);
+                }
+              }
+
+              let removeTarget = candidates.find(it => it.is_broken);
+
+              if (!removeTarget && candidates.length > 0) {
+                removeTarget = candidates.reduce((a, b) =>
+                  (a.star ?? 1) <= (b.star ?? 1) ? a : b
+                );
+              }
+
+              if (removeTarget === equipped) {
+                P.selected_doll_part = part;
+              }
+            }
+
+            match.useItem(botWS, state.specialEquip.uid, "special");
+          }
+          break;
+
+
+
+
+
+        case "shop": {
+          match.openShop(botWS);
+
+          const P = botWS.player;
+          
+
+
+          // ============================
+          // 既に取得済み部位は買わない
+          // ============================
+          let shopCandidates = [...(P.shop_items ?? [])];
+          // ============================
+          // ★ 弓兵：同じ優先度の矢は2本まで
+          // ============================
+          if (P.job === "弓兵") {
+            shopCandidates = shopCandidates.filter(it => {
+              if (!it.is_arrow && it.equip_type !== "arrow") return true;
+
+              const sameCount =
+                (P.arrow_inventory ?? []).filter(a =>
+                  getArrowPriority(a) === getArrowPriority(it)
+                ).length +
+                ([P.arrow, P.arrow2].filter(a =>
+                  a && getArrowPriority(a) === getArrowPriority(it)
+                ).length);
+
+              // ★ 3本目は禁止
+              return sameCount < 2;
+            });
+          }
+          // ============================
+          // ★ 弓兵：装備中より弱い矢は買わない
+          // ============================
+          if (P.job === "弓兵" && P.arrow && P.arrow2) {
+
+            const lowEquippedPriority = Math.min(
+              getArrowPriority(P.arrow),
+              getArrowPriority(P.arrow2)
+            );
+
+            shopCandidates = shopCandidates.filter(it => {
+              if (!it.is_arrow && it.equip_type !== "arrow") return true;
+
+              // ★ 装備中2枠の低い方以下は買わない
+              return getArrowPriority(it) > lowEquippedPriority;
+            });
+          }
+    
+          // ============================
+          // ★ 人形使い：衣装購入ルール
+          // ============================
+          if (P.job === "人形使い") {
+
+            // 部位ごとの所持衣装（装備＋インベントリ）
+            const ownedByPart = {
+              head: [],
+              body: [],
+              leg: [],
+              foot: []
+            };
+
+            // 装備中
+            if (P.doll?.costumes) {
+              for (const part of Object.keys(ownedByPart)) {
+                const cur = P.doll.costumes[part];
+                if (cur) ownedByPart[part].push(cur);
+              }
+            }
+
+            // インベントリ
+            for (const it of P.special_inventory ?? []) {
+              if (it.is_doll_costume && ownedByPart[it.part]) {
+                ownedByPart[it.part].push(it);
+              }
+            }
+
+            shopCandidates = shopCandidates.filter(it => {
+              if (!it.is_doll_costume) return true;
+
+              const list = ownedByPart[it.part];
+              if (!list || list.length === 0) {
+                // その部位を一切持っていない → 買う
+                return true;
+              }
+
+              const maxStar = Math.max(...list.map(x => x.star ?? 1));
+
+              // ⭐ 星が高い → 買う
+              if ((it.star ?? 1) > maxStar) return true;
+
+              // ⭐ 同じ星 → ボロボロ衣装しか無いなら買う
+              if ((it.star ?? 1) === maxStar) {
+                const hasNonBroken = list.some(x => !x.is_broken);
+                return !hasNonBroken;
+              }
+
+              // ⭐ 星が低い → 買わない
+              return false;
+            });
+          }
+
+          if (P.job === "魔導士") {
+
+            const ownedMageSlots = new Set();
+
+            // 装備中
+            for (const slot of ["staff", "book", "ring", "robe"]) {
+              if (P.mage_equips?.[slot]) {
+                ownedMageSlots.add(slot);
+              }
+            }
+
+            // インベントリ内
+            for (const it of P.special_inventory ?? []) {
+              if (it.equip_type === "mage_equip") {
+                const slot = getMageSlot(it);
+                ownedMageSlots.add(slot);
+              }
+            }
+
+            // すでに持っている部位は除外
+            shopCandidates = shopCandidates.filter(it => {
+              if (it.equip_type !== "mage_equip") return true;
+              const slot = getMageSlot(it);
+              return !ownedMageSlots.has(slot);
+            });
+          }
+
+          // ============================
+          // 実際に購入
+          // ============================
+          if (shopCandidates.length > 0) {
+            const it = shopCandidates[
+              Math.floor(Math.random() * shopCandidates.length)
+            ];
+            const idx = P.shop_items.findIndex(x => x.uid === it.uid);
+            if (idx >= 0) {
+              match.buyItem(botWS, idx);
+            }
+          }
+
+          break;
+        }
+
+
+        default:
+          // 何もしない
+          break;
+      }
+
+      // ちょい待って状態更新（UI同期やログが落ち着く）
+      await new Promise(r => setTimeout(r, 150));
+    }
+
+    // =========================
+    // 最後に消費行動（必ず1回）
+    // =========================
+    if (match.ended) return;
+    if (match.current !== botWS) return;
+
+    const finalState = analyzeCpuState(match, botWS);
+    const finalAction = decideCpuAction(finalState);
+
+    if (finalAction.type === "skill") {
+
+      const P = botWS.player;
+
+      // =========================
+      // ★ CPU用：人形スキル2のHP自動指定
+      // =========================
+      if (P.job === "人形使い" && finalAction.id === 2) {
+        const cost = decideCpuDollSkill2Cost(P);
+        if (!cost) {
+          await match.handleAction(botWS, "攻撃");
+          return;
+        }
+        P.pending_hp_cost = cost; // ★ ここが核心
+      }
+
+      if (!canUseCpuSkill(P, finalAction.id)) {
+        await match.handleAction(botWS, "攻撃");
+        return;
+      }
+
+      await match.handleAction(
+        botWS,
+        "スキル" + finalAction.id
+      );
+      return;
+    }
+
+
+
+
+    // デフォルトは攻撃
+    await match.handleAction(botWS, "攻撃");
+    return;
+
+  } finally {
+    match._cpuThinking = false;
+  }
+}
+
+
+
+
+
 
 /* =========================================================
    接続処理
@@ -1562,6 +2436,24 @@ wss.on("connection", (ws) => {
 
   ws.on("message", (raw) => {
     const msg = JSON.parse(raw.toString());
+
+    if (msg.type === "join_cpu") {
+      const name = msg.name;
+      let jobKey = Number(msg.job);
+
+      const player = new Player(name, jobKey);
+      ws.player = player;
+      // ★ CPU職業指定を保存
+      ws.player.cpu_job = msg.cpu_job ?? null;
+
+      startCpuMatch(ws);
+      return;
+    }
+    console.log(
+      "[JOIN_CPU]",
+      "player job =", msg.job,
+      "cpu_job =", msg.cpu_job
+    );
 
     // ---------------------------------------------------------
     // 接続: join
