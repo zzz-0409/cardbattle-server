@@ -140,12 +140,37 @@ class Match {
     // ★ ラウンドカウンタ
     this.round = 1;
 
-    this.current = p1;
-    this.enemy = p2;
+    // ==============================
+    // ★ 先攻・後攻決定ロジック
+    // ==============================
+
+    // p1.player.turn_order に指定があればそれを優先（CPU戦）
+    // "first" | "second" | "random" | undefined
+    let order = p1.player.turn_order;
+
+    if (!order || order === "random") {
+      // 対人戦 or CPU戦ランダム
+      if (Math.random() < 0.5) {
+        this.current = p1;
+        this.enemy = p2;
+      } else {
+        this.current = p2;
+        this.enemy = p1;
+      }
+    } else if (order === "first") {
+      // 人間が先攻
+      this.current = p1;
+      this.enemy = p2;
+    } else if (order === "second") {
+      // CPUが先攻
+      this.current = p2;
+      this.enemy = p1;
+    }
 
     this.ended = false;
 
     this.start();
+
   }
 
 
@@ -2440,12 +2465,14 @@ wss.on("connection", (ws) => {
 
       const player = new Player(name, jobKey);
       ws.player = player;
-      // ★ CPU職業指定を保存
+
       ws.player.cpu_job = msg.cpu_job ?? null;
+      ws.player.turn_order = msg.turn_order ?? "random"; // ★ ここに入れる
 
       startCpuMatch(ws);
       return;
     }
+
     console.log(
       "[JOIN_CPU]",
       "player job =", msg.job,
