@@ -1239,16 +1239,14 @@ class Match {
       }
 
 
-      // ★ 烏天狗（既存仕様）
-      const tengu = actor.shikigami_effects?.find(
-        e => e.name === "烏天狗" && e.triggers > 0
-      );
-      if (tengu) {
+      // ★ 烏天狗の追撃（内部トリガー基準）
+      if (actor.karasu_tengu_triggers > 0) {
         const logs = actor.trigger_karasu_tengu(target);
         logs.forEach(dmg2 => {
           this.sendSkill(`🐦 烏天狗の追撃！ ${dmg2}ダメージ！`);
         });
       }
+
 
       this.updateHP();
 
@@ -1412,10 +1410,9 @@ class Match {
 
     // 弓兵・陰陽師の追加処理（成功時のみ）
 
-    if (prefix === "onmyoji") {
-      const logs = actor.trigger_karasu_tengu(target);
-      logs.forEach(dmg => this.sendSkill(`🐦 烏天狗の追撃！ ${dmg}ダメージ！`));
-    }
+// ★ 烏天狗の追撃は handleAction 側でのみ処理する
+// （ここでは何もしない）
+
 
     this.updateHP();
 
