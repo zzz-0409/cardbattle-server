@@ -65,6 +65,12 @@ function cpuUseItemDirect(match, ws, item) {
 
   P.apply_item(item);
 
+  const healed = P.hp - beforeHp;
+  if (healed > 0) {
+    match.sendHealEvent(P, healed);
+  }
+
+
   // 4) ログ（item.js の仕様に合わせる）
   if (item.effect_type === "HP") {
     match.sendSystem(
@@ -227,6 +233,10 @@ class Match {
     safeSend(this.p2, { type: "battle_log", msg });
   }
 
+  // =========================================================
+  // 演出用イベント（クライアントの damage_event / heal_event 用）
+  // =========================================================
+
   sendSkill(msg) {
     safeSend(this.p1, { type: "skill_log", msg });
     safeSend(this.p2, { type: "skill_log", msg });
@@ -236,6 +246,66 @@ class Match {
     safeSend(this.p1, { type: "system_log", msg });
     safeSend(this.p2, { type: "system_log", msg });
   }
+
+
+
+  sendDamageEvent(targetPlayer, amount, kind = "normal", targetType = "body") {
+    console.log("[SEND damage_event]", targetPlayer.name, amount, targetType);
+
+    if (!amount || amount <= 0) return;
+
+    const isTargetP1 = (targetPlayer === this.P1);
+
+    const resolveTarget = (isP1, type) => {
+      if (type === "doll") return isP1 ? "self_doll" : "enemy_doll";
+      return isP1 ? "self" : "enemy";
+    };
+
+    // p1 視点
+    safeSend(this.p1, {
+      type: "damage_event",
+      target: resolveTarget(isTargetP1, targetType),
+      amount,
+      kind,
+    });
+
+    // p2 視点（反転）
+    safeSend(this.p2, {
+      type: "damage_event",
+      target: resolveTarget(!isTargetP1, targetType),
+      amount,
+      kind,
+    });
+  }
+
+
+  // ============================
+  // ★ 回復イベント送信（UI用・人形対応）
+  // ============================
+  sendHealEvent(targetPlayer, amount, targetType = "body") {
+    if (!amount || amount <= 0) return;
+
+    const isTargetP1 = (targetPlayer === this.P1);
+
+    const resolveTarget = (isP1, type) => {
+      if (type === "doll") return isP1 ? "self_doll" : "enemy_doll";
+      return isP1 ? "self" : "enemy";
+    };
+
+    safeSend(this.p1, {
+      type: "heal_event",
+      target: resolveTarget(isTargetP1, targetType),
+      amount
+    });
+
+    safeSend(this.p2, {
+      type: "heal_event",
+      target: resolveTarget(!isTargetP1, targetType),
+      amount
+    });
+  }
+
+
 
   sendError(msg, ws = null) {
     if (ws) {
@@ -339,7 +409,15 @@ class Match {
     actor.coins += (10 + bonus);
 
     // ▼ 魔導士装備パッシブ
+    const beforeHp = actor.hp;
+
     actor.apply_mage_equip_effects();
+
+    const healed = actor.hp - beforeHp;
+    if (healed > 0) {
+      this.sendHealEvent(actor, healed);
+    }
+
 
     // ================================
     // ★ 人形使い：暴走ラウンド進行（ラウンド開始時）
@@ -395,6 +473,9 @@ class Match {
           `🪆 人形の耐久が ${before} → ${after} に回復した`
         );
       }
+      const healed = after - before;
+      this.sendHealEvent(actor, healed, "doll");
+
     }
 
 
@@ -885,6 +966,12 @@ class Match {
             this.sendSystem(
               `🔧 修理キット使用：人形耐久 ${before} → ${P.doll.durability}`
             );
+            // ★ 人形回復演出（UI用）
+            const healed = P.doll.durability - before;
+            if (healed > 0) {
+                this.sendHealEvent(P, healed, "doll");
+            }
+            
         } else {
             P.doll.is_broken = false;
             P.doll.durability = 15;
@@ -892,6 +979,9 @@ class Match {
             this.sendSystem(
               "🔧 人形を修理し、戦闘に復帰させた！（1T無敵）"
             );
+            // ★ 人形復活演出（UI用）
+            this.sendHealEvent(P, P.doll.durability, "doll");
+    
         }
         // ★ 衣装スロットが undefined なら null で初期化
         P.doll.costumes ??= {
@@ -913,12 +1003,20 @@ class Match {
     // ============================
     if (action === "use" && !item.is_equip) {
 
-      // オフライン版と同じ入口
       if (P.apply_item) {
+        const beforeHp = P.hp;
+
         P.apply_item(item);
+
+        const healed = P.hp - beforeHp;
+        if (healed > 0) {
+          // ★ 回復演出イベント送信
+          this.sendHealEvent(P, healed);
+        }
       }
-      // ★ ここを追加
+
       this.sendSystem(`🧪 ${P.name} が ${item.name} を使用した！`);
+
       // インベントリから削除
       P[source] = P[source].filter(x => x.uid !== uid);
 
@@ -930,24 +1028,7 @@ class Match {
       return; // ★ ここで必ず終了
     }
 
-    // ============================
-    // HP回復アイテム
-    // ============================
-    if (action === "use" && item.effect_type === "HP") {
-        const before = P.hp;
-        P.hp = Math.min(P.max_hp, P.hp + item.power);
-        this.sendSystem(
-          `💖 ${P.name} のHPが ${P.hp - before} 回復した！`
-        );
 
-        this.updateHP();
-        P[source] = P[source].filter(x => x.uid !== uid);
-
-        this.sendItemList(wsPlayer, P);
-        this.sendStatusInfo(wsPlayer, P);
-        this.sendSimpleStatusBoth();
-        return;
-    }
 
     // ============================
     // 6) ステータス再計算
@@ -1238,7 +1319,10 @@ class Match {
           this.sendBattle(
             `🏹 ${actor.name} の追撃（${r.name}）！ ${r.dealt}ダメージ`
           );
+
         }
+
+
 
         // ★ 追撃バフのラウンド消費
         if (actor.archer_buff && actor.archer_buff.rounds > 0) {
@@ -1252,6 +1336,21 @@ class Match {
       } else {
         const dmg = actor.getActualAttack();
         const dealt = target.take_damage(dmg, false, actor);
+        
+      // ============================
+      // ★ UI用：ダメージ演出送信
+      // ============================
+      if (dealt > 0) {
+        const targetType =
+          target.job === "人形使い" &&
+          target.doll &&
+          !target.doll.is_broken
+            ? "doll"
+            : "body";
+
+        this.sendDamageEvent(target, dealt, "normal", targetType);
+      }
+
 
         this.sendBattle(
           actor.job === "人形使い" &&
@@ -1261,16 +1360,22 @@ class Match {
             : `🗡 ${actor.name} の攻撃！ ${dealt}ダメージ！`
         );
 
+
       }
+
 
 
       // ★ 烏天狗の追撃（内部トリガー基準）
       if (actor.karasu_tengu_triggers > 0) {
-        const logs = actor.trigger_karasu_tengu(target);
+        const logs = actor.trigger_karasu_tengu(target) ?? [];
         logs.forEach(dmg2 => {
           this.sendSkill(`🐦 烏天狗の追撃！ ${dmg2}ダメージ！`);
+
         });
+
       }
+
+
 
 
       this.updateHP();
@@ -1320,6 +1425,10 @@ class Match {
 
         const stype = `doll_${num}`;
 
+        // ★ スキル発動前の差分保存
+        const beforeHpActor = actor.hp;
+        const beforeDollDurability = actor.doll?.durability ?? 0;
+
         let result = actor._use_doll_skill(stype, target);
         if (result && typeof result.then === "function") {
           result = await result;
@@ -1333,7 +1442,20 @@ class Match {
           this.skill_lock = false;
           return false;
         }
+        
+        // ★ HP減少 → ダメージ演出
+        const hpLost = beforeHpActor - actor.hp;
+        if (hpLost > 0) {
+          this.sendDamageEvent(actor, hpLost, "skill", "body");
+        }
 
+        // ★ 人形耐久回復 → 回復演出
+        const dollHealed =
+          (actor.doll?.durability ?? 0) - beforeDollDurability;
+
+        if (dollHealed > 0) {
+          this.sendHealEvent(actor, dollHealed, "doll");
+        }
         // ★ ログは server が出す
         for (const msg of result.logs ?? []) {
           this.sendSkill(msg);
@@ -1401,6 +1523,12 @@ class Match {
       return false;
     }
 
+    // ============================
+    // ★ 回復/被回復検知用：スキル実行「前」のHPを記録
+    // ============================
+    const beforeHpActor = actor.hp;
+    const beforeHpTarget = target.hp;
+
     // ★ async / sync 両対応：Promise なら await する
     let ok = fn.call(actor, stype, target);
     if (ok && typeof ok.then === "function") {
@@ -1413,10 +1541,25 @@ class Match {
       return false; // ★ 失敗を返す（ターン消費させない）
     }
 
+    // ============================
+    // ★ 回復イベント送信（スキル成功後に差分を見る）
+    // ============================
+    const healedActor = actor.hp - beforeHpActor;
+    if (healedActor > 0) {
+      this.sendHealEvent(actor, healedActor);
+    }
+
+    const healedTarget = target.hp - beforeHpTarget;
+    if (healedTarget > 0) {
+      this.sendHealEvent(target, healedTarget);
+    }
+
     // ★ 式神召喚後にステータス更新（即時表示）
     if (prefix === "onmyoji") {
       this.sendStatusInfo(wsPlayer, actor);
     }
+
+
 
     // -------- 5) 使用済みに登録（成功時のみ） --------
     if (!(actor.job === "魔導士" && (stype === "mage_2" || stype === "mage_3"))) {
@@ -1473,14 +1616,24 @@ class Match {
 
       for (const dot of P.dot_effects) {
         const target = P;
+        const beforeHp = target.hp;
         target.hp = Math.max(0, target.hp - dot.power);
+        const dealt = beforeHp - target.hp;
 
         this.sendBattle(
           `🔥 ${target.name} は ${dot.name} により ${dot.power} ダメージ！（防御無視）`
         );
 
-        dot.turns--; // ★ DOT用 turns：触らない
+
+        // ★ DOTターン消費（turns / rounds 両対応）
+        const turnsNow = Number(dot.turns ?? dot.rounds ?? 0);
+        dot.turns = turnsNow - 1;
+
+        // 表示側が rounds を参照していても崩れないように同期
+        if (dot.rounds != null) dot.rounds = dot.turns;
+
         if (dot.turns > 0) remain.push(dot);
+
       }
 
       P.dot_effects = remain;
@@ -2166,9 +2319,16 @@ async function maybeCpuTurn(match) {
 
         case "use_item":
           if (state.usableItem) {
-            cpuUseItemDirect(match, botWS, state.usableItem);
+            const used = cpuUseItemDirect(match, botWS, state.usableItem);
+
+            // ★ 修理キットはターン消費扱い
+            if (used && state.usableItem.name === "修理キット") {
+              match.endRound();
+              return;
+            }
           }
           break;
+
 
         // =========================
         // ★ 矢装備（正しい独立ケース）
@@ -2234,6 +2394,7 @@ async function maybeCpuTurn(match) {
             match.useItem(botWS, state.specialEquip.uid, "special");
           }
           break;
+
 
 
 
@@ -2405,6 +2566,13 @@ async function maybeCpuTurn(match) {
     if (finalAction.type === "skill") {
 
       const P = botWS.player;
+
+      // ★ スキル封印・使用不可なら即攻撃に切り替える
+      if (P.skill_sealed || !canUseCpuSkill(P, finalAction.id)) {
+        await match.handleAction(botWS, "攻撃");
+        return;
+      }
+
 
       // =========================
       // ★ CPU用：人形スキル2のHP自動指定

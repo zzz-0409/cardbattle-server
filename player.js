@@ -847,6 +847,14 @@ if (type === "arrow") {
 
                 log(`🪆 人形が ${final} ダメージを受けた！ 耐久: ${this.doll.durability}/${this.doll.max_durability}`);
 
+                // ============================
+                // ★ UI用：人形ダメージイベント送信（最新版）
+                // ============================
+                if (this.match) {
+                    this.match.sendDamageEvent(this, final, "normal", "doll");
+                }
+
+
                 // -----------------------------
                 // 人形破壊判定
                 // -----------------------------
@@ -921,6 +929,25 @@ if (type === "arrow") {
         if (!isExtraAttack) {
             this.damage_taken_last_turn = final;
             this.last_attacker = attacker;
+        }
+        // ============================
+        // ★ UI用：本体ダメージ表示
+        // ============================
+        if (this.match) {
+            this.match.sendDamageEvent(this, final, "normal", "body");
+        }
+        // ============================
+        // ★ UI用：ダメージ演出送信（必ず1回）
+        // ============================
+        if (this.match && final > 0) {
+        const targetType =
+            this.job === "人形使い" &&
+            this.doll &&
+            !this.doll.is_broken
+            ? "doll"
+            : "body";
+
+        this.match.sendDamageEvent(this, final, "normal", targetType);
         }
 
         return final;
@@ -1134,24 +1161,26 @@ if (type === "arrow") {
     if (item.is_doll_item && this.job === "人形使い") {
 
         if (!this.doll) {
-            return;
+            return false;
         }
 
-        // --- 人形が壊れていない場合 ---
+        // 壊れていない → 耐久回復
         if (!this.doll.is_broken) {
             this.doll.durability = Math.min(
                 this.doll.max_durability,
                 this.doll.durability + 20
             );
-            return;
+            return true;
         }
 
-        // --- 人形が壊れている場合 ---
+        // 壊れている → 復活
         this.doll.is_broken = false;
         this.doll.durability = 15;
         this.doll.revive_guard_rounds = 1;
-        return;
+        return true;
     }
+
+
 
         // HP回復
         if (et === "HP") {
