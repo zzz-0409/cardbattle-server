@@ -50,8 +50,12 @@ import {
 
 // ログ関数（とりあえずコンソール出力）
 function log(msg) {
-    console.log(msg);
+  // simulate / devMode ではログを出さない
+  if (globalThis?.DEV_MODE || globalThis?.SIMULATE) return;
+  console.log(msg);
 }
+
+
 
 export class Player {
     constructor(name, jobKey) {
@@ -2082,7 +2086,12 @@ if (type === "arrow") {
         // スキル3：三重合成
         // -----------------------------------------------------
         if (stype === "alchemist_3") {
+            if (this.devMode) return;
+
             log("⚗ 三重合成：装備を3つ選んで1つの特殊武器を作る！");
+        
+
+
 
             const candidates = [];
 

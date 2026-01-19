@@ -2,6 +2,9 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { Player } from "./player.js";
 import { LEVEL_REQUIREMENTS, JOB_TEMPLATE, ARROW_DATA, createDollCostume, DOLL_COSTUME_PARTS, DOLL_COSTUME_TYPES } from "./constants.js";
+// ★ dev/simulate 用：職業データを外部から参照可能にする（本番影響なし）
+export const JOB_DATA = JOB_TEMPLATE;
+
 import crypto from "crypto";
 import { generateOneShopItem } from "./item.js";
 import { generateEquipmentForLevel } from "./equip.js";
@@ -10,6 +13,10 @@ import { getMageSlot } from "./player.js";
 import { MAGE_MANA_ITEMS } from "./mage_items.js";
 import http from "http";
 
+// =========================================================
+// ★ dev / simulate 判定（本番影響なし）
+// =========================================================
+export const DEV_MODE = process.argv.includes("--dev-ai");
 
 
 
@@ -24,6 +31,7 @@ function safeSend(ws, payload) {
     ws.send(JSON.stringify(payload));
   }
 }
+
 
 
 function createBotSocket() {
@@ -122,8 +130,10 @@ server.on("request", (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log("Listening on port", PORT);
+  console.log(`Listening on port ${PORT}`);
 });
+
+
 
 let waitingPlayer = null;
 
@@ -131,7 +141,7 @@ let waitingPlayer = null;
 /* =========================================================
    Match クラス（1試合分）
    ========================================================= */
-class Match {
+export class Match {
   constructor(p1, p2) {
     this.p1 = p1;
     this.p2 = p2;
@@ -229,23 +239,28 @@ class Match {
 
 
   sendBattle(msg) {
+    if (this.devMode) return;
     safeSend(this.p1, { type: "battle_log", msg });
     safeSend(this.p2, { type: "battle_log", msg });
   }
+
 
   // =========================================================
   // 演出用イベント（クライアントの damage_event / heal_event 用）
   // =========================================================
 
-  sendSkill(msg) {
+  sendSkill(msg) { 
+    if (this.devMode) return;
     safeSend(this.p1, { type: "skill_log", msg });
     safeSend(this.p2, { type: "skill_log", msg });
   }
 
   sendSystem(msg) {
+    if (this.devMode) return;
     safeSend(this.p1, { type: "system_log", msg });
     safeSend(this.p2, { type: "system_log", msg });
   }
+
 
 
 
@@ -1201,6 +1216,12 @@ class Match {
 
         arrow_slots: self.arrow_slots ?? 1,
 
+        // ★ 必ず配列に正規化
+        equipment: Array.isArray(self.equipment)
+          ? self.equipment
+          : (self.equipment ? [self.equipment] : []),
+
+
         doll: (self.job === "人形使い"  && self.doll)
           ? {
               durability: self.doll.durability,
@@ -1231,6 +1252,12 @@ class Match {
         mana_max: enemy.job === "魔導士" ? enemy.mana_max : null,
 
         arrow_slots: enemy.arrow_slots ?? 1,
+
+        // ★ 必ず配列に正規化
+        equipment: Array.isArray(enemy.equipment)
+          ? enemy.equipment
+          : (enemy.equipment ? [enemy.equipment] : []),
+
 
         doll: (enemy.doll != null)
           ? {
@@ -2052,6 +2079,30 @@ function analyzeCpuState(match, ws) {
   const P = ws.player;
   const E = P.opponent;
 
+  // ============================
+  // ★ 錬金術師：合成候補装備数
+  // ============================
+  let alchemistEquipCount = 0;
+
+  if (P.job === "錬金術師") {
+    if (
+      P.equipment &&
+      P.equipment.equip_type !== "mage_equip" &&
+      P.equipment.equip_type !== "alchemist_unique"
+    ) {
+      alchemistEquipCount++;
+    }
+
+    for (const eq of P.equipment_inventory ?? []) {
+      if (
+        eq.equip_type !== "mage_equip" &&
+        eq.equip_type !== "alchemist_unique"
+      ) {
+        alchemistEquipCount++;
+      }
+    }
+  }
+
   // ★ item.js の仕様に合わせる：effect_type は "攻撃力"/"防御力"/"HP"
   //    category/effect は見ない（付いていない）
   const usableItem =
@@ -2191,6 +2242,8 @@ function analyzeCpuState(match, ws) {
     enemyHpRate: E.hp / E.max_hp,
 
     coins: P.coins,
+    
+    alchemistEquipCount,   // ★ これを追加
 
     usableItem,
     hasUsableItem: !!usableItem,
@@ -2275,18 +2328,90 @@ function decideCpuAction(state) {
   // =========================
   // 2) 消費行動（ラウンド消費）
   // =========================
-  if (state.canSkill3) return { type: "skill", id: 3 };
+  // =========================
+  // ★ 錬金術師：合成不能なら即攻撃（無限防止）
+  // =========================
+  if (
+    state.job === "錬金術師" &&
+    state.canSkill3 &&
+    (state.alchemistEquipCount ?? 0) < 3
+  ) {
+    return { type: "attack" };
+  }
+
+  // =========================
+  // ★ 錬金術師：三重合成は装備3つ以上ある時だけ
+  // =========================
+  if (
+    state.canSkill3 &&
+    (
+      state.job !== "錬金術師" ||
+      (state.alchemistEquipCount ?? 0) >= 3
+    )
+  ) {
+    return { type: "skill", id: 3 };
+  }
+
   if (state.canSkill2) return { type: "skill", id: 2 };
   if (state.canSkill1) return { type: "skill", id: 1 };
 
   return { type: "attack" };
 }
 
+// =========================================================
+// ★ 開発用：CPU行動を1手だけ実行（UIなし）
+// =========================================================
+export async function cpuStep(match, ws) {
+  const state = analyzeCpuState(match, ws);
+  const action = decideCpuAction(state);
+
+  const P = ws.player;
+
+  // 準備行動は1回だけ
+  if (action.type === "use_item" && state.usableItem) {
+    cpuUseItemDirect(match, ws, state.usableItem);
+    return false; // ラウンド未消費
+  }
+
+  if (action.type === "equip" && state.equipItem) {
+    match.useItem(ws, state.equipItem.uid, "equip");
+    return false;
+  }
+
+  if (action.type === "special" && state.specialEquip) {
+    match.useItem(ws, state.specialEquip.uid, "special");
+    return false;
+  }
+
+  if (action.type === "arrow" && state.arrowEquip) {
+    const slot = (P.arrow_slots >= 2 && !P.arrow2) ? 2 : 1;
+    match.useItem(ws, state.arrowEquip.uid, "arrow", slot);
+    return false;
+  }
+
+  // ===== 消費行動 =====
+  if (action.type === "skill") {
+    if (P.job === "人形使い" && action.id === 2) {
+      const cost = decideCpuDollSkill2Cost(P);
+      if (!cost) {
+        await match.handleAction(ws, "攻撃");
+        return true;
+      }
+      P.pending_hp_cost = cost;
+    }
+
+    await match.handleAction(ws, "スキル" + action.id);
+    return true;
+  }
+
+  await match.handleAction(ws, "攻撃");
+  return true;
+}
 
 // =========================================================
 // ★ CPU AI：ターン処理（1ラウンドで準備→最後に消費）
 // =========================================================
-async function maybeCpuTurn(match) {
+export async function maybeCpuTurn(match) {
   if (match.ended) return;
   if (!match.current?.isBot) return;
 
@@ -2295,6 +2420,7 @@ async function maybeCpuTurn(match) {
 
   const botWS = match.current;
   const P = botWS.player; // ★ これが必要
+  let didSomething = false; // ★ 追加：準備行動で本当に何か起きたか
 
 
   try {
@@ -2354,6 +2480,16 @@ async function maybeCpuTurn(match) {
           break;
 
         case "special":
+
+          // ============================
+          // ★ 人形使い：人形が壊れている時は装備行動をしない
+          // ============================
+          if (P.job === "人形使い" && (!P.doll || P.doll.is_broken)) {
+            // 無効な準備行動を避けるため、必ず消費行動にフォールバック
+            await match.handleAction(botWS, "攻撃");
+            return;
+          }
+
           if (state.specialEquip) {
 
             // ============================
@@ -2394,6 +2530,7 @@ async function maybeCpuTurn(match) {
             match.useItem(botWS, state.specialEquip.uid, "special");
           }
           break;
+
 
 
 
@@ -2538,6 +2675,7 @@ async function maybeCpuTurn(match) {
             const idx = P.shop_items.findIndex(x => x.uid === it.uid);
             if (idx >= 0) {
               match.buyItem(botWS, idx);
+              didSomething = true; 
             }
           }
 
@@ -2551,7 +2689,17 @@ async function maybeCpuTurn(match) {
       }
 
       // ちょい待って状態更新（UI同期やログが落ち着く）
-      await new Promise(r => setTimeout(r, 150));
+      if (!match.simulate) {
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+    }
+    // ============================
+    // ★ 準備行動で何も起きなかった場合は強制攻撃（無限防止）
+    // ============================
+    if (!didSomething) {
+      await match.handleAction(botWS, "攻撃");
+      return;
     }
 
     // =========================
@@ -2628,6 +2776,9 @@ wss.on("connection", (ws) => {
     const msg = JSON.parse(raw.toString());
 
     if (msg.type === "join_cpu") {
+      
+      console.log("[CPU MATCH] join_cpu received");
+
       const name = msg.name;
       let jobKey = Number(msg.job);
 
