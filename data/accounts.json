@@ -1,0 +1,66 @@
+{
+  "accounts": {
+    "bffa521c-22bd-4bf4-a945-f92ec4d2c669": {
+      "id": "bffa521c-22bd-4bf4-a945-f92ec4d2c669",
+      "name": "zzz...",
+      "createdAt": 1769002798166,
+      "lastNameChangeAt": 1769002798189,
+      "jobs": {
+        "戦士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "騎士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "僧侶": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "盗賊": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "魔導士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "陰陽師": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "錬金術師": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "弓兵": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "人形使い": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        }
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 // （import 群は変更なし）
 import WebSocket, { WebSocketServer } from "ws";
 import { Player } from "./player.js";
-import { LEVEL_REQUIREMENTS, JOB_TEMPLATE, ARROW_DATA, createDollCostume, DOLL_COSTUME_PARTS, DOLL_COSTUME_TYPES } from "./constants.js";
+import { LEVEL_REQUIREMENTS, JOB_TEMPLATE, ARROW_DATA, createDollCostume, DOLL_COSTUME_PARTS, DOLL_COSTUME_TYPES, JOB_SKILLS } from "./constants.js";
 // ★ dev/simulate 用：職業データを外部から参照可能にする（本番影響なし）
 export const JOB_DATA = JOB_TEMPLATE;
 
@@ -12,6 +12,17 @@ import { MAGE_EQUIPS } from "./equip.js";
 import { getMageSlot } from "./player.js";
 import { MAGE_MANA_ITEMS } from "./mage_items.js";
 import http from "http";
+import {
+  getOrCreateAccount,
+  registerAccount,
+  changeAccountName,
+  getAccountSummary,
+  getJobTopRankings,
+  recordMatchResult,
+  recordMatchResultNoRating,
+  recordCpuMatchResult,
+  importJobRecordBackup
+} from "./account_store.js";
 
 // =========================================================
 // ★ dev / simulate 判定（本番影響なし）
@@ -32,6 +43,166 @@ function safeSend(ws, payload) {
   }
 }
 
+
+
+// ============================
+// ★ 特殊装備定義生成
+// ============================
+function buildSpecialEquip(player) {
+
+  switch (player.job) {
+
+    // ----------------------------
+    // 弓兵：矢スロット
+    // ----------------------------
+    case "弓兵": {
+      // player.js の実データは arrow / arrow2 なので、それに合わせる
+      const unlocked2 = (player.arrow_slots ?? 1) >= 2;
+
+      return {
+        position: "under_normal",
+        slots: [
+          { key: "arrow1", label: "矢1", unlocked: true,      item: player.arrow  ?? null },
+          { key: "arrow2", label: "矢2", unlocked: unlocked2, item: player.arrow2 ?? null },
+        ],
+      };
+    }
+
+    // ----------------------------
+    // 人形使い：人形装備
+    // ----------------------------
+    case "人形使い": {
+      return {
+        position: "under_doll",
+        slots: [
+          // player.js の実データは doll.costumes (head/body/leg/foot)
+          { key: "head", label: "帽子",   unlocked: true, item: player.doll?.costumes?.head ?? null },
+          { key: "body", label: "服",     unlocked: true, item: player.doll?.costumes?.body ?? null },
+          { key: "leg",  label: "ズボン", unlocked: true, item: player.doll?.costumes?.leg  ?? null },
+          { key: "foot", label: "靴",     unlocked: true, item: player.doll?.costumes?.foot ?? null },
+        ],
+      };
+    }
+
+    // ----------------------------
+    // 魔導士：魔法装備
+    // ----------------------------
+    case "魔導士": {
+      return {
+        position: "under_normal",
+        slots: [
+          // player.js の実データは mage_equips (staff/ring/robe/book)
+          { key: "staff", label: "杖",     unlocked: true, item: player.mage_equips?.staff ?? null },
+          { key: "robe",  label: "ローブ", unlocked: true, item: player.mage_equips?.robe  ?? null },
+          { key: "ring",  label: "指輪",   unlocked: true, item: player.mage_equips?.ring  ?? null },
+          { key: "book",  label: "魔導書", unlocked: true, item: player.mage_equips?.book  ?? null },
+        ],
+      };
+    }
+
+    // ----------------------------
+    // 錬金術師：触媒枠
+    // ----------------------------
+    case "錬金術師": {
+      return {
+        position: "under_normal",
+        slots: [
+          // 実データは alchemist_equip
+          { key: "alchemy", label: "触媒", unlocked: true, item: player.alchemist_equip ?? null },
+        ],
+      };
+    }
+
+    default:
+      return null;
+  }
+}
+
+// ============================
+// ★ スキル残り回数（UI用）
+//   - 基本は「未使用=1 / 使用済み=0」
+//   - 魔導士は mage_2 / mage_3 は使用回数制限なし（=常に1）
+// ============================
+function buildSkillRemaining(player) {
+  const list = JOB_SKILLS?.[player.job] ?? [];
+  const used = player.used_skill_set ?? new Set();
+  const out = { 1: 0, 2: 0, 3: 0 };
+
+  for (let i = 0; i < 3; i++) {
+    const stype = list[i]?.type;
+    const num = i + 1;
+    if (!stype) {
+      out[num] = 0;
+      continue;
+    }
+
+    // 魔導士：スキル2/3は魔力で制御（使用済み概念なし）
+    if (player.job === "魔導士" && (stype === "mage_2" || stype === "mage_3")) {
+      out[num] = 1;
+      continue;
+    }
+
+    out[num] = used.has(stype) ? 0 : 1;
+  }
+
+  return out;
+}
+
+
+// ============================
+// ★ バフ表示用データ（UI用）
+//   - active_buffs / freeze_debuffs をUI向けに整形
+//   - 将来の拡張に対応できるよう kind ベースで返す
+// ============================
+function buildBuffUIData(player) {
+  const out = [];
+
+  // アイテム由来（攻撃/防御バフ・デバフなど）
+  if (Array.isArray(player.active_buffs)) {
+    for (const b of player.active_buffs) {
+      const dur = b.duration ?? b.rounds ?? 0;
+      const power = Number(b.power ?? 0);
+      const source = b.source ?? b.name ?? "";
+
+      let kind = "other";
+      if (b.type === "攻撃力") kind = "atk_up";
+      else if (b.type === "防御力") kind = "def_up";
+      else if (b.type === "攻撃力低下") kind = "atk_down";
+      else if (b.type === "防御力低下") kind = "def_down";
+
+      const sign = (kind.endsWith("_down") || String(b.type ?? "").includes("低下")) ? "-" : "+";
+      const remain = Number(dur ?? 0);
+
+      // ホバー説明（短く・わかりやすく）
+      const text = `${b.type ?? "効果"} ${sign}${Math.abs(power)}（あと${remain}R）`;
+
+      out.push({
+        kind,
+        power,
+        remain,
+        source,
+        text,
+      });
+    }
+  }
+
+  // 凍結デバフ
+  if (Array.isArray(player.freeze_debuffs)) {
+    for (const f of player.freeze_debuffs) {
+      const remain = Number(f.rounds ?? f.duration ?? 0);
+      const atkDown = Number(f.atkDown ?? 0);
+      out.push({
+        kind: "freeze",
+        power: atkDown,
+        remain,
+        source: "凍結",
+        text: `凍結：攻撃 -${atkDown}（あと${remain}R）`,
+      });
+    }
+  }
+
+  return out;
+}
 
 
 function createBotSocket() {
@@ -121,11 +292,131 @@ const server = http.createServer();
 const wss = new WebSocketServer({ server });
 
 server.on("request", (req, res) => {
+  // CORS (client may be hosted on a different origin)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  // health
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("OK");
     return;
   }
+
+  // ----------------------------
+  // API: ranking
+  //   GET /api/ranking?job=戦士
+  // ----------------------------
+  if (req.method === "GET" && req.url && req.url.startsWith("/api/ranking")) {
+    const u = new URL(req.url, "http://localhost");
+    const job = u.searchParams.get("job") || "戦士";
+    const data = getJobTopRankings(job, 5);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(data));
+    return;
+  }
+
+  // ----------------------------
+  // API: account summary
+  //   GET /api/account/summary?account_id=...
+  // ----------------------------
+  if (req.method === "GET" && req.url && req.url.startsWith("/api/account/summary")) {
+    const u = new URL(req.url, "http://localhost");
+    const accountId = u.searchParams.get("account_id") || "";
+    if (!accountId) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, reason: "account_id required" }));
+      return;
+    }
+
+    const jobs = Object.values(JOB_TEMPLATE).map(v => v.name);
+    const data = getAccountSummary(accountId, jobs);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(data));
+    return;
+  }
+
+  // ----------------------------
+  // API: register (initial login)
+  //   POST /api/account/register
+  //   { account_id, name }
+  // ----------------------------
+  if (req.method === "POST" && req.url === "/api/account/register") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      try {
+        const j = JSON.parse(body || "{}");
+        const accountId = String(j.account_id || "");
+        const name = String(j.name || "");
+        const backupJobs = (j.backup_jobs && typeof j.backup_jobs === "object") ? j.backup_jobs : null;
+        if (!accountId || !name) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, reason: "account_id and name required" }));
+          return;
+        }
+        // ensure exists
+        getOrCreateAccount(accountId);
+        const data = registerAccount({ accountId, name });
+
+        // client backup restore (localStorage -> server)
+        // サーバ側が初期化状態の場合のみ反映（不正上書き抑制）
+        if (backupJobs) {
+          try {
+            importJobRecordBackup(accountId, backupJobs);
+          } catch (e) {
+            console.warn("importJobRecordBackup failed:", e);
+          }
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, reason: "invalid json" }));
+      }
+    });
+    return;
+  }
+
+  // ----------------------------
+  // API: change name (cooldown 7d)
+  //   POST /api/account/change_name
+  //   { account_id, name }
+  // ----------------------------
+  if (req.method === "POST" && req.url === "/api/account/change_name") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      try {
+        const j = JSON.parse(body || "{}");
+        const accountId = String(j.account_id || "");
+        const name = String(j.name || "");
+        if (!accountId || !name) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, reason: "account_id and name required" }));
+          return;
+        }
+        const data = changeAccountName({ accountId, name });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, reason: "invalid json" }));
+      }
+    });
+    return;
+  }
+
+  // not found
+  res.writeHead(404, { "Content-Type": "text/plain" });
+  res.end("Not Found");
 });
 
 const PORT = process.env.PORT || 8080;
@@ -136,6 +427,8 @@ server.listen(PORT, () => {
 
 
 let waitingPlayer = null;
+// ルーム対戦：4桁コードごとの待機
+const waitingRooms = new Map();
 
 
 /* =========================================================
@@ -153,6 +446,16 @@ export class Match {
     // ★ ここ！！（この直後）
     this.P1.opponent = this.P2;
     this.P2.opponent = this.P1;
+
+    // ==============================
+    // ★ マッチ種別（random / room / cpu）
+    // ==============================
+    this.matchType = p1.matchType || p2.matchType || "random";
+
+    // ★ 切断判定のために相互参照
+    try { this.p1.currentMatch = this; } catch {}
+    try { this.p2.currentMatch = this; } catch {}
+
     // ★ ラウンドカウンタ
     this.round = 1;
 
@@ -381,7 +684,6 @@ export class Match {
     safeSend(this.p2, { type: "exp_info", exp: this.P2.exp });
 
     this.startRound();      // ★ これを追加
-    this.sendRoundInfo();
 
   }
 
@@ -1192,6 +1494,7 @@ export class Match {
       enemyHP: this.P1.hp
     });
   }
+  
   // =========================================================
   // ★ 簡易ステータス即時同期（自分＋相手）
   // =========================================================
@@ -1232,6 +1535,14 @@ export class Match {
             }
           : null,
 
+        // ★ 追加：特殊装備
+        special_equip: buildSpecialEquip(self),
+
+        // ★ 追加：スキル残り回数（UI用）
+        skill_remaining: buildSkillRemaining(self),
+
+        // ★ 追加：バフ（UI用）
+        buffs_ui: buildBuffUIData(self),
 
       });
 
@@ -1269,6 +1580,12 @@ export class Match {
             }
           : null,
 
+        special_equip: buildSpecialEquip(enemy),
+
+        skill_remaining: buildSkillRemaining(enemy),
+
+        // ★ 追加：バフ（UI用）
+        buffs_ui: buildBuffUIData(enemy),
 
       });
 
@@ -1347,6 +1664,21 @@ export class Match {
             `🏹 ${actor.name} の追撃（${r.name}）！ ${r.dealt}ダメージ`
           );
 
+          // ============================
+          // ★ UI用：弓兵追撃ダメージ演出
+          // ============================
+          if (r.dealt > 0) {
+            const targetType =
+              target.job === "人形使い" &&
+              target.doll &&
+              !target.doll.is_broken
+                ? "doll"
+                : "body";
+
+            // pursuit 色（黄色）を使う
+            this.sendDamageEvent(target, r.dealt, "pursuit", targetType);
+          }
+
         }
 
 
@@ -1397,6 +1729,20 @@ export class Match {
         const logs = actor.trigger_karasu_tengu(target) ?? [];
         logs.forEach(dmg2 => {
           this.sendSkill(`🐦 烏天狗の追撃！ ${dmg2}ダメージ！`);
+
+          // ============================
+          // ★ UI用：烏天狗追撃ダメージ演出
+          // ============================
+          if (dmg2 > 0) {
+            const targetType =
+              target.job === "人形使い" &&
+              target.doll &&
+              !target.doll.is_broken
+                ? "doll"
+                : "body";
+
+            this.sendDamageEvent(target, dmg2, "pursuit", targetType);
+          }
 
         });
 
@@ -1551,10 +1897,16 @@ export class Match {
     }
 
     // ============================
-    // ★ 回復/被回復検知用：スキル実行「前」のHPを記録
+    // ★ 演出検知用：スキル実行「前」の状態を記録
     // ============================
     const beforeHpActor = actor.hp;
     const beforeHpTarget = target.hp;
+
+    // 人形ダメージ検知（相手が人形使いの時）
+    const beforeDollTarget =
+      (target.job === "人形使い" && target.doll)
+        ? (target.doll.durability ?? 0)
+        : null;
 
     // ★ async / sync 両対応：Promise なら await する
     let ok = fn.call(actor, stype, target);
@@ -1566,6 +1918,29 @@ export class Match {
       this.sendError(`❌ スキル失敗：${stype}`, wsPlayer);
       this.skill_lock = false;
       return false; // ★ 失敗を返す（ターン消費させない）
+    }
+
+    // ============================
+    // ★ ダメージイベント送信（スキル成功後に差分を見る）
+    //   - 通常攻撃と同じ赤表示にするため kind は "normal"
+    // ============================
+    const damagedActor = beforeHpActor - actor.hp;
+    if (damagedActor > 0) {
+      this.sendDamageEvent(actor, damagedActor, "normal", "body");
+    }
+
+    const damagedTarget = beforeHpTarget - target.hp;
+    if (damagedTarget > 0) {
+      this.sendDamageEvent(target, damagedTarget, "normal", "body");
+    }
+
+    // 人形へのダメージ（HPが減らないケース）
+    if (beforeDollTarget != null && target.doll) {
+      const afterDollTarget = target.doll.durability ?? 0;
+      const damagedDoll = beforeDollTarget - afterDollTarget;
+      if (damagedDoll > 0) {
+        this.sendDamageEvent(target, damagedDoll, "normal", "doll");
+      }
     }
 
     // ============================
@@ -1713,6 +2088,23 @@ export class Match {
       this.sendSimpleStatusBoth();
     }
 
+
+
+    // ============================
+    // ★ 対戦終了イベント（UI演出用）
+    //   - 勝者: win / 敗者: lose / 引き分け: draw
+    // ============================
+    if (result === "p1" && wsWinner && wsLoser) {
+      safeSend(wsWinner, { type: "battle_end", result: "win" });
+      safeSend(wsLoser,  { type: "battle_end", result: "lose" });
+    } else if (result === "p2" && wsWinner && wsLoser) {
+      safeSend(wsWinner, { type: "battle_end", result: "win" });
+      safeSend(wsLoser,  { type: "battle_end", result: "lose" });
+    } else {
+      // draw
+      safeSend(this.p1, { type: "battle_end", result: "draw" });
+      safeSend(this.p2, { type: "battle_end", result: "draw" });
+    }
     if (winner && loser) {
 
       // 勝者 / 敗者
@@ -1720,6 +2112,59 @@ export class Match {
     } else {
       // 引き分け
     }
+    // ============================
+    // Account-based job ratings / wins-losses
+    //   - random: 両者レート更新（通常）
+    //   - room  : 勝敗のみ（レート変動なし）
+    //   - cpu   : 人間側のみ（レート変動少なめ）
+    // ============================
+    const accId1 = this.p1?.accountId;
+    const accId2 = this.p2?.accountId;
+
+    const isBotMatch = !!this.p1?.isBot || !!this.p2?.isBot;
+    const isRoomMatch = this.matchType === "room";
+
+    if (isBotMatch) {
+      // CPU戦：人間側のみ
+      const humanWs = this.p1?.isBot ? this.p2 : this.p1;
+      const humanAcc = humanWs?.accountId;
+      const humanJob = (humanWs === this.p1) ? this.P1.job : this.P2.job;
+
+      // ★ CPU戦ボタンで開始した対戦は戦績/レートに反映しない
+      // ★ ランダム対戦の自動CPU（cpuKind === "auto"）のみ反映する
+      if (humanAcc && humanWs?.cpuKind === "auto") {
+        let r = "draw";
+        if (result === "p1" && humanWs === this.p1) r = "win";
+        else if (result === "p2" && humanWs === this.p2) r = "win";
+        else if (result === "p1" || result === "p2") r = "lose";
+
+        recordCpuMatchResult({
+          accountId: String(humanAcc),
+          job: humanJob,
+          result: r,
+          kFactor: 16
+        });
+      }
+
+    } else if (accId1 && accId2) {
+      let r = "draw";
+      if (result === "p1") r = "A";
+      else if (result === "p2") r = "B";
+
+      if (isRoomMatch) {
+        // ★ ルーム対戦は戦績/レートに一切反映しない
+      } else {
+        recordMatchResult({
+          accountIdA: String(accId1),
+          jobA: this.P1.job,
+          accountIdB: String(accId2),
+          jobB: this.P2.job,
+          result: r,
+          kFactor: 32
+        });
+      }
+    }
+
 
     // 自動レベルアップ判定（両者）
     const pairs = [
@@ -1747,6 +2192,26 @@ export class Match {
     }
   }
 
+
+
+
+  // =========================================================
+  // ★ 通信切断：切断した側の敗北で即終了
+  // =========================================================
+  handleDisconnect(disconnectedWs) {
+    if (this.ended) return;
+
+    const winnerWs = (disconnectedWs === this.p1) ? this.p2 : this.p1;
+
+    // 残った側へ通知
+    safeSend(winnerWs, {
+      type: "system_log",
+      msg: "対戦相手が切断しました。勝利となります"
+    });
+
+    const res = (disconnectedWs === this.p1) ? "p2" : "p1";
+    this.finishBattle(res);
+  }
 
   /* =========================================================
      ラウンド終了処理
@@ -1800,7 +2265,7 @@ export class Match {
     safeSend(this.p1, { type: "coin_info", coins: this.P1.coins });
     safeSend(this.p2, { type: "coin_info", coins: this.P2.coins });
 
-    this.sendRoundInfo(); // ★ 修正（旧 sendTurnInfo）
+    // ★ sendRoundInfo は startRound() の末尾で送っているため、ここでは二重送信しない
 
   // ★ 次がCPUのラウンドなら行動させる
   if (this.current.isBot) {
@@ -1975,7 +2440,7 @@ function startCpuMatch(humanWS) {
   safeSend(humanWS, { type: "match_start" });
 
   // ★ CPUが後攻なら即思考開始
-  setTimeout(() => maybeCpuTurn(match), 300);
+  setTimeout(() => maybeCpuTurn(match), 1000);
 }
 
 // =========================================================
@@ -2690,7 +3155,7 @@ export async function maybeCpuTurn(match) {
 
       // ちょい待って状態更新（UI同期やログが落ち着く）
       if (!match.simulate) {
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r => setTimeout(r, 1000));
       }
 
     }
@@ -2770,7 +3235,23 @@ wss.on("connection", (ws) => {
   clients.add(ws);
   console.log("接続: クライアント");
 
-  ws.on("close", () => clients.delete(ws));
+  ws.on("close", () => {
+    clients.delete(ws);
+
+    // 待機キューから除外
+    if (waitingPlayer === ws) waitingPlayer = null;
+
+    const rc = ws.roomCode;
+    if (rc && waitingRooms.get(rc) === ws) {
+      waitingRooms.delete(rc);
+    }
+
+    // 進行中の試合があれば、切断側の敗北で即終了
+    const m = ws.currentMatch;
+    if (m && !m.ended) {
+      m.handleDisconnect(ws);
+    }
+  });
 
   ws.on("message", (raw) => {
     const msg = JSON.parse(raw.toString());
@@ -2779,7 +3260,17 @@ wss.on("connection", (ws) => {
       
       console.log("[CPU MATCH] join_cpu received");
 
-      const name = msg.name;
+      const accountId = msg.account_id ? String(msg.account_id) : null;
+      ws.accountId = accountId;
+      ws.matchType = "cpu";
+      // ★ CPU戦の種別: "menu"(CPU戦ボタン) or "auto"(ランダム対戦の自動CPU)
+      ws.cpuKind = msg.cpu_kind ? String(msg.cpu_kind) : "menu";
+
+      let name = msg.name;
+      if (accountId) {
+        const acc = getOrCreateAccount(accountId);
+        if (acc?.name) name = acc.name;
+      }
       let jobKey = Number(msg.job);
 
       const player = new Player(name, jobKey);
@@ -2789,6 +3280,193 @@ wss.on("connection", (ws) => {
       ws.player.turn_order = msg.turn_order ?? "random"; // ★ ここに入れる
 
       startCpuMatch(ws);
+      return;
+    }
+
+
+    // ---------------------------------------------------------
+    // ルーム対戦: join_room（4桁コード一致で即対戦）
+    // ---------------------------------------------------------
+    if (msg.type === "join_room") {
+      const roomCode = msg.room_code ? String(msg.room_code).trim() : "";
+      if (!/^\d{4}$/.test(roomCode)) {
+        safeSend(ws, { type: "system_log", msg: "❌ ルーム番号は4桁の数字で入力してください" });
+        return;
+      }
+
+      const accountId = msg.account_id ? String(msg.account_id) : null;
+      ws.accountId = accountId;
+      ws.matchType = "room";
+      ws.roomCode = roomCode;
+
+      let name = msg.name;
+      if (accountId) {
+        const acc = getOrCreateAccount(accountId);
+        if (acc?.name) name = acc.name;
+      }
+
+      let jobKey = msg.job;
+      if (typeof jobKey === "string" && isNaN(jobKey)) {
+        for (const [k, v] of Object.entries(JOB_TEMPLATE)) {
+          if (v.name === jobKey) {
+            jobKey = Number(k);
+            break;
+          }
+        }
+      } else {
+        jobKey = Number(jobKey);
+      }
+
+      ws.player = new Player(name, jobKey);
+
+      const waiting = waitingRooms.get(roomCode);
+      if (!waiting) {
+        waitingRooms.set(roomCode, ws);
+        safeSend(ws, {
+          type: "system_log",
+          msg: `👥 ルーム ${roomCode}：対戦相手を待っています…`
+        });
+        return;
+      }
+
+      // 相手がすでに待機中なら開始
+      waitingRooms.delete(roomCode);
+
+      const p1 = waiting;
+      const p2 = ws;
+
+      p1.matchType = "room";
+      p2.matchType = "room";
+
+      const match = new Match(p1, p2);
+
+      safeSend(p1, { type: "match_start" });
+      safeSend(p2, { type: "match_start" });
+
+      // 既存の対人戦と同じメッセージ処理を流用するため、
+      // この後の join_random と同じ処理ブロックに落とす必要がある。
+      // → ここでは専用ハンドラを設定して return する。
+
+      const handlePlayerMessage = async (sock, raw2) => {
+        const m = JSON.parse(raw2.toString());
+        const P = sock === p1 ? match.P1 : match.P2;
+
+        // 以下、join_random の共通ハンドラと同等（必要分のみ）
+        if (m.type === "request_doll_skill1") {
+          if (sock !== match.current) {
+            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            return;
+          }
+          if (P.used_skill_set?.has("doll_1")) {
+            match.sendError("❌ このスキルはすでに使用済みです。", sock);
+            return;
+          }
+          safeSend(sock, { type: "request_doll_part_select" });
+          return;
+        }
+
+        if (m.type === "use_doll_skill1") {
+          if (sock !== match.current) {
+            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            return;
+          }
+          if (!P.doll) {
+            match.sendError("❌ 人形が存在しません。", sock);
+            return;
+          }
+          P.selected_doll_part = m.part;
+          await match.useSkill(sock, P, P.opponent, 1);
+          return;
+        }
+
+        if (m.type === "use_doll_skill2") {
+          if (sock !== match.current) {
+            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            return;
+          }
+          P.pending_hp_cost = Number(m.hpCost);
+          await match.useSkill(sock, P, P.opponent, 2);
+          return;
+        }
+
+        if (m.type === "request_doll_skill3") {
+          await match.useSkill(sock, P, P.opponent, 3);
+          return;
+        }
+
+        if (m.type === "action") {
+          await match.handleAction(sock, m.action);
+          return;
+        }
+
+        if (m.type === "request_status_detail") {
+          match.sendStatusDetail(
+            sock,
+            match.P1,
+            match.P2,
+            m.target === "enemy" ? "enemy" : "self"
+          );
+          return;
+        }
+
+        if (m.type === "use_item") {
+          match.useItem(sock, m.item_id, m.action, m.slot);
+          return;
+        }
+
+        if (m.type === "open_shop") {
+          match.openShop(sock);
+          return;
+        }
+        if (m.type === "buy_item") {
+          match.buyItem(sock, m.index);
+          return;
+        }
+        if (m.type === "shop_reroll") {
+          match.shopReroll(sock);
+          return;
+        }
+
+        if (m.type === "level_up_request") {
+          const req = LEVEL_REQUIREMENTS[P.level];
+          if (!req) {
+            safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false });
+            return;
+          }
+          const need = req - P.exp;
+          if (need <= 0) {
+            safeSend(sock, { type: "level_up_check", canExp: true, canCoins: false });
+          } else if (P.coins >= need) {
+            safeSend(sock, { type: "level_up_check", canExp: false, canCoins: true, needCoins: need });
+          } else {
+            safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false });
+          }
+          return;
+        }
+
+        if (m.type === "level_up_exp") {
+          const res = P.try_level_up_auto?.();
+          if (!res?.auto) return;
+          safeSend(sock, { type: "level_info", level: P.level, canLevelUp: P.can_level_up() });
+          safeSend(sock, { type: "exp_info", exp: P.exp });
+          match.sendSimpleStatusBoth();
+          return;
+        }
+
+        if (m.type === "level_up_coins") {
+          const res = P.try_level_up_with_coins?.();
+          if (!res?.success) return;
+          safeSend(sock, { type: "level_info", level: P.level, canLevelUp: P.can_level_up() });
+          safeSend(sock, { type: "exp_info", exp: P.exp });
+          safeSend(sock, { type: "coin_info", coins: P.coins });
+          match.sendSimpleStatusBoth();
+          return;
+        }
+      };
+
+      p1.on("message", (raw2) => handlePlayerMessage(p1, raw2));
+      p2.on("message", (raw2) => handlePlayerMessage(p2, raw2));
+
       return;
     }
 
@@ -2805,7 +3483,15 @@ wss.on("connection", (ws) => {
     if (msg.type === "join" || msg.type === "join_random") {
 
 
-        const name = msg.name;
+        const accountId = msg.account_id ? String(msg.account_id) : null;
+        ws.accountId = accountId;
+        ws.matchType = "random";
+
+        let name = msg.name;
+        if (accountId) {
+          const acc = getOrCreateAccount(accountId);
+          if (acc?.name) name = acc.name;
+        }
         let jobKey = msg.job;
 
         // ★ 職業名で送られてきた場合、番号に変換
