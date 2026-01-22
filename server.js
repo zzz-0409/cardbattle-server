@@ -56,7 +56,6 @@ function buildSpecialEquip(player) {
     // 弓兵：矢スロット
     // ----------------------------
     case "弓兵": {
-<<<<<<< HEAD
       // player.js の実データは arrow / arrow2 なので、それに合わせる
       const unlocked2 = (player.arrow_slots ?? 1) >= 2;
 
@@ -66,23 +65,6 @@ function buildSpecialEquip(player) {
           { key: "arrow1", label: "矢1", unlocked: true,      item: player.arrow  ?? null },
           { key: "arrow2", label: "矢2", unlocked: unlocked2, item: player.arrow2 ?? null },
         ],
-=======
-      const slots = [];
-      const count = player.arrow_slots ?? 1;
-
-      for (let i = 0; i < count; i++) {
-        slots.push({
-          key: "arrow",
-          label: "矢",
-          unlocked: true,
-          item: player.arrows?.[i] ?? null,
-        });
-      }
-
-      return {
-        position: "under_normal",
-        slots,
->>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
       };
     }
 
@@ -93,18 +75,11 @@ function buildSpecialEquip(player) {
       return {
         position: "under_doll",
         slots: [
-<<<<<<< HEAD
           // player.js の実データは doll.costumes (head/body/leg/foot)
           { key: "head", label: "帽子",   unlocked: true, item: player.doll?.costumes?.head ?? null },
           { key: "body", label: "服",     unlocked: true, item: player.doll?.costumes?.body ?? null },
           { key: "leg",  label: "ズボン", unlocked: true, item: player.doll?.costumes?.leg  ?? null },
           { key: "foot", label: "靴",     unlocked: true, item: player.doll?.costumes?.foot ?? null },
-=======
-          { key: "hat",  label: "帽子",   unlocked: true, item: player.dollEquip?.hat  ?? null },
-          { key: "body", label: "服",     unlocked: true, item: player.dollEquip?.body ?? null },
-          { key: "legs", label: "ズボン", unlocked: true, item: player.dollEquip?.legs ?? null },
-          { key: "feet", label: "靴",     unlocked: true, item: player.dollEquip?.feet ?? null },
->>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
         ],
       };
     }
@@ -116,18 +91,11 @@ function buildSpecialEquip(player) {
       return {
         position: "under_normal",
         slots: [
-<<<<<<< HEAD
           // player.js の実データは mage_equips (staff/ring/robe/book)
           { key: "staff", label: "杖",     unlocked: true, item: player.mage_equips?.staff ?? null },
           { key: "robe",  label: "ローブ", unlocked: true, item: player.mage_equips?.robe  ?? null },
           { key: "ring",  label: "指輪",   unlocked: true, item: player.mage_equips?.ring  ?? null },
           { key: "book",  label: "魔導書", unlocked: true, item: player.mage_equips?.book  ?? null },
-=======
-          { key: "hat",  label: "帽子",   unlocked: true, item: player.magicEquip?.hat  ?? null },
-          { key: "robe", label: "ローブ", unlocked: true, item: player.magicEquip?.robe ?? null },
-          { key: "ring", label: "指輪",   unlocked: true, item: player.magicEquip?.ring ?? null },
-          { key: "book", label: "魔導書", unlocked: true, item: player.magicEquip?.book ?? null },
->>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
         ],
       };
     }
@@ -139,12 +107,8 @@ function buildSpecialEquip(player) {
       return {
         position: "under_normal",
         slots: [
-<<<<<<< HEAD
           // 実データは alchemist_equip
           { key: "alchemy", label: "触媒", unlocked: true, item: player.alchemist_equip ?? null },
-=======
-          { key: "alchemy", label: "触媒", unlocked: true, item: player.alchemyEquip ?? null },
->>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
         ],
       };
     }
@@ -154,7 +118,6 @@ function buildSpecialEquip(player) {
   }
 }
 
-<<<<<<< HEAD
 // ============================
 // ★ スキル残り回数（UI用）
 //   - 基本は「未使用=1 / 使用済み=0」
@@ -241,8 +204,6 @@ function buildBuffUIData(player) {
   return out;
 }
 
-=======
->>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
 
 function createBotSocket() {
   return {
@@ -673,6 +634,21 @@ export class Match {
     }
   }
 
+  // ============================
+  // ★ 中央ポップアップ通知（クライアントで表示）
+  // ============================
+  sendPopup(msg, ws = null, ms = 2500, sfx = null) {
+    const payload = { type: "popup", msg, ms };
+    if (sfx) payload.sfx = sfx;
+
+    if (ws) {
+      safeSend(ws, payload);
+    } else {
+      safeSend(this.p1, payload);
+      safeSend(this.p2, payload);
+    }
+  }
+
   /* =========================================================
      試合開始
      ========================================================= */
@@ -731,6 +707,10 @@ export class Match {
 
     const actorWS = this.current;
     const actor = (actorWS === this.p1 ? this.P1 : this.P2);
+
+    // ★ 1ターンのアイテム使用回数（消費アイテム）をリセット
+    actor.item_use_count = 0;
+
 
     this.sendItemList(actorWS, actor);
 
@@ -998,6 +978,8 @@ export class Match {
 
     // コインチェック
     if (P.coins < price) {
+      // ★ 購入失敗（コイン不足）でも中央ポップアップを出す
+      this.sendPopup(`コインが足りません（必要:${price}）`, wsPlayer, 2500);
       this.sendError(`❌ コイン不足（必要:${price}）`, wsPlayer);
       return;
     }
@@ -1042,6 +1024,12 @@ export class Match {
     // 再購入不可に
     P.shop_items.splice(index, 1);
 
+    // ★ 購入後もショップを開いたまま更新できるよう、最新リストを返す
+    safeSend(wsPlayer, {
+      type: "shop_list",
+      items: P.shop_items
+    });
+
 
     // ------------------------------
     // ★ コイン更新＋アイテム一覧更新
@@ -1055,6 +1043,9 @@ export class Match {
 
     this.sendSystem(`🛒 ${P.name} は ${item.name} を購入した！`);
 
+    // ★ 購入ポップアップ（購入者のみ）
+    this.sendPopup(`${item.name} を購入しました`, wsPlayer, 2200);
+
     // ★ ラウンドは終了しない
   }
 
@@ -1066,6 +1057,8 @@ export class Match {
 
     const cost = 5;
     if (actor.coins < cost) {
+      // ★ 更新失敗（コイン不足）でも中央ポップアップを出す
+      this.sendPopup(`コインが足りません（必要:${cost}）`, wsPlayer, 2500);
       safeSend(wsPlayer, {
         type: "error_log",
         msg: `❌ コインが足りません（必要: ${cost}）`
@@ -1116,6 +1109,8 @@ export class Match {
     pickup(P.arrow_inventory, "arrow_inventory");
 
     if (!item) {
+      // ★ 使用回数が尽きた/既に消費済み等
+      this.sendPopup("アイテムの使用回数がなくなりました", wsPlayer, 2500);
       this.sendError("❌ アイテムが見つかりません。", wsPlayer);
       return;
     }
@@ -1129,6 +1124,8 @@ export class Match {
         // ★ slot 正規化（"2" → 2）
         const equipSlot = Number(slot || 1);
 
+        let prevEquipped = null;
+
         // ---- slot2 指定 ----
         if (equipSlot === 2) {
 
@@ -1136,6 +1133,8 @@ export class Match {
                 this.sendError("❌ 矢スロット2は解放されていません。", wsPlayer);
                 return;
             }
+
+            prevEquipped = P.arrow2;
 
             if (P.arrow2) {
                 P.arrow_inventory.push(P.arrow2);
@@ -1145,6 +1144,8 @@ export class Match {
         }
         // ---- slot1 指定 ----
         else if (equipSlot === 1) {
+
+            prevEquipped = P.arrow;
 
             if (P.arrow) {
                 P.arrow_inventory.push(P.arrow);
@@ -1161,7 +1162,13 @@ export class Match {
         // インベントリから削除
         P[source] = P[source].filter(x => x.uid !== uid);
 
-        this.sendSystem(`🏹 ${P.name} が ${item.name} を装備！（slot${equipSlot}）`);
+        if (prevEquipped) {
+            this.sendBattle(`${prevEquipped.name} と ${item.name} を付け替えた！`);
+            this.sendPopup(`${prevEquipped.name} と ${item.name} を付け替えた！`, wsPlayer, 2000);
+        } else {
+            this.sendBattle(`${item.name} を装備した！`);
+            this.sendPopup(`${item.name} を装備した！`, wsPlayer, 2000);
+        }
 
         this.sendItemList(wsPlayer, P);
         this.sendStatusInfo(wsPlayer, P);
@@ -1185,16 +1192,24 @@ export class Match {
       item.is_equip &&
       item.equip_type === "normal"
     ) {
-        if (P.equipment) {
-            P.equipment_inventory.push(P.equipment);
+        const prevEquip = P.equipment;
+
+        if (prevEquip) {
+            P.equipment_inventory.push(prevEquip);
         }
 
         P.equipment = item;
         P[source] = P[source].filter(x => x.uid !== uid);
-                // ★ 使用後、所持アイテムを再送
+        // ★ 使用後、所持アイテムを再送
         this.sendItemList(wsPlayer, P);
 
-        this.sendSystem(`⚔ ${P.name} が ${item.name} を装備！`);
+        if (prevEquip) {
+            this.sendBattle(`${prevEquip.name} と ${item.name} を付け替えた！`);
+            this.sendPopup(`${prevEquip.name} と ${item.name} を付け替えた！`, wsPlayer, 2000);
+        } else {
+            this.sendBattle(`${item.name} を装備した！`);
+            this.sendPopup(`${item.name} を装備した！`, wsPlayer, 2000);
+        }
     }
 
 
@@ -1208,9 +1223,11 @@ export class Match {
         const slot = getMageSlot(item);
 
 
+      const prevMageEquip = P.mage_equips[slot];
+
       // 既存装備を戻す
-      if (P.mage_equips[slot]) {
-        P.special_inventory.push(P.mage_equips[slot]);
+      if (prevMageEquip) {
+        P.special_inventory.push(prevMageEquip);
       }
 
       // 装備
@@ -1223,16 +1240,24 @@ export class Match {
       // パッシブ再計算
       if (P.recalc_mage_passives) P.recalc_mage_passives();
 
-      this.sendSystem(`🔮 ${P.name} が ${item.name} を装備！（${slot}）`);
+      if (prevMageEquip) {
+        this.sendBattle(`${prevMageEquip.name} と ${item.name} を付け替えた！`);
+        this.sendPopup(`${prevMageEquip.name} と ${item.name} を付け替えた！`, wsPlayer, 2000);
+      } else {
+        this.sendBattle(`${item.name} を装備した！`);
+        this.sendPopup(`${item.name} を装備した！`, wsPlayer, 2000);
+      }
     }
     // ============================
     // 4.5) 錬金術師 特殊装備
     // ============================
     else if (action === "special" && item.equip_type === "alchemist_unique") {
 
+        const prevAlchemistEquip = P.alchemist_equip;
+
         // 既存の錬金特殊装備があれば戻す
-        if (P.alchemist_equip) {
-            P.special_inventory.push(P.alchemist_equip);
+        if (prevAlchemistEquip) {
+            P.special_inventory.push(prevAlchemistEquip);
         }
 
         // ★ 専用スロットに装備
@@ -1241,7 +1266,13 @@ export class Match {
         // inventory から削除
         P[source] = P[source].filter(x => x.uid !== uid);
 
-        this.sendSystem(`⚗ ${P.name} が ${item.name} を装備！`);
+        if (prevAlchemistEquip) {
+            this.sendBattle(`${prevAlchemistEquip.name} と ${item.name} を付け替えた！`);
+            this.sendPopup(`${prevAlchemistEquip.name} と ${item.name} を付け替えた！`, wsPlayer, 2000);
+        } else {
+            this.sendBattle(`${item.name} を装備した！`);
+            this.sendPopup(`${item.name} を装備した！`, wsPlayer, 2000);
+        }
     }
 
     // ============================
@@ -1278,10 +1309,13 @@ export class Match {
 
         // インベントリから削除
         P[source] = P[source].filter(x => x.uid !== uid);
-
-        this.sendSystem(
-          `🪆 ${P.name} は ${part} の衣装を装備した！`
-        );
+        if (prev) {
+            this.sendBattle(`${prev.name} と ${item.name} を付け替えた！`);
+            this.sendPopup(`${prev.name} と ${item.name} を付け替えた！`, wsPlayer, 2000);
+        } else {
+            this.sendBattle(`${item.name} を装備した！`);
+            this.sendPopup(`${item.name} を装備した！`, wsPlayer, 2000);
+        }
 
         // UI更新
         this.sendItemList(wsPlayer, P);
@@ -1313,15 +1347,26 @@ export class Match {
             return;
         }
 
+        // ★ 1ターンに使用できる消費アイテムは2つまで
+        if (P.item_use_count == null) P.item_use_count = 0;
+        if (P.item_use_count >= 2) {
+            // ★ ターン内の使用回数上限に達した場合も中央ポップアップ
+            this.sendPopup("このターンのアイテム使用回数がなくなりました", wsPlayer, 2500);
+            this.sendError("1ターンに使用できるアイテムは2つまでです。", wsPlayer);
+            return;
+        }
+        P.item_use_count += 1;
+
+        this.sendBattle(`${item.name} を使用した！`);
+        this.sendPopup(`${item.name} を使用した！`, wsPlayer, 2000);
+
         if (!P.doll.is_broken) {
             const before = P.doll.durability;
             P.doll.durability = Math.min(
                 P.doll.max_durability,
                 P.doll.durability + 20
             );
-            this.sendSystem(
-              `🔧 修理キット使用：人形耐久 ${before} → ${P.doll.durability}`
-            );
+            this.sendSystem(`🔧 人形耐久 ${before} → ${P.doll.durability}`);
             // ★ 人形回復演出（UI用）
             const healed = P.doll.durability - before;
             if (healed > 0) {
@@ -1359,6 +1404,16 @@ export class Match {
     // ============================
     if (action === "use" && !item.is_equip) {
 
+      // ★ 1ターンに使用できる消費アイテムは2つまで
+      if (P.item_use_count == null) P.item_use_count = 0;
+      if (P.item_use_count >= 2) {
+        // ★ ターン内の使用回数上限に達した場合も中央ポップアップ
+        this.sendPopup("このターンのアイテム使用回数がなくなりました", wsPlayer, 2500);
+        this.sendError("1ターンに使用できるアイテムは2つまでです。", wsPlayer);
+        return;
+      }
+      P.item_use_count += 1;
+
       if (P.apply_item) {
         const beforeHp = P.hp;
 
@@ -1371,7 +1426,8 @@ export class Match {
         }
       }
 
-      this.sendSystem(`🧪 ${P.name} が ${item.name} を使用した！`);
+      this.sendBattle(`${item.name} を使用した！`);
+      this.sendPopup(`${item.name} を使用した！`, wsPlayer, 2000);
 
       // インベントリから削除
       P[source] = P[source].filter(x => x.uid !== uid);
@@ -1576,15 +1632,12 @@ export class Match {
 
         // ★ 追加：特殊装備
         special_equip: buildSpecialEquip(self),
-<<<<<<< HEAD
 
         // ★ 追加：スキル残り回数（UI用）
         skill_remaining: buildSkillRemaining(self),
 
         // ★ 追加：バフ（UI用）
         buffs_ui: buildBuffUIData(self),
-=======
->>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
 
       });
 
@@ -1623,14 +1676,11 @@ export class Match {
           : null,
 
         special_equip: buildSpecialEquip(enemy),
-<<<<<<< HEAD
 
         skill_remaining: buildSkillRemaining(enemy),
 
         // ★ 追加：バフ（UI用）
         buffs_ui: buildBuffUIData(enemy),
-=======
->>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
 
       });
 
@@ -1905,6 +1955,18 @@ export class Match {
     }[job];
 
     const stype = `${prefix}_${num}`;
+
+    // ★ 魔導士：魔力不足は中央ポップアップで通知（最低必要魔力付き）
+    if (actor.job === "魔導士") {
+      const needMana = (stype === "mage_2") ? 30 : (stype === "mage_3") ? 60 : 0;
+      if (needMana > 0 && actor.mana < needMana) {
+        this.sendPopup(`魔力が足りません（最低必要魔力:${needMana}）`, wsPlayer, 2500);
+        this.sendError(`❌ 魔力が足りません（最低必要魔力: ${needMana}）`, wsPlayer);
+        this.skill_lock = false;
+        return false;
+      }
+    }
+
     this.sendSkill(`✨ ${actor.name} のスキル発動：${stype}`);
 
     // -------- 1) レベルチェック（最優先） --------
