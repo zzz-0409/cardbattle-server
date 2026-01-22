@@ -56,6 +56,7 @@ function buildSpecialEquip(player) {
     // 弓兵：矢スロット
     // ----------------------------
     case "弓兵": {
+<<<<<<< HEAD
       // player.js の実データは arrow / arrow2 なので、それに合わせる
       const unlocked2 = (player.arrow_slots ?? 1) >= 2;
 
@@ -65,6 +66,23 @@ function buildSpecialEquip(player) {
           { key: "arrow1", label: "矢1", unlocked: true,      item: player.arrow  ?? null },
           { key: "arrow2", label: "矢2", unlocked: unlocked2, item: player.arrow2 ?? null },
         ],
+=======
+      const slots = [];
+      const count = player.arrow_slots ?? 1;
+
+      for (let i = 0; i < count; i++) {
+        slots.push({
+          key: "arrow",
+          label: "矢",
+          unlocked: true,
+          item: player.arrows?.[i] ?? null,
+        });
+      }
+
+      return {
+        position: "under_normal",
+        slots,
+>>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
       };
     }
 
@@ -75,11 +93,18 @@ function buildSpecialEquip(player) {
       return {
         position: "under_doll",
         slots: [
+<<<<<<< HEAD
           // player.js の実データは doll.costumes (head/body/leg/foot)
           { key: "head", label: "帽子",   unlocked: true, item: player.doll?.costumes?.head ?? null },
           { key: "body", label: "服",     unlocked: true, item: player.doll?.costumes?.body ?? null },
           { key: "leg",  label: "ズボン", unlocked: true, item: player.doll?.costumes?.leg  ?? null },
           { key: "foot", label: "靴",     unlocked: true, item: player.doll?.costumes?.foot ?? null },
+=======
+          { key: "hat",  label: "帽子",   unlocked: true, item: player.dollEquip?.hat  ?? null },
+          { key: "body", label: "服",     unlocked: true, item: player.dollEquip?.body ?? null },
+          { key: "legs", label: "ズボン", unlocked: true, item: player.dollEquip?.legs ?? null },
+          { key: "feet", label: "靴",     unlocked: true, item: player.dollEquip?.feet ?? null },
+>>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
         ],
       };
     }
@@ -91,11 +116,18 @@ function buildSpecialEquip(player) {
       return {
         position: "under_normal",
         slots: [
+<<<<<<< HEAD
           // player.js の実データは mage_equips (staff/ring/robe/book)
           { key: "staff", label: "杖",     unlocked: true, item: player.mage_equips?.staff ?? null },
           { key: "robe",  label: "ローブ", unlocked: true, item: player.mage_equips?.robe  ?? null },
           { key: "ring",  label: "指輪",   unlocked: true, item: player.mage_equips?.ring  ?? null },
           { key: "book",  label: "魔導書", unlocked: true, item: player.mage_equips?.book  ?? null },
+=======
+          { key: "hat",  label: "帽子",   unlocked: true, item: player.magicEquip?.hat  ?? null },
+          { key: "robe", label: "ローブ", unlocked: true, item: player.magicEquip?.robe ?? null },
+          { key: "ring", label: "指輪",   unlocked: true, item: player.magicEquip?.ring ?? null },
+          { key: "book", label: "魔導書", unlocked: true, item: player.magicEquip?.book ?? null },
+>>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
         ],
       };
     }
@@ -107,8 +139,12 @@ function buildSpecialEquip(player) {
       return {
         position: "under_normal",
         slots: [
+<<<<<<< HEAD
           // 実データは alchemist_equip
           { key: "alchemy", label: "触媒", unlocked: true, item: player.alchemist_equip ?? null },
+=======
+          { key: "alchemy", label: "触媒", unlocked: true, item: player.alchemyEquip ?? null },
+>>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
         ],
       };
     }
@@ -118,6 +154,7 @@ function buildSpecialEquip(player) {
   }
 }
 
+<<<<<<< HEAD
 // ============================
 // ★ スキル残り回数（UI用）
 //   - 基本は「未使用=1 / 使用済み=0」
@@ -204,6 +241,8 @@ function buildBuffUIData(player) {
   return out;
 }
 
+=======
+>>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
 
 function createBotSocket() {
   return {
@@ -1537,12 +1576,15 @@ export class Match {
 
         // ★ 追加：特殊装備
         special_equip: buildSpecialEquip(self),
+<<<<<<< HEAD
 
         // ★ 追加：スキル残り回数（UI用）
         skill_remaining: buildSkillRemaining(self),
 
         // ★ 追加：バフ（UI用）
         buffs_ui: buildBuffUIData(self),
+=======
+>>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
 
       });
 
@@ -1581,11 +1623,14 @@ export class Match {
           : null,
 
         special_equip: buildSpecialEquip(enemy),
+<<<<<<< HEAD
 
         skill_remaining: buildSkillRemaining(enemy),
 
         // ★ 追加：バフ（UI用）
         buffs_ui: buildBuffUIData(enemy),
+=======
+>>>>>>> eaeea19 (Update server: matching flow, popups, usage limit handling)
 
       });
 
