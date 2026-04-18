@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# local env
+.env
+.env.*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+
+# Persistent data (do NOT commit rating/wins)
+data/accounts.json
+
+# optional: other data files
+data/*.bak
+
+# === client is NOT managed by server repo ===
+cardbattle-client/
