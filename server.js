@@ -1502,6 +1502,7 @@ export class Match {
     // ★ 消費アイテム共通処理
     // ============================
     if (action === "use" && !item.is_equip) {
+      const consumesTurn = item.consumes_turn === true;
 
       // ★ 1ターンに使用できる消費アイテムは2つまで
       if (P.item_use_count == null) P.item_use_count = 0;
@@ -1540,6 +1541,11 @@ export class Match {
       this.sendItemList(wsPlayer, P);
       this.sendStatusInfo(wsPlayer, P);
       this.sendSimpleStatusBoth();
+
+      if (consumesTurn) {
+        this.endRound();
+        return;
+      }
 
       return; // ★ ここで必ず終了
     }
@@ -1701,6 +1707,7 @@ export class Match {
   sendSimpleStatusBoth() {
     const send = (ws, self, enemy) => {
       // 自分
+      const selfNextLevelExp = LEVEL_REQUIREMENTS[self.level] ?? null;
       safeSend(ws, {
         type: "status_simple",
         side: "self",
@@ -1710,6 +1717,11 @@ export class Match {
         defense: self.get_total_defense(),
         coins: self.coins,
         level: self.level,
+        exp: self.exp ?? 0,
+        next_level_exp: selfNextLevelExp,
+        next_level_label: selfNextLevelExp == null
+          ? "次Lv: MAX"
+          : `次LvまでEXP: ${Math.max(0, selfNextLevelExp - (self.exp ?? 0))}`,
         job: self.job ?? "不明",
 
         mana: self.job === "魔導士" ? self.mana : null,
@@ -1749,6 +1761,7 @@ export class Match {
 
 
       // 相手
+      const enemyNextLevelExp = LEVEL_REQUIREMENTS[enemy.level] ?? null;
       safeSend(ws, {
         type: "status_simple",
         side: "enemy",
@@ -1758,6 +1771,11 @@ export class Match {
         defense: enemy.get_total_defense(),
         coins: enemy.coins,
         level: enemy.level,
+        exp: enemy.exp ?? 0,
+        next_level_exp: enemyNextLevelExp,
+        next_level_label: enemyNextLevelExp == null
+          ? "次Lv: MAX"
+          : `次LvまでEXP: ${Math.max(0, enemyNextLevelExp - (enemy.exp ?? 0))}`,
         job: enemy.job ?? "不明",
 
         mana: enemy.job === "魔導士" ? enemy.mana : null,
@@ -2465,8 +2483,10 @@ export class Match {
     const actor = this.current === this.p1 ? this.P1 : this.P2;
     const target = this.current === this.p1 ? this.P2 : this.P1;
 
-    // ★ EXP +10（既存仕様を維持）
-    actor.exp = (actor.exp ?? 0) + 10;
+    // ★ 最大レベル未満の時だけ毎ターン EXP +5
+    if ((LEVEL_REQUIREMENTS[actor.level] ?? null) != null) {
+      actor.exp = (actor.exp ?? 0) + 5;
+    }
 
     // 自動レベルアップ判定
     const res = actor.try_level_up_auto ? actor.try_level_up_auto() : null;
@@ -2637,7 +2657,7 @@ function startCpuMatch(humanWS) {
     if (m.type === "level_up_request") {
       const req = LEVEL_REQUIREMENTS[P.level];
       if (!req) {
-        safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false });
+        safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false, isMax: true });
         return;
       }
       const need = req - P.exp;
@@ -3093,7 +3113,7 @@ export async function cpuStep(match, ws) {
   // 準備行動は1回だけ
   if (action.type === "use_item" && state.usableItem) {
     cpuUseItemDirect(match, ws, state.usableItem);
-    return false; // ラウンド未消費
+    return state.usableItem.consumes_turn === true; // ラウンド消費アイテムのみ true
   }
 
   if (action.type === "equip" && state.equipItem) {
@@ -3170,8 +3190,14 @@ export async function maybeCpuTurn(match) {
           if (state.usableItem) {
             const used = cpuUseItemDirect(match, botWS, state.usableItem);
 
-            // ★ 修理キットはターン消費扱い
-            if (used && state.usableItem.name === "修理キット") {
+            // ★ 修理キットとターン消費アイテムはターンを終了
+            if (
+              used &&
+              (
+                state.usableItem.name === "修理キット" ||
+                state.usableItem.consumes_turn === true
+              )
+            ) {
               match.endRound();
               return;
             }
@@ -3688,7 +3714,7 @@ wss.on("connection", (ws) => {
         if (m.type === "level_up_request") {
           const req = LEVEL_REQUIREMENTS[P.level];
           if (!req) {
-            safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false });
+            safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false, isMax: true });
             return;
           }
           const need = req - P.exp;
@@ -3983,7 +4009,7 @@ wss.on("connection", (ws) => {
               );
               
             } else {
-              match.sendError("❌ EXPもコインも足りません。", sock);
+              match.sendError("❌ コインが足りません。", sock);
               return;
             }
 
@@ -4013,7 +4039,8 @@ wss.on("connection", (ws) => {
               safeSend(sock, {
                 type: "level_up_check",
                 canExp: false,
-                canCoins: false
+                canCoins: false,
+                isMax: true
               });
               return;
             }
