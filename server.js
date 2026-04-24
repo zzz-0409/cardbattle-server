@@ -11,6 +11,7 @@ import { generateEquipmentForLevel } from "./equip.js";
 import { MAGE_EQUIPS } from "./equip.js";
 import { getMageSlot } from "./player.js";
 import { MAGE_MANA_ITEMS } from "./mage_items.js";
+import { ONMYOJI_TALISMAN_ITEMS } from "./onmyoji_items.js";
 import http from "http";
 import {
   getOrCreateAccount,
@@ -283,9 +284,18 @@ function cpuUseItemDirect(match, ws, item) {
     match.sendHealEvent(P, healed);
   }
 
+  if (P.job === "陰陽師" && P.last_summoned_shikigami?.length) {
+    match.sendShikigamiSummonEvent(P, P.last_summoned_shikigami);
+    P.last_summoned_shikigami = [];
+  }
+
 
   // 4) ログ（item.js の仕様に合わせる）
-  if (item.effect_type === "HP") {
+  if (item.is_onmyoji_item) {
+    match.sendSystem(
+      `🧪 ${P.name} が ${item.name} を使用（${item.shikigami_name}を召喚）`
+    );
+  } else if (item.effect_type === "HP") {
     match.sendSystem(
       `🧪 ${P.name} が ${item.name} を使用（HP ${beforeHp} → ${P.hp}）`
     );
@@ -659,6 +669,27 @@ export class Match {
     });
   }
 
+  sendShikigamiSummonEvent(player, names = []) {
+    if (!Array.isArray(names) || names.length === 0) return;
+
+    const isP1 = player === this.P1;
+    const eventForP1 = {
+      type: "shikigami_summon",
+      target: isP1 ? "self" : "enemy",
+      actor_name: player.name,
+      names,
+    };
+    const eventForP2 = {
+      type: "shikigami_summon",
+      target: isP1 ? "enemy" : "self",
+      actor_name: player.name,
+      names,
+    };
+
+    safeSend(this.p1, eventForP1);
+    safeSend(this.p2, eventForP2);
+  }
+
 
 
   sendError(msg, ws = null) {
@@ -874,6 +905,12 @@ export class Match {
   generateShopList(P) {
     const list = [];
     const level = P.level;
+    const ownedMageEquipSlots =
+      P.job === "魔導士" ? getOwnedMageEquipSlots(P) : null;
+    const availableMageEquips =
+      P.job === "魔導士"
+        ? MAGE_EQUIPS.filter(eq => !ownedMageEquipSlots.has(getMageSlot(eq)))
+        : null;
 
     for (let i = 0; i < 5; i++) {
       let entry = null;
@@ -943,9 +980,16 @@ export class Match {
       // 魔導士：70%魔導士装備、30%魔力水/通常アイテム/装備
       if (P.job === "魔導士") {
 
-        if (r < 70) {
-          const pool = MAGE_EQUIPS;
-          entry = { ...pool[Math.floor(Math.random() * pool.length)] };
+        if (r < 70 && availableMageEquips.length > 0) {
+          entry = {
+            ...availableMageEquips[
+              Math.floor(Math.random() * availableMageEquips.length)
+            ]
+          };
+        } else if (r < 70) {
+          entry = (Math.random() < 0.5)
+            ? generateEquipmentForLevel(level)
+            : generateOneShopItem(level);
         } else {
           const r2 = Math.random();
           if (r2 < 0.5) {
@@ -955,6 +999,25 @@ export class Match {
               ? generateEquipmentForLevel(level)
               : generateOneShopItem(level);
           }
+        }
+        list.push({ ...entry });
+        continue;
+      }
+
+      if (P.job === "陰陽師") {
+        if (r < 40) {
+          const lowTalismans = ONMYOJI_TALISMAN_ITEMS.filter(
+            item => item.shikigami_rank === "low"
+          );
+          const highTalismans = ONMYOJI_TALISMAN_ITEMS.filter(
+            item => item.shikigami_rank === "high"
+          );
+          const pool = (Math.random() < 0.78) ? lowTalismans : highTalismans;
+          entry = { ...pool[Math.floor(Math.random() * pool.length)] };
+        } else {
+          entry = (Math.random() < 0.5)
+            ? generateEquipmentForLevel(level)
+            : generateOneShopItem(level);
         }
         list.push({ ...entry });
         continue;
@@ -1459,6 +1522,11 @@ export class Match {
         if (healed > 0) {
           // ★ 回復演出イベント送信
           this.sendHealEvent(P, healed);
+        }
+
+        if (P.job === "陰陽師" && P.last_summoned_shikigami?.length) {
+          this.sendShikigamiSummonEvent(P, P.last_summoned_shikigami);
+          P.last_summoned_shikigami = [];
         }
       }
 
@@ -2103,9 +2171,10 @@ export class Match {
       this.sendHealEvent(target, healedTarget);
     }
 
-    // ★ 式神召喚後にステータス更新（即時表示）
     if (prefix === "onmyoji") {
+      this.sendShikigamiSummonEvent(actor, actor.last_summoned_shikigami);
       this.sendStatusInfo(wsPlayer, actor);
+      actor.last_summoned_shikigami = [];
     }
 
 
@@ -2631,6 +2700,22 @@ function isBetterEquip(newItem, currentItem) {
 
   // シンプルな合計評価
   return (newAtk + newDef) > (curAtk + curDef);
+}
+
+function getOwnedMageEquipSlots(P) {
+  const ownedSlots = new Set();
+
+  for (const slot of ["staff", "ring", "robe", "book"]) {
+    if (P.mage_equips?.[slot]) ownedSlots.add(slot);
+  }
+
+  for (const item of P.special_inventory ?? []) {
+    if (item?.equip_type === "mage_equip") {
+      ownedSlots.add(getMageSlot(item));
+    }
+  }
+
+  return ownedSlots;
 }
 
 // =========================================================

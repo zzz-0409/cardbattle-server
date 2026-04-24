@@ -142,6 +142,7 @@ export class Player {
 
         // 式神の継続効果（烏天狗など）
         this.shikigami_effects = [];
+        this.last_summoned_shikigami = [];
 
         // ================================
         // 人形使い：人形オブジェクト
@@ -1138,6 +1139,17 @@ if (type === "arrow") {
         if (item.effect_type === "DEF") item.effect_type = "防御力";
         if (item.effect_type === "HP_RECOVER") item.effect_type = "HP";
         const et = item.effect_type;
+
+        if (item.is_onmyoji_item) {
+            if (this.job !== "陰陽師" || !this.opponent) {
+                return false;
+            }
+
+            this.last_summoned_shikigami = [item.shikigami_name];
+            this._summon_shikigami(item.shikigami_name, this.opponent);
+            this.used_items_this_round += 1;
+            return true;
+        }
         
         // ★ 魔導士専用：魔力水
         if (item.is_mage_item) {
@@ -1878,17 +1890,20 @@ if (type === "arrow") {
     _use_onmyoji_skill(stype, opponent) {
     const pool_lv1 = ["鬼火", "猫又", "玄武", "烏天狗"];
     const pool_all = ["鬼火", "猫又", "玄武", "烏天狗", "九尾", "白龍"];
+    this.last_summoned_shikigami = [];
 
     if (stype === "onmyoji_1") {
         const chosen = pool_lv1[Math.floor(Math.random() * pool_lv1.length)];
         log("📜 式神召喚（Lv1）");
         this._summon_shikigami(chosen, opponent);
+        this.last_summoned_shikigami.push(chosen);
     }
 
     else if (stype === "onmyoji_2") {
         const chosen = pool_all[Math.floor(Math.random() * pool_all.length)];
         log("📜 式神召喚（Lv2）");
         this._summon_shikigami(chosen, opponent);
+        this.last_summoned_shikigami.push(chosen);
     }
 
     else if (stype === "onmyoji_3") {
@@ -1899,6 +1914,7 @@ if (type === "arrow") {
         log("🌌 二重召喚！！");
         this._summon_shikigami(c1, opponent);
         this._summon_shikigami(c2, opponent);
+        this.last_summoned_shikigami.push(c1, c2);
     }
 
     this.used_skill_set.add(stype);
