@@ -1290,7 +1290,10 @@ if (type === "arrow") {
     // 陰陽師：召喚中の式神一覧を返す
     // ---------------------------------------------------------
     getShikigamiList() {
-            if (!this.shikigami_effects || this.shikigami_effects.length === 0) {
+            if (
+                (!this.shikigami_effects || this.shikigami_effects.length === 0) &&
+                !(this.dot_effects || []).some(d => d?.name === "鬼火")
+            ) {
                 return [];
             }
 
@@ -1321,6 +1324,12 @@ if (type === "arrow") {
 
                 // ★ 修正点：s.name を使う
                 list.push(`${s.name}（残り ${display}${unit}）`);
+            }
+
+            for (const dot of (this.dot_effects ?? [])) {
+                if (dot?.name !== "鬼火") continue;
+                const remainT = Number(dot.turns ?? dot.rounds ?? 0);
+                list.push(`鬼火（残り ${remainT}T）`);
             }
 
             return list;
@@ -1933,11 +1942,11 @@ if (type === "arrow") {
 
         // ===== 鬼火（毎ターン 3 ダメ × 5T）=====
         if (name === "鬼火") {
-            log("🕯 鬼火召喚！相手を焼き続ける！（5T × 3ダメージ）");
+            log("🕯 鬼火召喚！相手を焼き続ける！（5T × 5ダメージ）");
 
             opponent.dot_effects.push({
                 name: "鬼火",
-                power: 3,
+                power: 5,
                 turns: 5,   // ★ 新ターン制
                 source: this.name,
             });

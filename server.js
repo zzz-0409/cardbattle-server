@@ -202,6 +202,41 @@ function buildBuffUIData(player) {
     }
   }
 
+  if (Array.isArray(player.dot_effects)) {
+    for (const dot of player.dot_effects) {
+      if (!dot || dot.name !== "鬼火") continue;
+      const remain = Number(dot.turns ?? dot.rounds ?? 0);
+      const power = Number(dot.power ?? 0);
+      out.push({
+        kind: "onibi",
+        power,
+        remain,
+        source: "鬼火",
+        text: `鬼火：防御無視 ${power} ダメージ（あと${remain}T）`,
+      });
+    }
+  }
+
+  if (Number(player.barrier ?? 0) > 0) {
+    out.push({
+      kind: "barrier",
+      power: Number(player.barrier ?? 0),
+      remain: Number(player.barrier ?? 0),
+      source: "玄武",
+      text: `玄武バリア：次に受けるダメージを ${Number(player.barrier ?? 0)} 回無効化`,
+    });
+  }
+
+  if (Number(player.karasu_tengu_triggers ?? 0) > 0) {
+    out.push({
+      kind: "karasu",
+      power: Number(player.karasu_tengu_triggers ?? 0),
+      remain: Number(player.karasu_tengu_triggers ?? 0),
+      source: "烏天狗",
+      text: `烏天狗：攻撃/スキル後に追撃（残り${Number(player.karasu_tengu_triggers ?? 0)}回）`,
+    });
+  }
+
   if (player.job === "狂人" && (player.total_damage_received ?? 0) >= 120) {
     out.push({
       kind: "mad",
@@ -688,6 +723,39 @@ export class Match {
 
     safeSend(this.p1, eventForP1);
     safeSend(this.p2, eventForP2);
+  }
+
+  sendShikigamiSpecialEvent(player, payload = {}) {
+    if (!player) return;
+
+    const isP1 = player === this.P1;
+    const eventForP1 = {
+      type: "shikigami_special",
+      target: isP1 ? "enemy" : "self",
+      actor_name: player.name,
+      ...payload,
+    };
+    const eventForP2 = {
+      type: "shikigami_special",
+      target: isP1 ? "self" : "enemy",
+      actor_name: player.name,
+      ...payload,
+    };
+
+    safeSend(this.p1, eventForP1);
+    safeSend(this.p2, eventForP2);
+  }
+
+  sendSfxEvent(name, ws = null) {
+    if (!name) return;
+    const payload = { type: "sfx", name };
+
+    if (ws) {
+      safeSend(ws, payload);
+    } else {
+      safeSend(this.p1, payload);
+      safeSend(this.p2, payload);
+    }
   }
 
 
@@ -1516,6 +1584,15 @@ export class Match {
 
       if (P.apply_item) {
         const beforeHp = P.hp;
+        const opponent = P.opponent ?? null;
+        const beforeOpponentHp = opponent ? Number(opponent.hp ?? 0) : null;
+        const beforeOpponentEquip = opponent?.equipment ?? null;
+        const beforeOpponentBuffCount = Array.isArray(opponent?.active_buffs)
+          ? opponent.active_buffs.length
+          : 0;
+        const beforeOpponentBarrier = Number(opponent?.barrier ?? 0);
+        const beforeSelfAttackBuff = Number(P.get_attack_buff_total?.() ?? 0);
+        const beforeOpponentAttackBuff = Number(opponent?.get_attack_buff_total?.() ?? 0);
 
         P.apply_item(item);
 
@@ -1523,6 +1600,44 @@ export class Match {
         if (healed > 0) {
           // ★ 回復演出イベント送信
           this.sendHealEvent(P, healed);
+        }
+
+        if (opponent && beforeOpponentHp != null) {
+          const dealtToOpponent = Math.max(0, beforeOpponentHp - Number(opponent.hp ?? 0));
+          if (dealtToOpponent > 0) {
+            this.sendDamageEvent(opponent, dealtToOpponent, "skill", "body");
+          }
+
+          if (item.shikigami_name === "九尾") {
+            if (dealtToOpponent > 0) {
+              this.sendSfxEvent("boom");
+            }
+
+            const destroyedEquipName =
+              beforeOpponentEquip && !opponent.equipment
+                ? beforeOpponentEquip.name
+                : null;
+            const afterOpponentBuffCount = Array.isArray(opponent.active_buffs)
+              ? opponent.active_buffs.length
+              : 0;
+            const removedBuffCount =
+              Math.max(0, beforeOpponentBuffCount - afterOpponentBuffCount) +
+              (beforeOpponentBarrier > 0 && Number(opponent.barrier ?? 0) <= 0 ? 1 : 0);
+
+            if (destroyedEquipName || removedBuffCount > 0) {
+              this.sendShikigamiSpecialEvent(P, {
+                kind: "kyubi",
+                destroyed_equip_name: destroyedEquipName,
+                removed_buff_count: removedBuffCount,
+              });
+            }
+          }
+        }
+
+        const afterSelfAttackBuff = Number(P.get_attack_buff_total?.() ?? 0);
+        const afterOpponentAttackBuff = Number(opponent?.get_attack_buff_total?.() ?? 0);
+        if (afterSelfAttackBuff > beforeSelfAttackBuff || afterOpponentAttackBuff > beforeOpponentAttackBuff) {
+          this.sendSfxEvent("powerup");
         }
 
         if (P.job === "陰陽師" && P.last_summoned_shikigami?.length) {
@@ -1574,6 +1689,7 @@ export class Match {
     sendItemList(wsPlayer, P) {
       safeSend(wsPlayer, {
         type: "item_list",
+        item_uses_remaining: Math.max(0, 2 - Number(P.item_use_count ?? 0)),
         items: [
           ...P.items.map(it => ({
             uid: it.uid,
@@ -2134,6 +2250,8 @@ export class Match {
     // ============================
     const beforeHpActor = actor.hp;
     const beforeHpTarget = target.hp;
+    const beforeActorAttackBuff = Number(actor.get_attack_buff_total?.() ?? 0);
+    const beforeTargetAttackBuff = Number(target.get_attack_buff_total?.() ?? 0);
 
     // 人形ダメージ検知（相手が人形使いの時）
     const beforeDollTarget =
@@ -2167,6 +2285,10 @@ export class Match {
       this.sendDamageEvent(target, damagedTarget, "normal", "body");
     }
 
+    if ((stype === "mage_2" || stype === "mage_3") && damagedTarget > 0) {
+      this.sendSfxEvent("boom");
+    }
+
     // 人形へのダメージ（HPが減らないケース）
     if (beforeDollTarget != null && target.doll) {
       const afterDollTarget = target.doll.durability ?? 0;
@@ -2187,6 +2309,12 @@ export class Match {
     const healedTarget = target.hp - beforeHpTarget;
     if (healedTarget > 0) {
       this.sendHealEvent(target, healedTarget);
+    }
+
+    const afterActorAttackBuff = Number(actor.get_attack_buff_total?.() ?? 0);
+    const afterTargetAttackBuff = Number(target.get_attack_buff_total?.() ?? 0);
+    if (afterActorAttackBuff > beforeActorAttackBuff || afterTargetAttackBuff > beforeTargetAttackBuff) {
+      this.sendSfxEvent("powerup");
     }
 
     if (prefix === "onmyoji") {
@@ -2272,6 +2400,10 @@ export class Match {
         this.sendBattle(
           `🔥 ${target.name} は ${dot.name} により ${dot.power} ダメージ！（防御無視）`
         );
+
+        if (dealt > 0) {
+          this.sendDamageEvent(target, dealt, "dot", "body");
+        }
 
         if (
           target.job === "狂人" &&
