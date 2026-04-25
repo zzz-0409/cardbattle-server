@@ -162,12 +162,13 @@ export class Player {
 
                 // 耐久力
                 max_durability: 100,
-                durability: 50,
+                durability: 100,
 
                 // 状態
                 is_broken: false,
                 is_rampage: false,
                 revive_guard_rounds: 0,
+                repair_kit_lock_rounds: 0,
 
                 // 初期衣装
                 costumes: {
@@ -713,6 +714,22 @@ if (type === "arrow") {
             }
         }
 
+        if (this.doll?.costumes) {
+            for (const c of Object.values(this.doll.costumes)) {
+                if (!c) continue;
+                if (c.effect_type !== "COIN") continue;
+
+                let value = 1 + (c.star ?? 1);
+                if (c.condition === "boroboro") {
+                    value = Math.floor(value * 0.5);
+                }
+                if (this.doll.is_rampage) {
+                    value *= 2;
+                }
+                total += value;
+            }
+        }
+
         return total;
     }
 
@@ -863,6 +880,7 @@ if (type === "arrow") {
             // --- 人形破壊判定 ---
             if (this.doll.durability <= 0) {
                 this.doll.is_broken = true;
+                this.doll.repair_kit_lock_rounds = 2;
                 log(`💥 ${this.name} の人形が破壊された！`);
 
                 // 暴走中のペナルティ
@@ -1073,6 +1091,9 @@ if (type === "arrow") {
             case "DEF":
                 value = 1 + costume.star * 2;
                 break;
+            case "COIN":
+                value = 1 + costume.star;
+                break;
             case "DUR":
                 value = 1 + costume.star;
                 break;
@@ -1100,7 +1121,8 @@ if (type === "arrow") {
         const effectLabel = {
             ATK: "攻撃",
             DEF: "防御",
-            DUR: "耐久"
+            DUR: "耐久",
+            COIN: "コイン"
         }[costume.effect_type];
 
         const partLabel = {
@@ -1121,7 +1143,9 @@ if (type === "arrow") {
 
         // ★ 説明文（ここに効果を書く）
         costume.effect_text =
-            `人形の${effectLabel}力 +${value}`;
+            costume.effect_type === "COIN"
+                ? `毎ラウンドコイン +${value}`
+                : `人形の${effectLabel}力 +${value}`;
     }
 
     // ---------------------------------------------------------
@@ -2399,86 +2423,69 @@ console.log(
     async _use_doll_skill(stype, opponent) {
 
     // スキル封印中
-    if (this.skill_sealed) return false;
+    if (this.skill_sealed) {
+        return { ok: false, reason: "スキルは封印されている…！" };
+    }
 
     // 人形チェック
-    if (!this.doll || this.doll.is_broken) return false;
+    if (!this.doll) {
+        return { ok: false, reason: "人形が存在しません" };
+    }
+    if (this.doll.is_broken && stype !== "doll_1") {
+        return { ok: false, reason: "人形が壊れているためスキルを使用できません" };
+    }
 
     // =========================
-    // スキル1：仕立て直し
+    // スキル1：修理キット調達
     // =========================
     if (stype === "doll_1") {
-
-        if (!this.doll?.costumes) {
-            return { ok: false, reason: "人形が存在しません" };
-        }
-
-        const part = this.selected_doll_part;
-        if (!part) {
-            return { ok: false, reason: "強化部位が未選択です" };
-        }
-
-        const c = this.doll.costumes[part];
-        if (!c) {
-            return { ok: false, reason: "不正な衣装部位です" };
-        }
-
-        if (c.star >= 4) {
-            return { ok: false, reason: "これ以上強化できません" };
-        }
-
-        c.star += 1;
+        this.items.push({
+            name: "修理キット",
+            price: 30,
+            category: "item",
+            is_doll_item: true,
+            effect_text: "人形の耐久を20回復／破壊時は15回復+復活（1T無敵）",
+            uid: crypto.randomUUID(),
+        });
         this.used_skill_set.add(stype);
-
-        // ★ 一時データ消去
-        this.selected_doll_part = null;
 
         return {
             ok: true,
             logs: [
-                `🪆 ${part} の衣装を仕立て直した！`,
-                `⭐ ★${c.star - 1} → ★${c.star}`
+                "🧰 修理キットを1つ入手した！"
             ]
         };
     }
 
 
     // =========================
-    // スキル2：生命縫合
+    // スキル2：全衣装仕立て直し
     // =========================
     if (stype === "doll_2") {
-
-        const hpCost = this.pending_hp_cost;
-        if (!Number.isFinite(hpCost)) {
-            return { ok: false, reason: "消費HPが未指定です" };
+        if (!this.doll?.costumes) {
+            return { ok: false, reason: "人形が存在しません" };
         }
 
-        if (hpCost % 10 !== 0 || hpCost < 10 || hpCost > 100) {
-            return { ok: false, reason: "HPは10〜100の10刻みで指定してください" };
+        const upgraded = [];
+        for (const [part, c] of Object.entries(this.doll.costumes)) {
+            if (!c) continue;
+            if ((c.star ?? 1) >= 4) continue;
+            c.star += 1;
+            this.updateCostumeDisplayName(c);
+            upgraded.push(`${part} ★${c.star - 1}→★${c.star}`);
         }
 
-        if (this.hp - hpCost < 1) {
-            return { ok: false, reason: "HPが不足しています" };
+        if (upgraded.length === 0) {
+            return { ok: false, reason: "強化できる衣装がありません" };
         }
-
-        const gain = Math.floor(hpCost / 2);
-
-        this.hp -= hpCost;
-        this.doll.durability = Math.min(
-            this.doll.max_durability,
-            this.doll.durability + gain
-        );
 
         this.used_skill_set.add(stype);
-
-        // ★ 一時データ消去
-        this.pending_hp_cost = null;
 
         return {
             ok: true,
             logs: [
-                `🩸 HPを ${hpCost} 消費した`,
-                `🪆 人形の耐久が ${gain} 回復した`
+                "🪡 装備中の衣装すべての星が上がった！",
+                ...upgraded.map(msg => `⭐ ${msg}`)
             ]
         };
     }
@@ -2488,14 +2495,6 @@ console.log(
     // スキル3：人形暴走
     // =========================
     if (stype === "doll_3") {
-
-        if (this.doll.durability < 10) {
-            return { ok: false, reason: "耐久が足りません" };
-        }
-
-        const before = this.doll.durability;
-
-        this.doll.durability = Math.floor(this.doll.durability / 2);
         this.doll.is_rampage = true;
         this.doll.rampage_rounds = 3;
 
@@ -2505,7 +2504,6 @@ console.log(
             ok: true,
             logs: [
                 "🔥 人形が暴走状態に入った！",
-                `🪆 耐久 ${before} → ${this.doll.durability}`,
                 "⚠ 衣装効果が2倍になる（3R）"
             ]
         };

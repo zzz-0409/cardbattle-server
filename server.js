@@ -1,4 +1,4 @@
-// （import 群は変更なし）
+﻿// （import 群は変更なし）
 import WebSocket, { WebSocketServer } from "ws";
 import { Player } from "./player.js";
 import { LEVEL_REQUIREMENTS, JOB_TEMPLATE, ARROW_DATA, createDollCostume, DOLL_COSTUME_PARTS, DOLL_COSTUME_TYPES, JOB_SKILLS } from "./constants.js";
@@ -7,7 +7,7 @@ export const JOB_DATA = JOB_TEMPLATE;
 
 import crypto from "crypto";
 import { generateOneShopItem } from "./item.js";
-import { generateEquipmentForLevel } from "./equip.js";
+import { generateEquipmentForLevel, upgradeEquipStar } from "./equip.js";
 import { MAGE_EQUIPS } from "./equip.js";
 import { getMageSlot } from "./player.js";
 import { MAGE_MANA_ITEMS } from "./mage_items.js";
@@ -224,6 +224,16 @@ function buildBuffUIData(player) {
       remain: Number(player.barrier ?? 0),
       source: "玄武",
       text: `玄武バリア：次に受けるダメージを ${Number(player.barrier ?? 0)} 回無効化`,
+    });
+  }
+
+  if (player.job === "人形使い" && Number(player.doll?.revive_guard_rounds ?? 0) > 0) {
+    out.push({
+      kind: "repair_guard",
+      power: Number(player.doll?.revive_guard_rounds ?? 0),
+      remain: Number(player.doll?.revive_guard_rounds ?? 0),
+      source: "修理キット",
+      text: "修理キット無敵：次に人形が受けるダメージを1回無効化",
     });
   }
 
@@ -846,6 +856,10 @@ export class Match {
     // ★ 1ターンのアイテム使用回数（消費アイテム）をリセット
     actor.item_use_count = 0;
 
+    if (actor.job === "人形使い" && actor.doll && Number(actor.doll.repair_kit_lock_rounds ?? 0) > 0) {
+      actor.doll.repair_kit_lock_rounds -= 1;
+    }
+
 
     this.sendItemList(actorWS, actor);
 
@@ -994,9 +1008,9 @@ export class Match {
           entry = {
             uid: crypto.randomUUID(),
             name: "修理キット",
-            price: 20,
+            price: 30,
             is_doll_item: true,
-            effect_text: "人形の耐久を回復／破壊時は復活（1T無敵）"
+            effect_text: "人形の耐久を20回復／破壊時は15回復+復活（1T無敵）"
           };
         }
         // 75%：衣装
@@ -1214,6 +1228,68 @@ export class Match {
     this.sendPopup(`${item.name} を購入しました`, wsPlayer, 2200);
 
     // ★ ラウンドは終了しない
+  }
+
+  combineNormalEquips(wsPlayer, uid1, uid2) {
+    const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
+    const id1 = String(uid1 ?? "");
+    const id2 = String(uid2 ?? "");
+
+    if (!id1 || !id2 || id1 === id2) {
+      this.sendError("❌ 合成する装備を2つ選んでください。", wsPlayer);
+      return;
+    }
+
+    const allEquips = [
+      ...(P.equipment ? [{ item: P.equipment, source: "equipped" }] : []),
+      ...((P.equipment_inventory ?? []).map(it => ({ item: it, source: "inventory" }))),
+    ];
+    const pick1 = allEquips.find(entry => String(entry.item?.uid) === id1);
+    const pick2 = allEquips.find(entry => String(entry.item?.uid) === id2);
+    const eq1 = pick1?.item;
+    const eq2 = pick2?.item;
+
+    if (!eq1 || !eq2) {
+      this.sendError("❌ 合成に必要な装備が見つかりません。", wsPlayer);
+      return;
+    }
+
+    if (
+      !eq1.is_equip || !eq2.is_equip ||
+      eq1.equip_type !== "normal" || eq2.equip_type !== "normal"
+    ) {
+      this.sendError("❌ 通常装備のみ合成できます。", wsPlayer);
+      return;
+    }
+
+    const star1 = Number(eq1.star ?? 1);
+    const star2 = Number(eq2.star ?? 1);
+    const category1 = String(eq1.equip_category ?? eq1.effect_type ?? "");
+    const category2 = String(eq2.equip_category ?? eq2.effect_type ?? "");
+
+    if (star1 !== star2 || category1 !== category2) {
+      this.sendError("❌ 星と効果が同じ通常装備を2つ選んでください。", wsPlayer);
+      return;
+    }
+
+    const nextEquip = upgradeEquipStar({
+      ...eq1,
+      uid: crypto.randomUUID(),
+    });
+
+    P.equipment_inventory = (P.equipment_inventory ?? []).filter(it =>
+      String(it?.uid) !== id1 && String(it?.uid) !== id2
+    );
+    if (P.equipment && (String(P.equipment.uid) === id1 || String(P.equipment.uid) === id2)) {
+      P.equipment = null;
+    }
+    P.equipment_inventory.push(nextEquip);
+
+    this.sendBattle(`🔧 ${eq1.name} を合成して ${nextEquip.name} を作成した！`);
+    this.sendPopup(`${nextEquip.name} を合成しました`, wsPlayer, 2200);
+    this.sendItemList(wsPlayer, P);
+    this.sendStatusInfo(wsPlayer, P);
+    this.sendSimpleStatusBoth();
   }
 
   // ---------------------------------------------------------
@@ -1500,6 +1576,18 @@ export class Match {
       P.job === "人形使い"
 
     ) {
+        if (Number(P.doll?.repair_kit_lock_rounds ?? 0) > 0) {
+            this.sendPopup(
+                "人形が壊れた次のラウンドは修理キットを使用できません。",
+                wsPlayer,
+                2800
+            );
+            this.sendError(
+                "❌ 人形が壊れた次のラウンドは修理キットを使用できません。",
+                wsPlayer
+            );
+            return;
+        }
         // ★ 暴走中は修理キット使用不可
         if (P.doll?.is_rampage) {
             this.sendError(
@@ -1694,10 +1782,29 @@ export class Match {
     // 所持アイテム一覧を送信（共通）
     // ===============================
     sendItemList(wsPlayer, P) {
+      const equippedSpecialItems = [];
+      const specialEquip = buildSpecialEquip(P);
+      for (const slot of specialEquip?.slots ?? []) {
+        if (!slot?.item) continue;
+        equippedSpecialItems.push({
+          uid: slot.item.uid,
+          ...slot.item,
+          category: "special",
+          is_equipped_special: true,
+          equipped_slot_label: slot.label ?? slot.key ?? "特殊装備",
+        });
+      }
+
       safeSend(wsPlayer, {
         type: "item_list",
         item_uses_remaining: Math.max(0, 2 - Number(P.item_use_count ?? 0)),
         items: [
+          ...(P.equipment ? [{
+            uid: P.equipment.uid,
+            ...P.equipment,
+            category: "equip",
+            is_equipped_normal: true
+          }] : []),
           ...P.items.map(it => ({
             uid: it.uid,
             ...it,
@@ -1713,6 +1820,7 @@ export class Match {
             ...it,
             category: "special"
           })),
+          ...equippedSpecialItems,
           ...P.arrow_inventory.map(it => ({
             uid: it.uid,
             ...it,
@@ -2152,6 +2260,11 @@ export class Match {
         }
 
         if (!result || !result.ok) {
+          this.sendPopup(
+            result?.reason ?? "スキルを使用できません",
+            wsPlayer,
+            2800
+          );
           this.sendError(
             `❌ スキル失敗：${result?.reason ?? "不明なエラー"}`,
             wsPlayer
@@ -2787,6 +2900,10 @@ function startCpuMatch(humanWS) {
     // ---------- アイテム ----------
     if (m.type === "use_item") {
       match.useItem(sock, m.item_id, m.action, m.slot);
+      return;
+    }
+    if (m.type === "combine_equips") {
+      match.combineNormalEquips(sock, m.uid1, m.uid2);
       return;
     }
 
@@ -3848,6 +3965,10 @@ wss.on("connection", (ws) => {
           match.useItem(sock, m.item_id, m.action, m.slot);
           return;
         }
+        if (m.type === "combine_equips") {
+          match.combineNormalEquips(sock, m.uid1, m.uid2);
+          return;
+        }
 
         if (m.type === "open_shop") {
           match.openShop(sock);
@@ -4115,6 +4236,10 @@ wss.on("connection", (ws) => {
           // ---------- アイテム / 装備 使用 ----------
           if (m.type === "use_item") {
               match.useItem(sock, m.item_id, m.action, m.slot);
+              return;
+          }
+          if (m.type === "combine_equips") {
+              match.combineNormalEquips(sock, m.uid1, m.uid2);
               return;
           }
 

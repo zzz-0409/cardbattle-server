@@ -312,19 +312,19 @@ export const JOB_SKILLS = {
   "人形使い": [
     {
       type: "doll_1",
-      name: "人形召喚",
+      name: "修理キット調達",
       min_level: 1,
       power: null,
-      effect: "人形を召喚",
-      description: "人形を召喚し、戦闘に参加させる。",
+      effect: "修理キット入手",
+      description: "修理キットを1つ入手する。",
     },
     {
       type: "doll_2",
-      name: "人形修復",
+      name: "総仕立て直し",
       min_level: 2,
       power: null,
-      effect: "HP→耐久変換",
-      description: "HPを消費して人形の耐久を回復する（10刻み、上限100）。",
+      effect: "装備中衣装の星+1",
+      description: "装備しているすべての部位の衣装の★を1上げる。",
     },
     {
       type: "doll_3",
@@ -453,14 +453,14 @@ export const DOLL_REPAIR_KIT = {
 // 人形使い：衣装アイテム定義
 // =========================================================
 export const DOLL_COSTUME_PARTS = ["head", "body", "leg", "foot"];
-export const DOLL_COSTUME_TYPES = ["ATK", "DEF", "DUR"];
+export const DOLL_COSTUME_TYPES = ["ATK", "DEF", "COIN"];
 
 // ★ 衣装生成用ヘルパー
 export function createDollCostume({ part, effect_type, star }) {
 
   // 効果量計算
   const value =
-    effect_type === "DUR"
+    effect_type === "COIN"
       ? 1 + star
       : 1 + star * 2;
 
@@ -470,8 +470,8 @@ export function createDollCostume({ part, effect_type, star }) {
     effect_text = `人形の攻撃力 +${value}`;
   } else if (effect_type === "DEF") {
     effect_text = `人形の防御力 +${value}`;
-  } else if (effect_type === "DUR") {
-    effect_text = `人形の耐久力 毎R +${value}`;
+  } else if (effect_type === "COIN") {
+    effect_text = `毎ラウンドコイン +${value}`;
   }
 
   return {
@@ -488,7 +488,7 @@ export function createDollCostume({ part, effect_type, star }) {
     effect_type,
     star,
 
-    price: (10 + star * 5) - (effect_type === "DUR" ? 5 : 10)
+    price: (10 + star * 5) - (effect_type === "COIN" ? 5 : 10)
   };
 }
 
@@ -505,5 +505,6 @@ export const DOLL_PART_LABEL = {
 export const DOLL_EFFECT_LABEL = {
   ATK: "攻撃",
   DEF: "防御",
-  DUR: "耐久"
+  DUR: "耐久",
+  COIN: "コイン"
 };

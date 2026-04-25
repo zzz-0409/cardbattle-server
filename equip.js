@@ -169,6 +169,11 @@ export function upgradeEquipStar(equip) {
     equip.effect_text = `防御力+${equip.power}`;
   }
 
+  const baseName = String(equip.name ?? "").replace(/^★\s*\d+\s*/, "");
+  if (baseName) {
+    equip.name = `★${newStar} ${baseName}`;
+  }
+
   return equip;
 }
 
