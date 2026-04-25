@@ -1593,6 +1593,8 @@ export class Match {
         const beforeOpponentBarrier = Number(opponent?.barrier ?? 0);
         const beforeSelfAttackBuff = Number(P.get_attack_buff_total?.() ?? 0);
         const beforeOpponentAttackBuff = Number(opponent?.get_attack_buff_total?.() ?? 0);
+        const beforeSelfDefBuff = Number(P.get_def_buff_total?.() ?? 0) + Number(P.barrier ?? 0);
+        const beforeOpponentDefBuff = Number(opponent?.get_def_buff_total?.() ?? 0) + Number(opponent?.barrier ?? 0);
 
         P.apply_item(item);
 
@@ -1638,6 +1640,11 @@ export class Match {
         const afterOpponentAttackBuff = Number(opponent?.get_attack_buff_total?.() ?? 0);
         if (afterSelfAttackBuff > beforeSelfAttackBuff || afterOpponentAttackBuff > beforeOpponentAttackBuff) {
           this.sendSfxEvent("powerup");
+        }
+        const afterSelfDefBuff = Number(P.get_def_buff_total?.() ?? 0) + Number(P.barrier ?? 0);
+        const afterOpponentDefBuff = Number(opponent?.get_def_buff_total?.() ?? 0) + Number(opponent?.barrier ?? 0);
+        if (afterSelfDefBuff > beforeSelfDefBuff || afterOpponentDefBuff > beforeOpponentDefBuff) {
+          this.sendSfxEvent("defup");
         }
 
         if (P.job === "陰陽師" && P.last_summoned_shikigami?.length) {
@@ -2035,16 +2042,17 @@ export class Match {
       // ============================
       // ★ UI用：ダメージ演出送信
       // ============================
-      if (dealt > 0) {
-        const targetType =
-          target.job === "人形使い" &&
-          target.doll &&
-          !target.doll.is_broken
-            ? "doll"
-            : "body";
+        if (dealt > 0) {
+          const targetType =
+            target.job === "人形使い" &&
+            target.doll &&
+            !target.doll.is_broken
+              ? "doll"
+              : "body";
 
-        this.sendDamageEvent(target, dealt, "normal", targetType);
-      }
+          this.sendDamageEvent(target, dealt, "normal", targetType);
+          this.sendSfxEvent("attack");
+        }
 
 
         this.sendBattle(
@@ -2252,6 +2260,8 @@ export class Match {
     const beforeHpTarget = target.hp;
     const beforeActorAttackBuff = Number(actor.get_attack_buff_total?.() ?? 0);
     const beforeTargetAttackBuff = Number(target.get_attack_buff_total?.() ?? 0);
+    const beforeActorDefBuff = Number(actor.get_def_buff_total?.() ?? 0) + Number(actor.barrier ?? 0);
+    const beforeTargetDefBuff = Number(target.get_def_buff_total?.() ?? 0) + Number(target.barrier ?? 0);
 
     // 人形ダメージ検知（相手が人形使いの時）
     const beforeDollTarget =
@@ -2285,8 +2295,12 @@ export class Match {
       this.sendDamageEvent(target, damagedTarget, "normal", "body");
     }
 
-    if ((stype === "mage_2" || stype === "mage_3") && damagedTarget > 0) {
-      this.sendSfxEvent("boom");
+    if (damagedTarget > 0) {
+      if (stype === "mage_2" || stype === "mage_3") {
+        this.sendSfxEvent("boom");
+      } else {
+        this.sendSfxEvent("attack");
+      }
     }
 
     // 人形へのダメージ（HPが減らないケース）
@@ -2315,6 +2329,11 @@ export class Match {
     const afterTargetAttackBuff = Number(target.get_attack_buff_total?.() ?? 0);
     if (afterActorAttackBuff > beforeActorAttackBuff || afterTargetAttackBuff > beforeTargetAttackBuff) {
       this.sendSfxEvent("powerup");
+    }
+    const afterActorDefBuff = Number(actor.get_def_buff_total?.() ?? 0) + Number(actor.barrier ?? 0);
+    const afterTargetDefBuff = Number(target.get_def_buff_total?.() ?? 0) + Number(target.barrier ?? 0);
+    if (afterActorDefBuff > beforeActorDefBuff || afterTargetDefBuff > beforeTargetDefBuff) {
+      this.sendSfxEvent("defup");
     }
 
     if (prefix === "onmyoji") {
