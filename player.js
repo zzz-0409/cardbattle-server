@@ -118,6 +118,7 @@ export class Player {
         this.used_items_this_round = 0;
 
         this.special_inventory = [];   // 魔導士装備・矢などの特殊装備用
+        this.pending_alchemist_selection = [];
 
         // スキル使用管理
         this.used_skill_set = new Set();
@@ -217,6 +218,38 @@ export class Player {
     }
        
 
+
+    getAlchemistFusionCandidates() {
+        const candidates = [];
+
+        if (
+            this.equipment &&
+            this.equipment.equip_type !== "mage_equip" &&
+            this.equipment.equip_type !== "alchemist_unique"
+        ) {
+            candidates.push({
+                origin: "equip_slot",
+                index: 0,
+                obj: this.equipment,
+            });
+        }
+
+        this.equipment_inventory.forEach((eq, idx) => {
+            if (
+                eq &&
+                eq.equip_type !== "mage_equip" &&
+                eq.equip_type !== "alchemist_unique"
+            ) {
+                candidates.push({
+                    origin: "inv",
+                    index: idx,
+                    obj: eq,
+                });
+            }
+        });
+
+        return candidates;
+    }
 
     // ---------------------------------------------------------
     // ステータス計算
@@ -2148,48 +2181,44 @@ if (type === "arrow") {
 
 
 
-            const candidates = [];
-
-            // 装備中が「特殊装備でなければ」候補に追加
-            if (
-                this.equipment &&
-                this.equipment.equip_type !== "mage_equip" &&
-                this.equipment.equip_type !== "alchemist_unique"
-            ) {
-                candidates.push({
-                    origin: "equip_slot",
-                    index: 0,
-                    obj: this.equipment,
-                });
-            }
-
-            // 手持ち装備
-            this.equipment_inventory.forEach((eq, idx) => {
-                if (
-                    eq.equip_type !== "mage_equip" &&
-                    eq.equip_type !== "alchemist_unique"
-                ) {
-                    candidates.push({
-                        origin: "inv",
-                        index: idx,
-                        obj: eq,
-                    });
-                }
-            });
+            const candidates = this.getAlchemistFusionCandidates();
 
             if (candidates.length < 3) {
                 log("❌ 合成に使える装備が3つありません。");
                 return false;
             }
 
-            // ---- JS では Python の input() が使えないため ----
-            // ランダムで3つ選ぶ方式にする（将来UIで選択可）
+            const selectedUids = Array.isArray(this.pending_alchemist_selection)
+                ? this.pending_alchemist_selection.map(uid => String(uid))
+                : [];
+            this.pending_alchemist_selection = [];
+
             let selected = [];
-            while (selected.length < 3) {
-                const pick = candidates.splice(
-                    Math.floor(Math.random() * candidates.length), 1
-                )[0];
-                selected.push(pick);
+
+            if (this.isBot) {
+                const pool = [...candidates];
+                while (selected.length < 3 && pool.length > 0) {
+                    const pick = pool.splice(
+                        Math.floor(Math.random() * pool.length), 1
+                    )[0];
+                    if (pick) selected.push(pick);
+                }
+            } else {
+                if (selectedUids.length !== 3 || new Set(selectedUids).size !== 3) {
+                    log("❌ 合成する装備を3つ選んでください。");
+                    return false;
+                }
+
+                selected = selectedUids
+                    .map(uid =>
+                        candidates.find(sel => String(sel.obj?.uid ?? "") === uid)
+                    )
+                    .filter(Boolean);
+
+                if (selected.length !== 3) {
+                    log("❌ 合成に使う装備が見つかりません。");
+                    return false;
+                }
             }
 
             // --- ステータス合計（錬金術師・三重合成）---

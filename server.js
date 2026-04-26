@@ -284,6 +284,14 @@ function buildMadStateData(player) {
   };
 }
 
+function buildAlchemistFusionCandidateData(player) {
+  if (!player?.getAlchemistFusionCandidates) return [];
+  return player.getAlchemistFusionCandidates().map(({ origin, obj }) => ({
+    ...obj,
+    is_equipped_normal: origin === "equip_slot",
+  }));
+}
+
 
 function createBotSocket() {
   return {
@@ -1221,6 +1229,11 @@ export class Match {
     });
 
     this.sendItemList(wsPlayer, P);
+
+    safeSend(wsPlayer, {
+      type: "purchased_item",
+      item,
+    });
 
     this.sendSystem(`🛒 ${P.name} は ${item.name} を購入した！`);
 
@@ -2471,6 +2484,8 @@ export class Match {
       });
     }
 
+    this.sendItemList(wsPlayer, actor);
+
 
     // 弓兵・陰陽師の追加処理（成功時のみ）
 
@@ -2877,6 +2892,38 @@ function startCpuMatch(humanWS) {
 
     if (m.type === "request_doll_skill3") {
       await match.useSkill(sock, P, P.opponent, 3);
+      return;
+    }
+
+    if (m.type === "request_alchemist_skill3_select") {
+      if (sock !== match.current) {
+        match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+        return;
+      }
+      const candidates = buildAlchemistFusionCandidateData(P);
+      if (candidates.length < 3) {
+        match.sendPopup("合成に使える装備が3つありません。", sock, 2500);
+        match.sendError("❌ 合成に使える装備が3つありません。", sock);
+        return;
+      }
+      safeSend(sock, { type: "alchemist_skill3_candidates", items: candidates });
+      return;
+    }
+
+    if (m.type === "use_alchemist_skill3") {
+      if (sock !== match.current) {
+        match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+        return;
+      }
+      const selected = Array.isArray(m.uids) ? m.uids.map(uid => String(uid)) : [];
+      if (selected.length !== 3 || new Set(selected).size !== 3) {
+        match.sendPopup("合成する装備を3つ選んでください。", sock, 2500);
+        match.sendError("❌ 合成する装備を3つ選んでください。", sock);
+        return;
+      }
+      P.pending_alchemist_selection = selected;
+      await match.useSkill(sock, P, P.opponent, 3);
+      P.pending_alchemist_selection = [];
       return;
     }
 
@@ -3946,6 +3993,38 @@ wss.on("connection", (ws) => {
           return;
         }
 
+        if (m.type === "request_alchemist_skill3_select") {
+          if (sock !== match.current) {
+            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            return;
+          }
+          const candidates = buildAlchemistFusionCandidateData(P);
+          if (candidates.length < 3) {
+            match.sendPopup("合成に使える装備が3つありません。", sock, 2500);
+            match.sendError("❌ 合成に使える装備が3つありません。", sock);
+            return;
+          }
+          safeSend(sock, { type: "alchemist_skill3_candidates", items: candidates });
+          return;
+        }
+
+        if (m.type === "use_alchemist_skill3") {
+          if (sock !== match.current) {
+            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            return;
+          }
+          const selected = Array.isArray(m.uids) ? m.uids.map(uid => String(uid)) : [];
+          if (selected.length !== 3 || new Set(selected).size !== 3) {
+            match.sendPopup("合成する装備を3つ選んでください。", sock, 2500);
+            match.sendError("❌ 合成する装備を3つ選んでください。", sock);
+            return;
+          }
+          P.pending_alchemist_selection = selected;
+          await match.useSkill(sock, P, P.opponent, 3);
+          P.pending_alchemist_selection = [];
+          return;
+        }
+
         if (m.type === "action") {
           await match.handleAction(sock, m.action);
           return;
@@ -4190,6 +4269,38 @@ wss.on("connection", (ws) => {
 
             // ★ 共通スキル処理へ
             await match.useSkill(sock, P, P.opponent, 3);
+            return;
+          }
+
+          if (m.type === "request_alchemist_skill3_select") {
+            if (sock !== match.current) {
+              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              return;
+            }
+            const candidates = buildAlchemistFusionCandidateData(P);
+            if (candidates.length < 3) {
+              match.sendPopup("合成に使える装備が3つありません。", sock, 2500);
+              match.sendError("❌ 合成に使える装備が3つありません。", sock);
+              return;
+            }
+            safeSend(sock, { type: "alchemist_skill3_candidates", items: candidates });
+            return;
+          }
+
+          if (m.type === "use_alchemist_skill3") {
+            if (sock !== match.current) {
+              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              return;
+            }
+            const selected = Array.isArray(m.uids) ? m.uids.map(uid => String(uid)) : [];
+            if (selected.length !== 3 || new Set(selected).size !== 3) {
+              match.sendPopup("合成する装備を3つ選んでください。", sock, 2500);
+              match.sendError("❌ 合成する装備を3つ選んでください。", sock);
+              return;
+            }
+            P.pending_alchemist_selection = selected;
+            await match.useSkill(sock, P, P.opponent, 3);
+            P.pending_alchemist_selection = [];
             return;
           }
 
