@@ -1,4 +1,4 @@
-﻿// （import 群は変更なし）
+// （import 群は変更なし）
 import WebSocket, { WebSocketServer } from "ws";
 import { Player } from "./player.js";
 import { LEVEL_REQUIREMENTS, JOB_TEMPLATE, ARROW_DATA, createDollCostume, DOLL_COSTUME_PARTS, DOLL_COSTUME_TYPES, JOB_SKILLS } from "./constants.js";
@@ -239,6 +239,18 @@ function buildBuffUIData(player) {
     });
   }
 
+
+  if (player.job === "弓兵" && player.archer_buff && Number(player.archer_buff.rounds ?? 0) > 0) {
+    const extra = Math.max(1, Number(player.archer_buff.extra ?? 1));
+    const rounds = Number(player.archer_buff.rounds ?? 0);
+    out.push({
+      kind: "archer_extra_attack",
+      power: extra,
+      remain: rounds,
+      source: "追撃強化",
+      text: `追撃強化：追加攻撃 +${extra}（あと${rounds}R）`,
+    });
+  }
   if (player.job === "人形使い" && player.doll) {
     const permanentAtkUp = Math.max(0, Number(player.doll.base_atk ?? 13) - 13);
     if (permanentAtkUp > 0) {
@@ -353,7 +365,7 @@ function sampleDistinctItems(items, count) {
   return pool.slice(0, Math.min(count, pool.length));
 }
 
-const DOLL_CHARGE_COST = 20;
+const DOLL_CHARGE_COST = 15;
 
 function createMadSpecialItem(star = 1) {
   const value = star === 3 ? 30 : star === 2 ? 20 : 10;
@@ -695,6 +707,8 @@ export class Match {
               max_durability: actor.doll.max_durability,
               is_broken: actor.doll.is_broken,
               charge: Number(actor.doll.charge ?? 0),
+              charge_need: DOLL_CHARGE_COST,
+              pending_charge_ready: !!actor.doll.pending_charge_ready,
 
               // ※ getDollAttack は「壊れていると本体攻撃を返す」実装なので、表示上は 0 にする
               attack: actor.doll.is_broken ? 0 : actor.getDollAttack(),
@@ -1069,11 +1083,27 @@ export class Match {
     safeSend(wsPlayer, { type: "coin_info", coins: actor.coins });
 
     if (Number(actor.doll.charge ?? 0) >= DOLL_CHARGE_COST) {
-      this.triggerDollChargeChoices(wsPlayer, actor);
+      actor.doll.pending_charge_ready = true;
     }
     return true;
   }
 
+  requestDollChargeChoices(wsPlayer, actor) {
+    if (actor.job !== "人形使い" || !actor.doll) {
+      this.sendError("❌ 人形が存在しません。", wsPlayer);
+      return false;
+    }
+    if (Number(actor.doll.charge ?? 0) < DOLL_CHARGE_COST) {
+      this.sendError(`❌ チャージが足りません。（${Number(actor.doll.charge ?? 0)} / ${DOLL_CHARGE_COST}）`, wsPlayer);
+      return false;
+    }
+    if (this.hasPendingDollCharge(actor)) {
+      this.resendPendingDollCharge(wsPlayer, actor);
+      return true;
+    }
+    actor.doll.pending_charge_ready = true;
+    return this.triggerDollChargeChoices(wsPlayer, actor);
+  }
   getDollChargeOptionPool(actor) {
     return [
       "base_atk_up",
@@ -1159,7 +1189,7 @@ export class Match {
           this.sendStatusInfo(wsPlayer, actor);
           this.sendSimpleStatusBoth();
           if (Number(actor.doll.charge ?? 0) >= DOLL_CHARGE_COST) {
-            this.triggerDollChargeChoices(wsPlayer, actor);
+            actor.doll.pending_charge_ready = true;
           }
           return true;
         }
@@ -1516,17 +1546,9 @@ export class Match {
 
     // ▼ ラウンド情報送信
     this.sendRoundInfo();
-
-    if (
-      actor.job === "人形使い" &&
-      actor.doll &&
-      actor.doll.pending_charge_ready
-    ) {
-      setTimeout(() => {
-        if (this.ended) return;
-        if (this.current !== actorWS) return;
-        this.triggerDollChargeChoices(actorWS, actor);
-      }, 0);
+    if (actor.job === "人形使い" && actor.doll && actor.doll.pending_charge_ready) {
+      this.sendStatusInfo(actorWS, actor);
+      this.sendSimpleStatusBoth();
     }
   }
 
@@ -2566,6 +2588,8 @@ export class Match {
               max_durability: self.doll.max_durability,
               is_broken: self.doll.is_broken,
               charge: Number(self.doll.charge ?? 0),
+              charge_need: DOLL_CHARGE_COST,
+              pending_charge_ready: !!self.doll.pending_charge_ready,
               attack: self.doll.is_broken ? 0 : self.getDollAttack(),
               defense: self.getDollDefense(),
             }
@@ -2619,6 +2643,8 @@ export class Match {
               max_durability: enemy.doll.max_durability,
               is_broken: enemy.doll.is_broken,
               charge: Number(enemy.doll.charge ?? 0),
+              charge_need: DOLL_CHARGE_COST,
+              pending_charge_ready: !!enemy.doll.pending_charge_ready,
               attack: enemy.doll.is_broken ? 0 : enemy.getDollAttack(),
               defense: enemy.getDollDefense(),
             }
@@ -3532,6 +3558,11 @@ function startCpuMatch(humanWS) {
 
     if (m.type === "request_doll_skill3") {
       await match.useSkill(sock, P, P.opponent, 3);
+      return;
+    }
+
+    if (m.type === "request_doll_charge") {
+      match.requestDollChargeChoices(sock, P);
       return;
     }
 
@@ -4648,7 +4679,17 @@ wss.on("connection", (ws) => {
           return;
         }
 
-        if (m.type === "select_doll_charge") {
+        if (m.type === "request_doll_charge") {
+          match.requestDollChargeChoices(sock, P);
+          return;
+        }
+
+        if (m.type === "request_doll_charge") {
+      match.requestDollChargeChoices(sock, P);
+      return;
+    }
+
+    if (m.type === "select_doll_charge") {
           match.resolveDollChargeChoice(sock, P, String(m.key ?? ""));
           return;
         }
@@ -4942,7 +4983,17 @@ wss.on("connection", (ws) => {
             return;
           }
 
-          if (m.type === "select_doll_charge") {
+          if (m.type === "request_doll_charge") {
+          match.requestDollChargeChoices(sock, P);
+          return;
+        }
+
+        if (m.type === "request_doll_charge") {
+      match.requestDollChargeChoices(sock, P);
+      return;
+    }
+
+    if (m.type === "select_doll_charge") {
             match.resolveDollChargeChoice(sock, P, String(m.key ?? ""));
             return;
           }
@@ -5218,3 +5269,4 @@ wss.on("connection", (ws) => {
     }
   });
 });
+

@@ -357,16 +357,8 @@ export class Player {
 
 
     get_total_defense() {
-
         // ============================
-        // 人形使い：人形防御を最優先
-        // ============================
-        if (this.job === "人形使い" && this.doll && !this.doll.is_broken) {
-            return this.getDollDefense();
-        }
-
-        // ============================
-        // 以下は既存の本体防御ロジック
+        // 人形使い本体の防御力は人形防御に置き換えない
         // ============================        
         let total = this.base_defense + this.get_def_buff_total();
 
