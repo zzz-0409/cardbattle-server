@@ -453,14 +453,14 @@ export const DOLL_REPAIR_KIT = {
 // 人形使い：衣装アイテム定義
 // =========================================================
 export const DOLL_COSTUME_PARTS = ["head", "body", "leg", "foot"];
-export const DOLL_COSTUME_TYPES = ["ATK", "DEF", "COIN"];
+export const DOLL_COSTUME_TYPES = ["ATK", "DEF", "CHARGE"];
 
 // ★ 衣装生成用ヘルパー
 export function createDollCostume({ part, effect_type, star }) {
 
   // 効果量計算
   const value =
-    effect_type === "COIN"
+    effect_type === "CHARGE"
       ? 1 + star
       : 1 + star * 2;
 
@@ -470,8 +470,8 @@ export function createDollCostume({ part, effect_type, star }) {
     effect_text = `人形の攻撃力 +${value}`;
   } else if (effect_type === "DEF") {
     effect_text = `人形の防御力 +${value}`;
-  } else if (effect_type === "COIN") {
-    effect_text = `毎ラウンドコイン +${value}`;
+  } else if (effect_type === "CHARGE") {
+    effect_text = `毎ラウンドチャージ +${value}`;
   }
 
   return {
@@ -488,7 +488,7 @@ export function createDollCostume({ part, effect_type, star }) {
     effect_type,
     star,
 
-    price: (10 + star * 5) - (effect_type === "COIN" ? 5 : 10)
+    price: (10 + star * 5) - (effect_type === "CHARGE" ? 5 : 10)
   };
 }
 
@@ -506,5 +506,5 @@ export const DOLL_EFFECT_LABEL = {
   ATK: "攻撃",
   DEF: "防御",
   DUR: "耐久",
-  COIN: "コイン"
+  CHARGE: "チャージ"
 };

@@ -90,6 +90,8 @@ export class Player {
         this.skill_sealed = false;
         this.barrier = 0;
         this.madman_guts = false;
+        this.madman_no_heal = false;
+        this.madman_rage_active = false;
         this.skill_sealed_rounds = 0;   // ← これが絶対必要！
 
         // --- 弓兵専用フィールド ---
@@ -119,6 +121,8 @@ export class Player {
 
         this.special_inventory = [];   // 魔導士装備・矢などの特殊装備用
         this.pending_alchemist_selection = [];
+        this.pending_doll_charge_choices = null;
+        this.pending_doll_charge_option = null;
 
         // スキル使用管理
         this.used_skill_set = new Set();
@@ -170,6 +174,18 @@ export class Player {
                 is_rampage: false,
                 revive_guard_rounds: 0,
                 repair_kit_lock_rounds: 0,
+                charge: 0,
+                pending_charge_ready: false,
+                extra_attacks_this_turn: 0,
+                extra_attack_buff: null,
+                extra_attack_ignore_def_permanent: false,
+                charge_buffs: {
+                    base_atk_up: { level: 1, picks: 0 },
+                    extra_attack: { level: 1, picks: 0 },
+                    gain_coins: { level: 1, picks: 0 },
+                    heal_durability: { level: 1, picks: 0 },
+                    costume_boost: { level: 1, picks: 0 },
+                },
 
                 // 初期衣装
                 costumes: {
@@ -278,12 +294,25 @@ export class Player {
         return total;
     }
 
+    can_receive_heal() {
+        return !(this.job === "狂人" && this.madman_no_heal);
+    }
+
+    restore_hp(amount) {
+        if (!this.can_receive_heal()) return 0;
+        const heal = Number(amount ?? 0);
+        if (heal <= 0) return 0;
+        const before = this.hp;
+        this.hp = Math.min(this.max_hp, this.hp + heal);
+        return this.hp - before;
+    }
+
     get_total_attack() {
         let total = this.base_attack + this.get_attack_buff_total();
 
-        // 狂人専用: このゲーム中の累積被ダメージ120以上で狂化し、基礎攻撃力+8
-        if (this.job === "狂人" && (this.total_damage_received ?? 0) >= 120) {
-            total += 8;
+        // 狂人専用: スキル3強化中は累積被ダメージの 1/20 を攻撃力へ加算
+        if (this.job === "狂人" && this.madman_rage_active) {
+            total += Math.floor((this.total_damage_received ?? 0) / 20);
         }
 
         // ============================
@@ -679,7 +708,7 @@ if (type === "arrow") {
             // HP再生（指輪）
             if (eq.regen_hp) {
                 const beforeHP = this.hp;
-                this.hp = Math.min(this.max_hp, this.hp + eq.regen_hp);
+                this.restore_hp(eq.regen_hp);
                 console.log(`❤️ ${eq.name}: HP ${beforeHP} → ${this.hp}`);
             }
 
@@ -747,22 +776,27 @@ if (type === "arrow") {
             }
         }
 
-        if (this.doll?.costumes) {
-            for (const c of Object.values(this.doll.costumes)) {
-                if (!c) continue;
-                if (c.effect_type !== "COIN") continue;
+        return total;
+    }
 
-                let value = 1 + (c.star ?? 1);
-                if (c.condition === "boroboro") {
-                    value = Math.floor(value * 0.5);
-                }
-                if (this.doll.is_rampage) {
-                    value *= 2;
-                }
-                total += value;
+    get_doll_charge_per_round() {
+        if (!this.doll?.costumes) return 0;
+        if (this.doll.is_broken) return 0;
+
+        let total = 0;
+        for (const c of Object.values(this.doll.costumes)) {
+            if (!c) continue;
+            if (c.effect_type !== "CHARGE" && c.effect_type !== "COIN") continue;
+
+            let value = 1 + (c.star ?? 1);
+            if (c.condition === "boroboro") {
+                value = Math.floor(value * 0.5);
             }
+            if (this.doll.is_rampage) {
+                value *= 2;
+            }
+            total += value;
         }
-
         return total;
     }
 
@@ -965,6 +999,7 @@ if (type === "arrow") {
 
         if (this.job === "狂人" && this.madman_guts && this.hp - final <= 0) {
             this.madman_guts = false;
+            this.madman_no_heal = true;
             final = Math.max(0, this.hp - 10);
             this.hp = 10;
             log(`💢 ${this.name} は我慢で踏みとどまった！ HP10で耐えた！`);
@@ -1001,6 +1036,24 @@ if (type === "arrow") {
         // ★狂人の累積ダメージ更新（ここが重要！）
         if (this.job === "狂人") {
             this.total_damage_received += final;
+        }
+
+        if (
+            this.job === "狂人" &&
+            (this.total_damage_received ?? 0) >= 120 &&
+            this.hp > 0 &&
+            !this.madman_no_heal
+        ) {
+            const rageHeal = Math.floor(final / 5);
+            if (rageHeal > 0) {
+                const healed = this.restore_hp(rageHeal);
+                if (healed > 0) {
+                    log(`😈 狂化回復！ HP +${healed}`);
+                    if (this.match) {
+                        this.match.sendHealEvent(this, healed);
+                    }
+                }
+            }
         }
 
         // UI送信（本体形態）
@@ -1125,6 +1178,7 @@ if (type === "arrow") {
                 value = 1 + costume.star * 2;
                 break;
             case "COIN":
+            case "CHARGE":
                 value = 1 + costume.star;
                 break;
             case "DUR":
@@ -1155,7 +1209,8 @@ if (type === "arrow") {
             ATK: "攻撃",
             DEF: "防御",
             DUR: "耐久",
-            COIN: "コイン"
+            COIN: "チャージ",
+            CHARGE: "チャージ"
         }[costume.effect_type];
 
         const partLabel = {
@@ -1176,8 +1231,8 @@ if (type === "arrow") {
 
         // ★ 説明文（ここに効果を書く）
         costume.effect_text =
-            costume.effect_type === "COIN"
-                ? `毎ラウンドコイン +${value}`
+            (costume.effect_type === "COIN" || costume.effect_type === "CHARGE")
+                ? `毎ラウンドチャージ +${value}`
                 : `人形の${effectLabel}力 +${value}`;
     }
 
@@ -1225,6 +1280,21 @@ if (type === "arrow") {
             return true; // ★ ログは出さない
         }
 
+        if (item.is_mad_special_item && this.job === "狂人") {
+            const selfDamage = Number(item.self_damage ?? item.power ?? 0);
+            const selfHeal = Number(item.self_heal ?? item.heal ?? item.power ?? 0);
+
+            const beforeHp = this.hp;
+            this.take_damage(selfDamage, true);
+            const damaged = Math.max(0, beforeHp - this.hp);
+            this.last_item_self_damage = damaged;
+
+            const healed = this.restore_hp(selfHeal);
+            this.last_item_self_heal = healed;
+            this.used_items_this_round += 1;
+            return true;
+        }
+
 
     // =========================================
     // 人形使い：修理キット
@@ -1257,7 +1327,7 @@ if (type === "arrow") {
         if (et === "HP") {
             const heal_bonus = this.job_data ? this.job_data.heal_bonus : 0;
             const heal = item.power + heal_bonus;
-            this.hp = Math.min(this.max_hp, this.hp + heal);
+            this.restore_hp(heal);
             this.used_items_this_round += 1;
             return;
         }
@@ -1312,6 +1382,18 @@ if (type === "arrow") {
         // ★ active_buffs の処理（攻撃力 / 防御力 / 低下）
         if (Array.isArray(this.active_buffs)) {
             this.active_buffs.forEach(b => {
+                if (b.permanent) {
+                    if (b.type === "攻撃力") {
+                        list.push(`攻撃 +${b.power}`);
+                    } else if (b.type === "防御力") {
+                        list.push(`防御 +${b.power}`);
+                    } else if (b.type === "攻撃力低下") {
+                        list.push(`攻撃 -${b.power}`);
+                    } else if (b.type === "防御力低下") {
+                        list.push(`防御 -${b.power}`);
+                    }
+                    return;
+                }
                 const dur = b.duration ?? b.rounds ?? 0;
 
                 if (b.type === "攻撃力") {
@@ -1327,7 +1409,11 @@ if (type === "arrow") {
         }
 
         if (this.job === "狂人" && (this.total_damage_received ?? 0) >= 120) {
-            list.push("狂化：基礎攻撃 +8");
+            list.push("狂化：被ダメージ後にその 1/5 回復");
+        }
+
+        if (this.job === "狂人" && this.madman_rage_active) {
+            list.push(`破滅の微笑：累積被ダメージの 1/20 だけ攻撃 +${Math.floor((this.total_damage_received ?? 0) / 20)}`);
         }
 
         if (this.job === "狂人" && this.madman_guts) {
@@ -1397,6 +1483,10 @@ if (type === "arrow") {
         const next = [];
 
         for (const b of this.active_buffs) {
+            if (b.permanent) {
+                next.push({ ...b });
+                continue;
+            }
             const dur = b.duration ?? b.rounds ?? 0;
             const newDur = dur - 1;
 
@@ -1698,8 +1788,8 @@ if (type === "arrow") {
         // ---------- スキル1：ヒール ----------
         if (stype === "priest_1") {
             const heal = 27 + heal_bonus;
-            this.hp = Math.min(this.max_hp, this.hp + heal);
-            log(`✨ ヒール！ HP +${heal}`);
+            const healed = this.restore_hp(heal);
+            log(healed > 0 ? `✨ ヒール！ HP +${healed}` : `✨ ヒール！ しかし回復できない！`);
             this.used_skill_set.add(stype);
             return true;
         }
@@ -1707,8 +1797,8 @@ if (type === "arrow") {
         // ---------- スキル2：ディスペルヒール ----------
         if (stype === "priest_2") {
             const heal = 32 + heal_bonus;
-            this.hp = Math.min(this.max_hp, this.hp + heal);
-            log(`✨ ディスペルヒール！ HP +${heal}`);
+            const healed = this.restore_hp(heal);
+            log(healed > 0 ? `✨ ディスペルヒール！ HP +${healed}` : `✨ ディスペルヒール！ しかし回復できない！`);
 
             this.remove_negative_buffs();
 
@@ -1723,8 +1813,8 @@ if (type === "arrow") {
         // ---------- スキル3：グレーターヒール ----------
         if (stype === "priest_3") {
             const heal = 37 + heal_bonus;
-            this.hp = Math.min(this.max_hp, this.hp + heal);
-            log(`✨ グレーターヒール！ HP +${heal}`);
+            const healed = this.restore_hp(heal);
+            log(healed > 0 ? `✨ グレーターヒール！ HP +${healed}` : `✨ グレーターヒール！ しかし回復できない！`);
 
             this.remove_negative_buffs();
 
@@ -2107,8 +2197,10 @@ if (type === "arrow") {
         if (name === "白龍") {
             const heal = 30 + this.get_total_defense();
             const before = this.hp;
-            this.hp = Math.min(this.max_hp, this.hp + heal);
-            log(`🐉 白龍召喚！癒しの風が吹く！ HP ${before}→${this.hp}`);
+            const healed = this.restore_hp(heal);
+            log(healed > 0
+                ? `🐉 白龍召喚！癒しの風が吹く！ HP ${before}→${this.hp}`
+                : "🐉 白龍召喚！ しかし回復できない！");
             return;
         }
 
@@ -2601,9 +2693,8 @@ console.log(
             log(`🛡 ${this.name} は我慢の構えを取った！ 致死ダメージを1回だけHP10で耐える！`);
 
             if (isMad) {
-                const syncedHp = Math.max(0, this.hp);
-                opponent.hp = syncedHp;
-                log(`⚙️ 狂化ボーナス！ ${opponent.name} のHPを ${syncedHp} に揃えた！`);
+                this.madman_rage_active = true;
+                log(`⚙️ 狂化ボーナス！ 累積被ダメージの 1/20 だけ攻撃力が上がる！`);
             }
             this.used_skill_set.add(stype);
             return true;

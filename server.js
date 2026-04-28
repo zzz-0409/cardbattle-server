@@ -175,12 +175,14 @@ function buildBuffUIData(player) {
       const remain = Number(dur ?? 0);
 
       // ホバー説明（短く・わかりやすく）
-      const text = `${b.type ?? "効果"} ${sign}${Math.abs(power)}（あと${remain}R）`;
+      const text = b.permanent
+        ? `${b.type ?? "効果"} ${sign}${Math.abs(power)}`
+        : `${b.type ?? "効果"} ${sign}${Math.abs(power)}（あと${remain}R）`;
 
       out.push({
         kind,
         power,
-        remain,
+        remain: b.permanent ? null : remain,
         source,
         text,
       });
@@ -237,6 +239,46 @@ function buildBuffUIData(player) {
     });
   }
 
+  if (player.job === "人形使い" && player.doll) {
+    const permanentAtkUp = Math.max(0, Number(player.doll.base_atk ?? 13) - 13);
+    if (permanentAtkUp > 0) {
+      out.push({
+        kind: "doll_atk_up",
+        power: permanentAtkUp,
+        remain: null,
+        source: "人形強化",
+        text: `人形強化：人形の基礎攻撃力が永続で +${permanentAtkUp}`,
+      });
+    }
+
+    const extraAttackCount = Number(player.doll.extra_attacks_this_turn ?? 0);
+    const extraAttackRounds = Number(player.doll.extra_attack_buff?.rounds ?? 0);
+    const extraAttackIgnoreDef = !!player.doll.extra_attack_ignore_def_permanent;
+    const hasExtraAttackBuff =
+      extraAttackCount > 0 ||
+      extraAttackRounds > 0 ||
+      extraAttackIgnoreDef;
+
+    if (hasExtraAttackBuff) {
+      let text = "";
+      if (extraAttackIgnoreDef) {
+        text = extraAttackRounds > 0
+          ? `追加攻撃：防御無視が永続。あと${extraAttackRounds}R、毎回 ${Math.max(1, extraAttackCount)} 回追加攻撃`
+          : "追加攻撃：防御無視が永続";
+      } else {
+        text = `追加攻撃：あと${extraAttackRounds}R、毎回 ${Math.max(1, extraAttackCount)} 回追加攻撃`;
+      }
+
+      out.push({
+        kind: "doll_extra_attack",
+        power: Math.max(1, extraAttackCount),
+        remain: extraAttackRounds > 0 ? extraAttackRounds : null,
+        source: "追加攻撃",
+        text,
+      });
+    }
+  }
+
   if (Number(player.karasu_tengu_triggers ?? 0) > 0) {
     out.push({
       kind: "karasu",
@@ -250,10 +292,20 @@ function buildBuffUIData(player) {
   if (player.job === "狂人" && (player.total_damage_received ?? 0) >= 120) {
     out.push({
       kind: "mad",
-      power: 8,
+      power: Math.floor(Number(player.total_damage_received ?? 0) / 5),
       remain: null,
       source: "狂化",
-      text: "狂化状態\n基礎攻撃 +8",
+      text: "狂化状態\n被ダメージ後にその 1/5 回復",
+    });
+  }
+
+  if (player.job === "狂人" && player.madman_rage_active) {
+    out.push({
+      kind: "atk_up",
+      power: Math.floor(Number(player.total_damage_received ?? 0) / 20),
+      remain: null,
+      source: "破滅の微笑",
+      text: `破滅の微笑：累積被ダメージの 1/20 だけ攻撃力上昇（現在 +${Math.floor(Number(player.total_damage_received ?? 0) / 20)}）`,
     });
   }
 
@@ -290,6 +342,31 @@ function buildAlchemistFusionCandidateData(player) {
     ...obj,
     is_equipped_normal: origin === "equip_slot",
   }));
+}
+
+function sampleDistinctItems(items, count) {
+  const pool = [...items];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, Math.min(count, pool.length));
+}
+
+const DOLL_CHARGE_COST = 20;
+
+function createMadSpecialItem(star = 1) {
+  const value = star === 3 ? 30 : star === 2 ? 20 : 10;
+  const price = star === 3 ? 30 : star === 2 ? 20 : 10;
+  return {
+    uid: crypto.randomUUID(),
+    name: `★${star} 狂気の秘薬`,
+    price,
+    is_mad_special_item: true,
+    self_damage: value,
+    self_heal: value,
+    effect_text: `使用時に ${value} ダメージを受け、その後 ${value} 回復する`,
+  };
 }
 
 
@@ -617,6 +694,7 @@ export class Match {
               durability: actor.doll.durability,
               max_durability: actor.doll.max_durability,
               is_broken: actor.doll.is_broken,
+              charge: Number(actor.doll.charge ?? 0),
 
               // ※ getDollAttack は「壊れていると本体攻撃を返す」実装なので、表示上は 0 にする
               attack: actor.doll.is_broken ? 0 : actor.getDollAttack(),
@@ -802,6 +880,425 @@ export class Match {
     }
   }
 
+  hasPendingDollCharge(actor) {
+    return Array.isArray(actor?.pending_doll_charge_choices) && actor.pending_doll_charge_choices.length > 0;
+  }
+
+  resendPendingDollCharge(wsPlayer, actor) {
+    if (!this.hasPendingDollCharge(actor)) return;
+    if (actor.pending_doll_charge_option === "costume_boost") {
+      this.sendDollChargeCostumeSelect(wsPlayer, actor);
+      return;
+    }
+    safeSend(wsPlayer, {
+      type: "doll_charge_choices",
+      charge: Number(actor.doll?.charge ?? 0),
+      choices: actor.pending_doll_charge_choices,
+    });
+  }
+
+  getDollChargeBuffState(actor, key) {
+    actor.doll.charge_buffs ??= {};
+    actor.doll.charge_buffs[key] ??= { level: 1, picks: 0 };
+    return actor.doll.charge_buffs[key];
+  }
+
+  buildDollChargeChoiceMeta(actor, key) {
+    const state = this.getDollChargeBuffState(actor, key);
+    const level = Number(state.level ?? 1);
+    const picks = Number(state.picks ?? 0);
+    const progressNeed = 2;
+    const isMaxLevel = level >= 5;
+    const progressNow = isMaxLevel ? progressNeed : picks;
+    const progressText = isMaxLevel
+      ? "MAX 次回選択でLv1に戻る"
+      : `Lv${level + 1}まで ${progressNow}/${progressNeed}`;
+    switch (key) {
+      case "base_atk_up":
+        return {
+          title: `人形強化 Lv${level}`,
+          desc: `人形の基礎攻撃力を永続で +${level} する`,
+          level,
+          progress_now: progressNow,
+          progress_need: progressNeed,
+          progress_text: progressText,
+          progress_is_max: isMaxLevel,
+        };
+      case "extra_attack":
+        if (level <= 3) {
+          return {
+            title: `追加攻撃 Lv${level}`,
+            desc: `${level} ラウンドの間、人形が追加で1回攻撃する`,
+            level,
+            progress_now: progressNow,
+            progress_need: progressNeed,
+            progress_text: progressText,
+            progress_is_max: isMaxLevel,
+          };
+        }
+        if (level === 4) {
+          return {
+            title: "追加攻撃 Lv4",
+            desc: "3ラウンドの間、人形が追加で2回攻撃する",
+            level,
+            progress_now: progressNow,
+            progress_need: progressNeed,
+            progress_text: progressText,
+            progress_is_max: isMaxLevel,
+          };
+        }
+        return {
+          title: "追加攻撃 Lv5",
+          desc: "追加攻撃が防御無視で永続化し、3ラウンドの間さらに2回追加攻撃する",
+          level,
+          progress_now: progressNow,
+          progress_need: progressNeed,
+          progress_text: progressText,
+          progress_is_max: isMaxLevel,
+        };
+      case "gain_coins":
+        return {
+          title: `コイン獲得 Lv${level}`,
+          desc: `コインを ${10 + (level - 1) * 5} 枚獲得する`,
+          level,
+          progress_now: progressNow,
+          progress_need: progressNeed,
+          progress_text: progressText,
+          progress_is_max: isMaxLevel,
+        };
+      case "heal_durability":
+        return {
+          title: `耐久回復 Lv${level}`,
+          desc: `人形耐久を ${level === 5 ? 20 : 10 + (level - 1) * 2} 回復する`,
+          level,
+          progress_now: progressNow,
+          progress_need: progressNeed,
+          progress_text: progressText,
+          progress_is_max: isMaxLevel,
+        };
+      case "costume_boost": {
+        const hasAnyCostume = !!Object.values(actor?.doll?.costumes ?? {}).some(Boolean);
+        if (level === 5) {
+          return {
+            title: "衣装修復/強化 Lv5",
+            desc: hasAnyCostume
+              ? "衣装を1つ選び、ぼろぼろ修復+星1上げる。さらに装備中の全衣装の星を2上げる"
+              : "衣装がないため今回は効果を使えない",
+            level,
+            progress_now: progressNow,
+            progress_need: progressNeed,
+            progress_text: progressText,
+            progress_is_max: isMaxLevel,
+          };
+        }
+        return {
+          title: `衣装修復/強化 Lv${level}`,
+          desc: hasAnyCostume
+            ? `衣装を ${level} 個選び、ぼろぼろなら修理、通常なら星を1上げる`
+            : "衣装がないため今回は効果を使えない",
+          level,
+          progress_now: progressNow,
+          progress_need: progressNeed,
+          progress_text: progressText,
+          progress_is_max: isMaxLevel,
+        };
+      }
+      default:
+        return {
+          title: `チャージ効果 Lv${level}`,
+          desc: "チャージ効果を発動する",
+          level,
+          progress_now: progressNow,
+          progress_need: progressNeed,
+          progress_text: progressText,
+          progress_is_max: isMaxLevel,
+        };
+    }
+  }
+
+  advanceDollChargeBuffLevel(actor, key) {
+    const state = this.getDollChargeBuffState(actor, key);
+    if (state.level >= 5) {
+      state.level = 1;
+      state.picks = 0;
+      return;
+    }
+    state.picks += 1;
+    if (state.picks >= 2) {
+      state.level += 1;
+      state.picks = 0;
+    }
+  }
+
+  buildDollChargeParts(actor, excluded = []) {
+    const blocked = new Set((excluded ?? []).map(String));
+    return Object.entries(actor.doll?.costumes ?? {})
+      .filter(([part, costume]) => !!costume && !blocked.has(String(part)))
+      .map(([p, costume]) => ({
+        key: p,
+        label: { head: "帽子", body: "服", leg: "ズボン", foot: "靴" }[p] ?? p,
+        name: costume?.name ?? "衣装",
+        condition: costume?.condition ?? "normal",
+        star: Number(costume?.star ?? 1),
+      }));
+  }
+
+  sendDollChargeCostumeSelect(wsPlayer, actor) {
+    const ctx = actor.pending_doll_charge_context ?? {};
+    const parts = this.buildDollChargeParts(actor, ctx.selectedParts ?? []);
+    safeSend(wsPlayer, {
+      type: "doll_charge_costume_select",
+      parts,
+      remaining: Number(ctx.remaining ?? 1),
+      level: Number(ctx.level ?? 1),
+    });
+  }
+
+  finalizeDollChargeChoice(wsPlayer, actor, key, popupMsg) {
+    actor.doll.charge -= DOLL_CHARGE_COST;
+    actor.doll.pending_charge_ready = false;
+    actor.pending_doll_charge_choices = null;
+    actor.pending_doll_charge_option = null;
+    actor.pending_doll_charge_context = null;
+    this.advanceDollChargeBuffLevel(actor, key);
+
+    this.sendPopup(popupMsg, wsPlayer, 2500);
+    this.sendStatusInfo(wsPlayer, actor);
+    this.sendSimpleStatusBoth();
+    this.sendItemList(wsPlayer, actor);
+    safeSend(wsPlayer, { type: "coin_info", coins: actor.coins });
+
+    if (Number(actor.doll.charge ?? 0) >= DOLL_CHARGE_COST) {
+      this.triggerDollChargeChoices(wsPlayer, actor);
+    }
+    return true;
+  }
+
+  getDollChargeOptionPool(actor) {
+    return [
+      "base_atk_up",
+      "extra_attack",
+      "gain_coins",
+      "heal_durability",
+      "costume_boost",
+    ].map(key => ({ key, ...this.buildDollChargeChoiceMeta(actor, key) }));
+  }
+
+  triggerDollChargeChoices(wsPlayer, actor) {
+    if (actor.job !== "人形使い" || !actor.doll) return false;
+    if (this.hasPendingDollCharge(actor)) return false;
+    if (Number(actor.doll.charge ?? 0) < DOLL_CHARGE_COST) return false;
+
+    actor.pending_doll_charge_option = null;
+    actor.pending_doll_charge_choices = sampleDistinctItems(
+      this.getDollChargeOptionPool(actor),
+      3
+    );
+
+    if (wsPlayer?.isBot) {
+      const picked = actor.pending_doll_charge_choices[
+        Math.floor(Math.random() * actor.pending_doll_charge_choices.length)
+      ];
+      if (picked?.key === "costume_boost") {
+        const parts = Object.entries(actor.doll.costumes ?? {})
+          .filter(([, costume]) => !!costume)
+          .map(([part]) => part);
+        const part = parts.length > 0
+          ? parts[Math.floor(Math.random() * parts.length)]
+          : null;
+        return this.resolveDollChargeChoice(wsPlayer, actor, picked.key, part);
+      }
+      return this.resolveDollChargeChoice(wsPlayer, actor, picked?.key ?? "");
+    }
+
+    safeSend(wsPlayer, {
+      type: "doll_charge_choices",
+      charge: Number(actor.doll.charge ?? 0),
+      choices: actor.pending_doll_charge_choices,
+    });
+    this.sendStatusInfo(wsPlayer, actor);
+    this.sendSimpleStatusBoth();
+    return true;
+  }
+
+  resolveDollChargeChoice(wsPlayer, actor, key, part = null) {
+    if (actor.job !== "人形使い" || !actor.doll) return false;
+    if (Number(actor.doll.charge ?? 0) < DOLL_CHARGE_COST) {
+      actor.pending_doll_charge_choices = null;
+      actor.pending_doll_charge_option = null;
+      actor.pending_doll_charge_context = null;
+      actor.doll.pending_charge_ready = false;
+      this.sendError("❌ チャージが足りません。", wsPlayer);
+      return false;
+    }
+
+    const choices = Array.isArray(actor.pending_doll_charge_choices)
+      ? actor.pending_doll_charge_choices
+      : [];
+    const choice = choices.find(c => c.key === key);
+    if (!choice) {
+      this.sendError("❌ 選択できないチャージ効果です。", wsPlayer);
+      return false;
+    }
+
+    const level = Number(this.getDollChargeBuffState(actor, key).level ?? 1);
+
+    if (key === "costume_boost") {
+      const existingCtx = actor.pending_doll_charge_context ?? null;
+      const selectedParts = Array.isArray(existingCtx?.selectedParts)
+        ? existingCtx.selectedParts.map(String)
+        : [];
+
+      if (!part) {
+        const availableParts = this.buildDollChargeParts(actor, selectedParts);
+        if (availableParts.length === 0) {
+          actor.pending_doll_charge_choices = null;
+          actor.pending_doll_charge_option = null;
+          actor.pending_doll_charge_context = null;
+          this.sendPopup("強化できる衣装がありません。", wsPlayer, 2500);
+          this.sendStatusInfo(wsPlayer, actor);
+          this.sendSimpleStatusBoth();
+          if (Number(actor.doll.charge ?? 0) >= DOLL_CHARGE_COST) {
+            this.triggerDollChargeChoices(wsPlayer, actor);
+          }
+          return true;
+        }
+
+        actor.pending_doll_charge_option = key;
+        actor.pending_doll_charge_context = {
+          level,
+          selectedParts,
+          remaining: level === 5
+            ? 1
+            : Math.min(level, availableParts.length),
+        };
+        this.sendDollChargeCostumeSelect(wsPlayer, actor);
+        return true;
+      }
+
+      const costume = actor.doll.costumes?.[part];
+      if (!costume || selectedParts.includes(String(part))) {
+        this.sendError("❌ その衣装は選択できません。", wsPlayer);
+        return false;
+      }
+
+      actor.pending_doll_charge_option = key;
+      const popupMessages = [];
+
+      if (level === 5) {
+        const beforeName = costume.name ?? "衣装";
+        if (costume.condition === "boroboro") {
+          costume.condition = "normal";
+          actor.updateCostumeDisplayName(costume);
+          popupMessages.push(`🧵 ${beforeName} を修理した！`);
+        } else {
+          costume.star += 1;
+          actor.updateCostumeDisplayName(costume);
+          popupMessages.push(`⭐ ${beforeName} の星が 1 上がった！`);
+        }
+
+        for (const eq of Object.values(actor.doll.costumes ?? {})) {
+          if (!eq) continue;
+          eq.star += 2;
+          actor.updateCostumeDisplayName(eq);
+        }
+        popupMessages.push("✨ 装備中の全ての衣装の星が 2 上がった！");
+        return this.finalizeDollChargeChoice(
+          wsPlayer,
+          actor,
+          key,
+          popupMessages.join("\n")
+        );
+      }
+
+      const beforeName = costume.name ?? "衣装";
+      if (costume.condition === "boroboro") {
+        costume.condition = "normal";
+        actor.updateCostumeDisplayName(costume);
+        popupMessages.push(`🧵 ${beforeName} を修理した！`);
+      } else {
+        costume.star += 1;
+        actor.updateCostumeDisplayName(costume);
+        popupMessages.push(`⭐ ${beforeName} の星が 1 上がった！`);
+      }
+
+      const nextSelectedParts = [...selectedParts, String(part)];
+      const remaining = Math.max(
+        0,
+        Math.min(level, Object.values(actor.doll.costumes ?? {}).filter(Boolean).length) - nextSelectedParts.length
+      );
+
+      if (remaining > 0) {
+        actor.pending_doll_charge_context = {
+          level,
+          selectedParts: nextSelectedParts,
+          remaining,
+        };
+        this.sendPopup(`衣装を強化した！ あと ${remaining} 個選択してください。`, wsPlayer, 1800);
+        if (wsPlayer?.isBot) {
+          const nextParts = this.buildDollChargeParts(actor, nextSelectedParts);
+          if (nextParts.length > 0) {
+            const nextPart = nextParts[Math.floor(Math.random() * nextParts.length)];
+            return this.resolveDollChargeChoice(wsPlayer, actor, key, nextPart?.key ?? null);
+          }
+        }
+        this.sendDollChargeCostumeSelect(wsPlayer, actor);
+        this.sendStatusInfo(wsPlayer, actor);
+        this.sendSimpleStatusBoth();
+        this.sendItemList(wsPlayer, actor);
+        return true;
+      }
+
+      return this.finalizeDollChargeChoice(
+        wsPlayer,
+        actor,
+        key,
+        popupMessages.join("\n")
+      );
+    }
+
+    let popupMsg = "チャージ効果を発動した！";
+
+    if (key === "base_atk_up") {
+      actor.doll.base_atk += level;
+      popupMsg = `🪆 人形の基礎攻撃力が ${level} 上がった！`;
+    } else if (key === "extra_attack") {
+      const totalRounds = level <= 3 ? level : 3;
+      const attacksPerTurn = level >= 4 ? 2 : 1;
+      const ignoreDef = level >= 5;
+      actor.doll.extra_attacks_this_turn = attacksPerTurn;
+      actor.doll.extra_attack_buff = {
+        rounds: Math.max(0, totalRounds - 1),
+        attacks_per_turn: attacksPerTurn,
+        ignore_def: ignoreDef,
+      };
+      if (ignoreDef) {
+        actor.doll.extra_attack_ignore_def_permanent = true;
+      }
+      popupMsg = ignoreDef
+        ? "⚡ 追加攻撃が防御無視で永続化し、3ラウンドの間さらに2回追加攻撃する！"
+        : `⚡ ${totalRounds} ラウンドの間、人形が追加で ${attacksPerTurn} 回攻撃する！`;
+    } else if (key === "gain_coins") {
+      const gain = 10 + (level - 1) * 5;
+      actor.coins += gain;
+      popupMsg = `💰 コインを ${gain} 枚獲得した！`;
+    } else if (key === "heal_durability") {
+      const healAmount = level === 5 ? 20 : 10 + (level - 1) * 2;
+      const before = Number(actor.doll.durability ?? 0);
+      actor.doll.durability = Math.min(
+        Number(actor.doll.max_durability ?? before),
+        before + healAmount
+      );
+      const healed = actor.doll.durability - before;
+      if (healed > 0) {
+        this.sendHealEvent(actor, healed, "doll");
+      }
+      popupMsg = `🔧 人形耐久が ${before} → ${actor.doll.durability} に回復した！`;
+    }
+
+    return this.finalizeDollChargeChoice(wsPlayer, actor, key, popupMsg);
+  }
+
   /* =========================================================
      試合開始
      ========================================================= */
@@ -867,6 +1364,16 @@ export class Match {
     if (actor.job === "人形使い" && actor.doll && Number(actor.doll.repair_kit_lock_rounds ?? 0) > 0) {
       actor.doll.repair_kit_lock_rounds -= 1;
     }
+    if (actor.job === "人形使い" && actor.doll) {
+      actor.doll.extra_attacks_this_turn = 0;
+      if (actor.doll.extra_attack_buff && Number(actor.doll.extra_attack_buff.rounds ?? 0) > 0) {
+        actor.doll.extra_attacks_this_turn = Number(actor.doll.extra_attack_buff.attacks_per_turn ?? 1);
+        actor.doll.extra_attack_buff.rounds -= 1;
+        if (Number(actor.doll.extra_attack_buff.rounds ?? 0) <= 0) {
+          actor.doll.extra_attack_buff = null;
+        }
+      }
+    }
 
 
     this.sendItemList(actorWS, actor);
@@ -901,6 +1408,13 @@ export class Match {
     const bonus = actor.get_coin_bonus_per_round();
     actor.coins += (10 + bonus);
 
+    if (actor.job === "人形使い" && actor.doll) {
+      actor.doll.charge = Number(actor.doll.charge ?? 0) + Number(actor.get_doll_charge_per_round?.() ?? 0);
+      if (Number(actor.doll.charge ?? 0) >= DOLL_CHARGE_COST) {
+        actor.doll.pending_charge_ready = true;
+      }
+    }
+
     // ▼ 魔導士装備パッシブ
     const beforeHp = actor.hp;
 
@@ -931,16 +1445,32 @@ export class Match {
         this.sendSystem("💥 暴走が限界に達した！人形が自爆した！");
 
         // 相互ダメージ（防御無視）
-        actor.take_damage(20, true);
+        const beforeActorHp = Number(actor.hp ?? 0);
         const enemy = actorWS === this.p1 ? this.P2 : this.P1;
+        const beforeEnemyHp = Number(enemy.hp ?? 0);
+        actor.take_damage(20, true);
         enemy.take_damage(20, true);
+        this.sendDamageEvent(actor, Math.max(0, beforeActorHp - Number(actor.hp ?? 0)), "skill", "body");
+        this.sendDamageEvent(enemy, Math.max(0, beforeEnemyHp - Number(enemy.hp ?? 0)), "skill", "body");
+        this.sendSfxEvent("boom");
 
 
         // 人形破壊・暴走解除
+        actor.doll.durability = 0;
         actor.doll.is_broken = true;
         actor.doll.is_rampage = false;
+        actor.doll.repair_kit_lock_rounds = Math.max(
+          2,
+          Number(actor.doll.repair_kit_lock_rounds ?? 0)
+        );
+        for (const costume of Object.values(actor.doll.costumes ?? {})) {
+          if (costume) costume.condition = "boroboro";
+        }
 
         this.sendSystem("🪆 人形は完全に破壊された…");
+        this.sendStatusInfo(actorWS, actor);
+        this.sendStatusInfo(actorWS === this.p1 ? this.p2 : this.p1, enemy);
+        this.sendSimpleStatusBoth();
       }
     }
 
@@ -986,6 +1516,18 @@ export class Match {
 
     // ▼ ラウンド情報送信
     this.sendRoundInfo();
+
+    if (
+      actor.job === "人形使い" &&
+      actor.doll &&
+      actor.doll.pending_charge_ready
+    ) {
+      setTimeout(() => {
+        if (this.ended) return;
+        if (this.current !== actorWS) return;
+        this.triggerDollChargeChoices(actorWS, actor);
+      }, 0);
+    }
   }
 
 
@@ -1113,6 +1655,20 @@ export class Match {
         continue;
       }
 
+      if (P.job === "狂人") {
+        if (r < 50) {
+          entry = generateEquipmentForLevel(level);
+        } else {
+          entry = Math.random() < 0.5
+            ? generateOneShopItem(level)
+            : createMadSpecialItem(
+                Math.random() < 0.6 ? 1 : Math.random() < 0.85 ? 2 : 3
+              );
+        }
+        list.push({ ...entry });
+        continue;
+      }
+
       // 他職：50% 装備、50% アイテム
       entry = (r < 50)
         ? generateEquipmentForLevel(level)
@@ -1200,6 +1756,9 @@ export class Match {
     ) {
         // 魔導士装備・錬金特殊装備は「特殊装備インベントリ」
         P.special_inventory.push(item);
+
+    } else if (item.is_mad_special_item) {
+        P.items.push(item);
 
     } else if (item.is_equip) {
         // 通常装備
@@ -1344,6 +1903,12 @@ export class Match {
   // --------------------------------------------------------
   useItem(wsPlayer, uid, action, slot = 1) {
       const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
+      if (this.hasPendingDollCharge(P)) {
+        this.sendPopup("チャージ効果を選択してください。", wsPlayer, 2500);
+        this.sendError("❌ 先にチャージ効果を選択してください。", wsPlayer);
+        this.resendPendingDollCharge(wsPlayer, P);
+        return;
+      }
 
     // ============================
     // 1) uid からアイテムを検索（最優先）
@@ -1645,6 +2210,12 @@ export class Match {
             P.doll.is_broken = false;
             P.doll.durability = 15;
             P.doll.revive_guard_rounds = 1;
+            P.doll.repair_kit_lock_rounds = 0;
+            for (const costume of Object.values(P.doll.costumes ?? {})) {
+                if (costume?.condition === "boroboro") {
+                    costume.condition = "normal";
+                }
+            }
             this.sendSystem(
               "🔧 人形を修理し、戦闘に復帰させた！（1T無敵）"
             );
@@ -1685,6 +2256,8 @@ export class Match {
 
       if (P.apply_item) {
         const beforeHp = P.hp;
+        P.last_item_self_damage = 0;
+        P.last_item_self_heal = 0;
         const opponent = P.opponent ?? null;
         const beforeOpponentHp = opponent ? Number(opponent.hp ?? 0) : null;
         const beforeOpponentEquip = opponent?.equipment ?? null;
@@ -1698,6 +2271,11 @@ export class Match {
         const beforeOpponentDefBuff = Number(opponent?.get_def_buff_total?.() ?? 0) + Number(opponent?.barrier ?? 0);
 
         P.apply_item(item);
+
+        const selfDamage = Math.max(0, Number(P.last_item_self_damage ?? 0));
+        if (selfDamage > 0) {
+          this.sendDamageEvent(P, selfDamage, "normal", "body");
+        }
 
         const healed = P.hp - beforeHp;
         if (healed > 0) {
@@ -1920,6 +2498,7 @@ export class Match {
             durability: P.doll.durability,
             max_durability: P.doll.max_durability,
             is_broken: P.doll.is_broken,
+            charge: Number(P.doll.charge ?? 0),
             attack: P.doll.is_broken ? 0 : P.getDollAttack(),
             defense: P.getDollDefense(),
             costumes: P.doll.costumes ?? {}
@@ -1986,6 +2565,7 @@ export class Match {
               durability: self.doll.durability,
               max_durability: self.doll.max_durability,
               is_broken: self.doll.is_broken,
+              charge: Number(self.doll.charge ?? 0),
               attack: self.doll.is_broken ? 0 : self.getDollAttack(),
               defense: self.getDollDefense(),
             }
@@ -2038,6 +2618,7 @@ export class Match {
               durability: enemy.doll.durability,
               max_durability: enemy.doll.max_durability,
               is_broken: enemy.doll.is_broken,
+              charge: Number(enemy.doll.charge ?? 0),
               attack: enemy.doll.is_broken ? 0 : enemy.getDollAttack(),
               defense: enemy.getDollDefense(),
             }
@@ -2113,6 +2694,13 @@ export class Match {
     const actor = wsPlayer === this.p1 ? this.P1 : this.P2;
     const target = wsPlayer === this.p1 ? this.P2 : this.P1;
 
+    if (this.hasPendingDollCharge(actor)) {
+      this.sendPopup("チャージ効果を選択してください。", wsPlayer, 2500);
+      this.sendError("❌ 先にチャージ効果を選択してください。", wsPlayer);
+      this.resendPendingDollCharge(wsPlayer, actor);
+      return;
+    }
+
     // ★ バフラウンド処理（正しい位置）
     if (actor.process_buffs) actor.process_buffs();
 
@@ -2183,6 +2771,36 @@ export class Match {
             ? `🪆 人形の攻撃！ ${dealt}ダメージ！`
             : `🗡 ${actor.name} の攻撃！ ${dealt}ダメージ！`
         );
+
+        if (
+          actor.job === "人形使い" &&
+          actor.doll &&
+          !actor.doll.is_broken &&
+          Number(actor.doll.extra_attacks_this_turn ?? 0) > 0 &&
+          target.hp > 0
+        ) {
+          const extraAttackCount = Number(actor.doll.extra_attacks_this_turn ?? 0);
+          const ignoreExtraDef = !!(
+            actor.doll.extra_attack_ignore_def_permanent ||
+            actor.doll.extra_attack_buff?.ignore_def
+          );
+          actor.doll.extra_attacks_this_turn = 0;
+
+          for (let i = 0; i < extraAttackCount && target.hp > 0; i += 1) {
+            const extraDamage = actor.getActualAttack();
+            const extraDealt = target.take_damage(extraDamage, ignoreExtraDef, actor, true);
+            if (extraDealt > 0) {
+              const targetType =
+                target.job === "人形使い" &&
+                target.doll &&
+                !target.doll.is_broken
+                  ? "doll"
+                  : "body";
+              this.sendDamageEvent(target, extraDealt, "pursuit", targetType);
+            }
+            this.sendBattle(`🪆 人形の追加攻撃！ ${extraDealt}ダメージ！`);
+          }
+        }
 
 
       }
@@ -2536,6 +3154,7 @@ export class Match {
           beforeHp - dotPower <= 0
         ) {
           target.madman_guts = false;
+          target.madman_no_heal = true;
           target.hp = 10;
           this.sendPopup(`💢 ${target.name} の我慢が発動！`, null, 1800);
         } else {
@@ -2558,6 +3177,21 @@ export class Match {
         ) {
           target.total_damage_received =
             (target.total_damage_received ?? 0) + dealt;
+
+          if (
+            (target.total_damage_received ?? 0) >= 120 &&
+            target.hp > 0 &&
+            !target.madman_no_heal
+          ) {
+            const rageHeal = Math.floor(dealt / 5);
+            if (rageHeal > 0) {
+              const healed = target.restore_hp?.(rageHeal) ?? 0;
+              if (healed > 0) {
+                this.sendHealEvent(target, healed);
+                this.sendBattle(`😈 ${target.name} は狂化で ${healed} 回復した！`);
+              }
+            }
+          }
         }
 
         if (target.job === "狂人" && beforeHp - dotPower <= 0 && target.hp === 10) {
@@ -2817,6 +3451,12 @@ export class Match {
   // ---------- ★修正版：ショップを開く ----------
   openShop(wsPlayer) {
     const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
+    if (this.hasPendingDollCharge(P)) {
+      this.sendPopup("チャージ効果を選択してください。", wsPlayer, 2500);
+      this.sendError("❌ 先にチャージ効果を選択してください。", wsPlayer);
+      this.resendPendingDollCharge(wsPlayer, P);
+      return;
+    }
 
     // ★ ショップを開いても中身を更新しない
     // P.shop_items は startRound() と reroll だけが変更する
@@ -2892,6 +3532,21 @@ function startCpuMatch(humanWS) {
 
     if (m.type === "request_doll_skill3") {
       await match.useSkill(sock, P, P.opponent, 3);
+      return;
+    }
+
+    if (m.type === "select_doll_charge") {
+      match.resolveDollChargeChoice(sock, P, String(m.key ?? ""));
+      return;
+    }
+
+    if (m.type === "select_doll_charge_part") {
+      match.resolveDollChargeChoice(
+        sock,
+        P,
+        String(P.pending_doll_charge_option ?? ""),
+        String(m.part ?? "")
+      );
       return;
     }
 
@@ -3993,6 +4648,21 @@ wss.on("connection", (ws) => {
           return;
         }
 
+        if (m.type === "select_doll_charge") {
+          match.resolveDollChargeChoice(sock, P, String(m.key ?? ""));
+          return;
+        }
+
+        if (m.type === "select_doll_charge_part") {
+          match.resolveDollChargeChoice(
+            sock,
+            P,
+            String(P.pending_doll_charge_option ?? ""),
+            String(m.part ?? "")
+          );
+          return;
+        }
+
         if (m.type === "request_alchemist_skill3_select") {
           if (sock !== match.current) {
             match.sendError("❌ 今はあなたのラウンドではありません。", sock);
@@ -4269,6 +4939,21 @@ wss.on("connection", (ws) => {
 
             // ★ 共通スキル処理へ
             await match.useSkill(sock, P, P.opponent, 3);
+            return;
+          }
+
+          if (m.type === "select_doll_charge") {
+            match.resolveDollChargeChoice(sock, P, String(m.key ?? ""));
+            return;
+          }
+
+          if (m.type === "select_doll_charge_part") {
+            match.resolveDollChargeChoice(
+              sock,
+              P,
+              String(P.pending_doll_charge_option ?? ""),
+              String(m.part ?? "")
+            );
             return;
           }
 
