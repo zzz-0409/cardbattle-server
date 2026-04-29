@@ -220,6 +220,17 @@ function buildBuffUIData(player) {
     }
   }
 
+  if (player.sudden_death_debuff) {
+    const power = Number(player.sudden_death_debuff.power ?? 0);
+    out.push({
+      kind: "sudden_death",
+      power,
+      remain: null,
+      source: "サドンデス",
+      text: `サドンデス：自分のターン開始時に防御無視${power}ダメージ（解除不可）`,
+    });
+  }
+
   if (Number(player.barrier ?? 0) > 0) {
     out.push({
       kind: "barrier",
@@ -700,8 +711,8 @@ export class Match {
 
       const payload = {
         type: "status_info",
-        attack: actor.get_total_attack(),
-        defense: actor.get_total_defense(),
+        attack: actor.doll ? (actor.doll.is_broken ? 0 : actor.getDollAttack()) : actor.get_total_attack(),
+        defense: actor.doll ? (actor.doll.is_broken ? 0 : actor.getDollDefense()) : actor.get_total_defense(),
         buffs: actor.getBuffDescriptionList(),
 
         // ★ これを必ず追加
@@ -1395,6 +1406,64 @@ export class Match {
     // ★ 1ターンのアイテム使用回数（消費アイテム）をリセット
     actor.item_use_count = 0;
 
+    if (actor.job === "人形使い" && actor.doll && actor.doll.pending_revive) {
+      actor.doll.is_broken = false;
+      actor.doll.pending_revive = false;
+      actor.doll.revive_guard_rounds = 0;
+      actor.doll.repair_kit_lock_rounds = 0;
+      actor.doll.durability = Math.min(Number(actor.doll.max_durability ?? 50), 50);
+      this.sendHealEvent(actor, actor.doll.durability, "doll");
+    }
+
+    if (this.round >= 30) {
+      if (!this.suddenDeathAnnounced) {
+        this.suddenDeathAnnounced = true;
+        this.sendSystem("サドンデスモードに突入した");
+      }
+      const suddenDamage = 10 + Math.max(0, this.round - 30);
+      actor.sudden_death_debuff = {
+        power: suddenDamage,
+        round: this.round,
+        unremovable: true
+      };
+      let dealtSudden = 0;
+      if (actor.job === "人形使い" && actor.doll) {
+        const beforeDoll = Number(actor.doll.durability ?? 0);
+        actor.doll.durability = Math.max(0, beforeDoll - suddenDamage);
+        dealtSudden = Math.max(0, beforeDoll - Number(actor.doll.durability ?? 0));
+        if (dealtSudden > 0) {
+          this.sendDamageEvent(actor, dealtSudden, "dot", "doll");
+        }
+        if (actor.doll.durability <= 0) {
+          const beforeBreakHp = Number(actor.hp ?? 0);
+          actor.hp = Math.max(0, beforeBreakHp - 50);
+          const breakDamage = Math.max(0, beforeBreakHp - Number(actor.hp ?? 0));
+          if (breakDamage > 0) {
+            this.sendDamageEvent(actor, breakDamage, "dot", "body");
+          }
+          actor.doll.is_broken = false;
+          actor.doll.pending_revive = false;
+          actor.doll.revive_guard_rounds = 0;
+          actor.doll.repair_kit_lock_rounds = 0;
+          actor.doll.durability = Math.min(Number(actor.doll.max_durability ?? 50), 50);
+        }
+      } else {
+        const beforeSuddenHp = Number(actor.hp ?? 0);
+        actor.hp = Math.max(0, beforeSuddenHp - suddenDamage);
+        dealtSudden = Math.max(0, beforeSuddenHp - Number(actor.hp ?? 0));
+        if (dealtSudden > 0) {
+          this.sendDamageEvent(actor, dealtSudden, "dot", "body");
+        }
+      }
+      this.sendSystem(`サドンデス：${actor.name} は防御無視 ${suddenDamage} ダメージを受けた`);
+      if (actor.hp <= 0) {
+        this.updateHP();
+        this.sendSimpleStatusBoth();
+        this.finishBattle(actorWS === this.p1 ? "p2" : "p1");
+        return;
+      }
+    }
+
     if (actor.job === "人形使い" && actor.doll && Number(actor.doll.repair_kit_lock_rounds ?? 0) > 0) {
       actor.doll.repair_kit_lock_rounds -= 1;
     }
@@ -1482,21 +1551,19 @@ export class Match {
         const beforeActorHp = Number(actor.hp ?? 0);
         const enemy = actorWS === this.p1 ? this.P2 : this.P1;
         const beforeEnemyHp = Number(enemy.hp ?? 0);
-        actor.take_damage(20, true);
         enemy.take_damage(20, true);
-        this.sendDamageEvent(actor, Math.max(0, beforeActorHp - Number(actor.hp ?? 0)), "skill", "body");
         this.sendDamageEvent(enemy, Math.max(0, beforeEnemyHp - Number(enemy.hp ?? 0)), "skill", "body");
         this.sendSfxEvent("boom");
 
 
         // 人形破壊・暴走解除
-        actor.doll.durability = 0;
-        actor.doll.is_broken = true;
+        actor.hp = Math.max(0, beforeActorHp - 50);
+        this.sendDamageEvent(actor, Math.max(0, beforeActorHp - Number(actor.hp ?? 0)), "skill", "body");
+        actor.doll.durability = Math.min(Number(actor.doll.max_durability ?? 50), 50);
+        actor.doll.is_broken = false;
         actor.doll.is_rampage = false;
-        actor.doll.repair_kit_lock_rounds = Math.max(
-          2,
-          Number(actor.doll.repair_kit_lock_rounds ?? 0)
-        );
+        actor.doll.repair_kit_lock_rounds = 0;
+        actor.doll.revive_guard_rounds = 0;
         for (const costume of Object.values(actor.doll.costumes ?? {})) {
           if (costume) costume.condition = "boroboro";
         }
@@ -1584,9 +1651,9 @@ export class Match {
           entry = {
             uid: crypto.randomUUID(),
             name: "修理キット",
-            price: 30,
+            price: 15,
             is_doll_item: true,
-            effect_text: "人形の耐久を20回復／破壊時は15回復+復活（1T無敵）"
+            effect_text: "人形の耐久を20回復"
           };
         }
         // 75%：衣装
@@ -2180,7 +2247,7 @@ export class Match {
       P.job === "人形使い"
 
     ) {
-        if (Number(P.doll?.repair_kit_lock_rounds ?? 0) > 0) {
+        if (false && Number(P.doll?.repair_kit_lock_rounds ?? 0) > 0) {
             this.sendPopup(
                 "人形が壊れた次のラウンドは修理キットを使用できません。",
                 wsPlayer,
@@ -2193,7 +2260,7 @@ export class Match {
             return;
         }
         // ★ 暴走中は修理キット使用不可
-        if (P.doll?.is_rampage) {
+        if (false && P.doll?.is_rampage) {
             this.sendError(
                 "❌ 人形が暴走中は修理キットを使用できません。",
                 wsPlayer
@@ -2219,7 +2286,7 @@ export class Match {
         this.sendBattle(`${item.name} を使用した！`);
         this.sendPopup(`${item.name} を使用した！`, wsPlayer, 2000);
 
-        if (!P.doll.is_broken) {
+        if (true) {
             const before = P.doll.durability;
             P.doll.durability = Math.min(
                 P.doll.max_durability,
@@ -2495,8 +2562,8 @@ export class Match {
       // ===== 基本ステータス（★これが無いと undefined）=====
       hp: P.hp,
       max_hp: P.max_hp,
-      attack: P.get_total_attack(),
-      defense: P.get_total_defense(),
+      attack: P.doll ? (P.doll.is_broken ? 0 : P.getDollAttack()) : P.get_total_attack(),
+      defense: P.doll ? (P.doll.is_broken ? 0 : P.getDollDefense()) : P.get_total_defense(),
       coins: P.coins,
       level: P.level,
       exp: P.exp,
@@ -2560,10 +2627,11 @@ export class Match {
       safeSend(ws, {
         type: "status_simple",
         side: "self",
+        name: self.name ?? "Player",
         hp: self.hp,
         max_hp: self.max_hp,
-        attack: self.get_total_attack(),
-        defense: self.get_total_defense(),
+        attack: self.doll ? (self.doll.is_broken ? 0 : self.getDollAttack()) : self.get_total_attack(),
+        defense: self.doll ? (self.doll.is_broken ? 0 : self.getDollDefense()) : self.get_total_defense(),
         coins: self.coins,
         level: self.level,
         exp: self.exp ?? 0,
@@ -2621,10 +2689,11 @@ export class Match {
       safeSend(ws, {
         type: "status_simple",
         side: "enemy",
+        name: enemy.name ?? "CPU",
         hp: enemy.hp,
         max_hp: enemy.max_hp,
-        attack: enemy.get_total_attack(),
-        defense: enemy.get_total_defense(),
+        attack: enemy.doll ? (enemy.doll.is_broken ? 0 : enemy.getDollAttack()) : enemy.get_total_attack(),
+        defense: enemy.doll ? (enemy.doll.is_broken ? 0 : enemy.getDollDefense()) : enemy.get_total_defense(),
         coins: enemy.coins,
         level: enemy.level,
         exp: enemy.exp ?? 0,
@@ -3199,9 +3268,13 @@ export class Match {
       for (const dot of P.dot_effects) {
         const target = P;
         const beforeHp = target.hp;
+        const beforeDoll = target.doll ? Number(target.doll.durability ?? 0) : null;
         const dotPower = Number(dot.power ?? 0);
 
-        if (
+        if (target.job === "人形使い" && target.doll) {
+          target.hp = beforeHp;
+          target.doll.durability = Math.max(0, beforeDoll - dotPower);
+        } else if (
           target.job === "狂人" &&
           target.madman_guts &&
           beforeHp - dotPower <= 0
@@ -3214,14 +3287,47 @@ export class Match {
           target.hp = Math.max(0, beforeHp - dotPower);
         }
 
-        const dealt = beforeHp - target.hp;
+        const dealt = target.job === "人形使い" && target.doll
+          ? Math.max(0, beforeDoll - Number(target.doll.durability ?? 0))
+          : beforeHp - target.hp;
 
         this.sendBattle(
           `🔥 ${target.name} は ${dot.name} により ${dot.power} ダメージ！（防御無視）`
         );
 
         if (dealt > 0) {
-          this.sendDamageEvent(target, dealt, "dot", "body");
+          this.sendDamageEvent(
+            target,
+            dealt,
+            "dot",
+            target.job === "人形使い" && target.doll ? "doll" : "body"
+          );
+        }
+
+        if (
+          target.job === "人形使い" &&
+          target.doll &&
+          target.doll.durability <= 0 &&
+          !target.doll.is_broken &&
+          !target.doll.pending_revive
+        ) {
+          const beforeBreakHp = Number(target.hp ?? 0);
+          target.hp = Math.max(0, beforeBreakHp - 50);
+          const breakDamage = Math.max(0, beforeBreakHp - Number(target.hp ?? 0));
+          if (breakDamage > 0) {
+            this.sendDamageEvent(target, breakDamage, "dot", "body");
+          }
+          target.doll.is_broken = true;
+          target.doll.pending_revive = true;
+          target.doll.revive_guard_rounds = 0;
+          target.doll.repair_kit_lock_rounds = 0;
+
+          const currentPlayer = this.current === this.p1 ? this.P1 : this.P2;
+          if (target === currentPlayer) {
+            target.doll.is_broken = false;
+            target.doll.pending_revive = false;
+            target.doll.durability = Math.min(Number(target.doll.max_durability ?? 50), 50);
+          }
         }
 
         if (
@@ -3726,7 +3832,11 @@ function startCpuMatch(humanWS) {
 
   humanWS.on("message", handleCpuMessage);
 
-  safeSend(humanWS, { type: "match_start" });
+  safeSend(humanWS, {
+    type: "match_start",
+    self_name: humanWS.player?.name ?? "Player",
+    enemy_name: "CPU"
+  });
 
   // ★ CPUが後攻なら即思考開始
   setTimeout(() => maybeCpuTurn(match), 1000);
@@ -4652,8 +4762,16 @@ wss.on("connection", (ws) => {
 
       const match = new Match(p1, p2);
 
-      safeSend(p1, { type: "match_start" });
-      safeSend(p2, { type: "match_start" });
+      safeSend(p1, {
+        type: "match_start",
+        self_name: p1.player?.name ?? "Player",
+        enemy_name: p2.player?.name ?? "Player"
+      });
+      safeSend(p2, {
+        type: "match_start",
+        self_name: p2.player?.name ?? "Player",
+        enemy_name: p1.player?.name ?? "Player"
+      });
 
       // 既存の対人戦と同じメッセージ処理を流用するため、
       // この後の join_random と同じ処理ブロックに落とす必要がある。
@@ -4895,18 +5013,26 @@ wss.on("connection", (ws) => {
 
         safeSend(p1, {
           type: "system_log",
-          msg: `🔗 対戦開始！相手：${p2.playerName}`
+          msg: `🔗 対戦開始！相手：${p2.player?.name ?? "Player"}`
         });
         safeSend(p2, {
           type: "system_log",
-          msg: `🔗 対戦開始！相手：${p1.playerName}`
+          msg: `🔗 対戦開始！相手：${p1.player?.name ?? "Player"}`
         });
 
         const match = new Match(p1, p2);
 
         // ★ これを追加
-        safeSend(p1, { type: "match_start" });
-        safeSend(p2, { type: "match_start" });
+        safeSend(p1, {
+          type: "match_start",
+          self_name: p1.player?.name ?? "Player",
+          enemy_name: p2.player?.name ?? "Player"
+        });
+        safeSend(p2, {
+          type: "match_start",
+          self_name: p2.player?.name ?? "Player",
+          enemy_name: p1.player?.name ?? "Player"
+        });
 
         // =====================================
         // 共通メッセージハンドラ（正）

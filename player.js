@@ -925,9 +925,9 @@ if (type === "arrow") {
             targetType = "doll";
 
             // 復活直後の無敵（1ターン）
-            if (this.doll.revive_guard_rounds > 0) {
+            if (false && this.doll.revive_guard_rounds > 0) {
                 log("🪆 修理直後の人形は破壊されない！");
-                this.doll.revive_guard_rounds -= 1;
+                this.doll.revive_guard_rounds = 0;
                 return 0;
             }
 
@@ -940,6 +940,7 @@ if (type === "arrow") {
 
             // --- 人形破壊判定 ---
             if (this.doll.durability <= 0) {
+                const hpBeforeDollBreak = this.hp;
                 this.doll.is_broken = true;
                 this.doll.repair_kit_lock_rounds = 2;
                 log(`💥 ${this.name} の人形が破壊された！`);
@@ -951,9 +952,10 @@ if (type === "arrow") {
                     this.hp = Math.max(0, this.hp - 40);
                     log(`💀 ${this.name} は反動で 40 ダメージを受けた！`);
                     if (this.opponent) {
-                        this.opponent.hp = Math.max(0, this.opponent.hp - 20);
+                        this.opponent.take_damage?.(20, true, this);
                         log(`🔥 ${this.opponent.name} は暴走の反動で 20 ダメージ！`);
                     }
+                    this.hp = hpBeforeDollBreak;
                 }
 
                 // 衣装のボロボロ処理
@@ -967,6 +969,17 @@ if (type === "arrow") {
                         this.updateCostumeDisplayName(costume);
                     }
                 }
+                this.hp = Math.max(0, hpBeforeDollBreak - 50);
+                this.match?.sendDamageEvent?.(this, Math.max(0, hpBeforeDollBreak - this.hp), "normal", "body");
+                this.doll.is_rampage = false;
+                this.doll.repair_kit_lock_rounds = 0;
+                this.doll.revive_guard_rounds = 0;
+                this.doll.pending_revive = true;
+                if (this.match?.current?.player === this) {
+                    this.doll.is_broken = false;
+                    this.doll.pending_revive = false;
+                    this.doll.durability = Math.min(Number(this.doll.max_durability ?? 50), 50);
+                }
             }
 
             // UI送信（人形象態）
@@ -979,6 +992,10 @@ if (type === "arrow") {
         if (this.barrier > 0) {
             log(`🛡 ${this.name} は玄武バリアで攻撃を無効化！`);
             this.barrier -= 1;
+            return 0;
+        }
+
+        if (this.doll) {
             return 0;
         }
 
@@ -1299,19 +1316,11 @@ if (type === "arrow") {
             return false;
         }
 
-        // 壊れていない → 耐久回復
-        if (!this.doll.is_broken) {
-            this.doll.durability = Math.min(
-                this.doll.max_durability,
-                this.doll.durability + 20
-            );
-            return true;
-        }
-
-        // 壊れている → 復活
-        this.doll.is_broken = false;
-        this.doll.durability = 15;
-        this.doll.revive_guard_rounds = 1;
+        this.doll.durability = Math.min(
+            this.doll.max_durability,
+            Number(this.doll.durability ?? 0) + 20
+        );
+        this.doll.revive_guard_rounds = 0;
         return true;
     }
 
@@ -2567,10 +2576,10 @@ console.log(
     if (stype === "doll_1") {
         this.items.push({
             name: "修理キット",
-            price: 30,
+            price: 15,
             category: "item",
             is_doll_item: true,
-            effect_text: "人形の耐久を20回復／破壊時は15回復+復活（1T無敵）",
+            effect_text: "人形の耐久を20回復",
             uid: crypto.randomUUID(),
         });
         this.used_skill_set.add(stype);
@@ -2595,7 +2604,6 @@ console.log(
         const upgraded = [];
         for (const [part, c] of Object.entries(this.doll.costumes)) {
             if (!c) continue;
-            if ((c.star ?? 1) >= 4) continue;
             c.star += 1;
             this.updateCostumeDisplayName(c);
             upgraded.push(`${part} ★${c.star - 1}→★${c.star}`);
