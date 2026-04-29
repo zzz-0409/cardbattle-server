@@ -206,15 +206,16 @@ function buildBuffUIData(player) {
 
   if (Array.isArray(player.dot_effects)) {
     for (const dot of player.dot_effects) {
-      if (!dot || dot.name !== "鬼火") continue;
-      const remain = Number(dot.turns ?? dot.rounds ?? 0);
+      if (!dot) continue;
+      const name = dot.name ?? "継続ダメージ";
+      const remain = Number(dot.turns ?? dot.rounds ?? dot.duration ?? 0);
       const power = Number(dot.power ?? 0);
       out.push({
-        kind: "onibi",
+        kind: name === "毒" ? "poison" : name === "鬼火" ? "onibi" : "dot",
         power,
         remain,
-        source: "鬼火",
-        text: `鬼火：防御無視 ${power} ダメージ（あと${remain}T）`,
+        source: name,
+        text: `${name}：${power} ダメージ（あと${remain}R）`,
       });
     }
   }
@@ -251,6 +252,17 @@ function buildBuffUIData(player) {
       text: `追撃強化：追加攻撃 +${extra}（あと${rounds}R）`,
     });
   }
+  if (player.job === "弓兵" && Number(player.archer_pierce_rounds ?? (player.archer_next_pierce ? 1 : 0)) > 0) {
+    const rounds = Number(player.archer_pierce_rounds ?? 1);
+    out.push({
+      kind: "archer_pierce",
+      power: 0,
+      remain: rounds,
+      source: "防御貫通の矢",
+      text: `矢防御貫通：追撃が防御貫通（あと${rounds}R）`,
+    });
+  }
+
   if (player.job === "人形使い" && player.doll) {
     const permanentAtkUp = Math.max(0, Number(player.doll.base_atk ?? 13) - 13);
     if (permanentAtkUp > 0) {
@@ -365,7 +377,7 @@ function sampleDistinctItems(items, count) {
   return pool.slice(0, Math.min(count, pool.length));
 }
 
-const DOLL_CHARGE_COST = 15;
+const DOLL_CHARGE_COST = 10;
 
 function createMadSpecialItem(star = 1) {
   const value = star === 3 ? 30 : star === 2 ? 20 : 10;
@@ -920,13 +932,10 @@ export class Match {
   buildDollChargeChoiceMeta(actor, key) {
     const state = this.getDollChargeBuffState(actor, key);
     const level = Number(state.level ?? 1);
-    const picks = Number(state.picks ?? 0);
-    const progressNeed = 2;
     const isMaxLevel = level >= 5;
-    const progressNow = isMaxLevel ? progressNeed : picks;
-    const progressText = isMaxLevel
-      ? "MAX 次回選択でLv1に戻る"
-      : `Lv${level + 1}まで ${progressNow}/${progressNeed}`;
+    const progressNeed = 1;
+    const progressNow = isMaxLevel ? 1 : 0;
+    const progressText = "";
     switch (key) {
       case "base_atk_up":
         return {
@@ -1032,16 +1041,8 @@ export class Match {
 
   advanceDollChargeBuffLevel(actor, key) {
     const state = this.getDollChargeBuffState(actor, key);
-    if (state.level >= 5) {
-      state.level = 1;
-      state.picks = 0;
-      return;
-    }
-    state.picks += 1;
-    if (state.picks >= 2) {
-      state.level += 1;
-      state.picks = 0;
-    }
+    state.picks = 0;
+    state.level = state.level >= 5 ? 1 : Number(state.level ?? 1) + 1;
   }
 
   buildDollChargeParts(actor, excluded = []) {
@@ -1078,6 +1079,9 @@ export class Match {
 
     this.sendPopup(popupMsg, wsPlayer, 2500);
     this.sendStatusInfo(wsPlayer, actor);
+    this.sendStatusInfo(this.p1, this.P1);
+    this.sendStatusInfo(this.p2, this.P2);
+    safeSend(wsPlayer, { type: "doll_charge_resolved" });
     this.sendSimpleStatusBoth();
     this.sendItemList(wsPlayer, actor);
     safeSend(wsPlayer, { type: "coin_info", coins: actor.coins });
@@ -2575,6 +2579,10 @@ export class Match {
 
 
         arrow_slots: self.arrow_slots ?? 1,
+        damage_taken_last_round: self.damage_taken_last_round ?? 0,
+        damage_taken_last_turn: self.damage_taken_last_turn ?? 0,
+        archer_buff: self.archer_buff ?? null,
+        archer_pierce_rounds: self.archer_pierce_rounds ?? (self.archer_next_pierce ? 1 : 0),
 
         // ★ 必ず配列に正規化
         equipment: Array.isArray(self.equipment)
@@ -2630,6 +2638,10 @@ export class Match {
         mana_max: enemy.job === "魔導士" ? enemy.mana_max : null,
 
         arrow_slots: enemy.arrow_slots ?? 1,
+        damage_taken_last_round: enemy.damage_taken_last_round ?? 0,
+        damage_taken_last_turn: enemy.damage_taken_last_turn ?? 0,
+        archer_buff: enemy.archer_buff ?? null,
+        archer_pierce_rounds: enemy.archer_pierce_rounds ?? (enemy.archer_next_pierce ? 1 : 0),
 
         // ★ 必ず配列に正規化
         equipment: Array.isArray(enemy.equipment)
@@ -2758,6 +2770,21 @@ export class Match {
           }
 
         }
+
+        // ★ 矢防御貫通のラウンド消費
+        if (Number(actor.archer_pierce_rounds ?? 0) > 0) {
+          actor.archer_pierce_rounds -= 1;
+          actor.archer_next_pierce = actor.archer_pierce_rounds > 0;
+          if (actor.archer_pierce_rounds <= 0) {
+            actor.archer_pierce_rounds = 0;
+            actor.archer_next_pierce = false;
+            this.sendSystem("🏹 矢の防御貫通効果が終了しました");
+          }
+        } else if (actor.archer_next_pierce) {
+          actor.archer_next_pierce = false;
+        }
+
+
 
 
 
@@ -4678,16 +4705,10 @@ wss.on("connection", (ws) => {
           await match.useSkill(sock, P, P.opponent, 3);
           return;
         }
-
         if (m.type === "request_doll_charge") {
           match.requestDollChargeChoices(sock, P);
           return;
         }
-
-        if (m.type === "request_doll_charge") {
-      match.requestDollChargeChoices(sock, P);
-      return;
-    }
 
     if (m.type === "select_doll_charge") {
           match.resolveDollChargeChoice(sock, P, String(m.key ?? ""));
@@ -4982,16 +5003,10 @@ wss.on("connection", (ws) => {
             await match.useSkill(sock, P, P.opponent, 3);
             return;
           }
-
-          if (m.type === "request_doll_charge") {
+        if (m.type === "request_doll_charge") {
           match.requestDollChargeChoices(sock, P);
           return;
         }
-
-        if (m.type === "request_doll_charge") {
-      match.requestDollChargeChoices(sock, P);
-      return;
-    }
 
     if (m.type === "select_doll_charge") {
             match.resolveDollChargeChoice(sock, P, String(m.key ?? ""));

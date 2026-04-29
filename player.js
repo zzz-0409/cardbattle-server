@@ -104,6 +104,8 @@ export class Player {
 
 
         this.archer_buff = null;          // 追撃バフ（{ rounds, extra }）
+        this.archer_pierce_rounds = 0;    // 矢追撃の防御貫通残りラウンド
+        this.archer_next_pierce = false;  // 旧セーブ互換
         this.damage_taken_last_round = 0; // 前ラウンドダメージ → 反撃矢用
 
 
@@ -931,7 +933,7 @@ if (type === "arrow") {
 
             // 人形の防御力で計算
             const dollDef = this.getDollDefense();
-            final = ignore_def ? raw_attack : Math.max(1, raw_attack - dollDef);
+            final = ignore_def ? Math.max(0, raw_attack) : Math.max(0, raw_attack - dollDef);
 
             this.doll.durability = Math.max(0, this.doll.durability - final);
             log(`🪆 人形が ${final} ダメージを受けた！ 耐久: ${this.doll.durability}/${this.doll.max_durability}`);
@@ -987,7 +989,7 @@ if (type === "arrow") {
         let multiplier = (this.job === "人形使い" && this.doll && this.doll.is_broken) ? 2 : 1;
         let actual_attack = raw_attack * multiplier;
 
-        final = ignore_def ? actual_attack : Math.max(1, actual_attack - this.get_total_defense());
+        final = ignore_def ? Math.max(0, actual_attack) : Math.max(0, actual_attack - this.get_total_defense());
 
         if (this.job === "狂人" && this.madman_guts && this.hp - final <= 0) {
             this.madman_guts = false;
@@ -1419,6 +1421,14 @@ if (type === "arrow") {
             });
         }
 
+        if (Array.isArray(this.dot_effects)) {
+            this.dot_effects.forEach(d => {
+                if (!d) return;
+                const turns = d.rounds ?? d.turns ?? d.duration ?? 0;
+                list.push(`${d.name ?? "継続ダメージ"}：${d.power ?? 0}ダメージ（あと${turns}R）`);
+            });
+        }
+
         return list;
     }
     // ---------------------------------------------------------
@@ -1564,7 +1574,10 @@ if (type === "arrow") {
                 b.type !== "スキル封印"
         );
 
-        const removed = before - this.active_buffs.length;
+        const freezeRemoved = Array.isArray(this.freeze_debuffs) ? this.freeze_debuffs.length : 0;
+        this.freeze_debuffs = [];
+
+        const removed = before - this.active_buffs.length + freezeRemoved;
         if (removed > 0) {
             log(`🔔 デバフを ${removed} 個解除した。`);
         }
@@ -1824,15 +1837,17 @@ if (type === "arrow") {
     // デバフ解除（Python版 _remove_negative_buffs）
     // ---------------------------------------------------------
     remove_negative_buffs() {
-        const negative_types = ["スキル封印"];
+        const negative_types = ["スキル封印", "攻撃力低下", "防御力低下"];
 
         const before = this.active_buffs.length;
         this.active_buffs = this.active_buffs.filter(
             b => !negative_types.includes(b.type)
         );
+        const freezeRemoved = Array.isArray(this.freeze_debuffs) ? this.freeze_debuffs.length : 0;
+        this.freeze_debuffs = [];
         const after = this.active_buffs.length;
 
-        if (before !== after) {
+        if (before !== after || freezeRemoved > 0) {
             log("✨ デバフを解除した！");
         }
     }
@@ -2411,7 +2426,7 @@ if (type === "arrow") {
             }
 
             // ▼ 追撃バフ（3R）
-            this.archer_buff_turns = 3;
+            this.archer_buff = { rounds: 3, extra: 1 };
 
             log("🏹 矢筒拡張！ 矢スロット+1 ＆ 追撃+1（3R）");
 
@@ -2422,10 +2437,11 @@ if (type === "arrow") {
 
 
 
-        // ---------- スキル3：次の攻撃ターンの追撃のみ防御貫通 ----------
+        // ---------- スキル3：2ラウンドの間、矢追撃が防御貫通 ----------
         if (stype === "archer_3") {
+            this.archer_pierce_rounds = 2;
             this.archer_next_pierce = true;
-            log("🎯 次の攻撃ターンの追撃が防御貫通になる！");
+            log("🎯 2ラウンドの間、矢の追撃が防御貫通になる！");
             this.used_skill_set.add(stype);
             return true;
         }
@@ -2448,8 +2464,8 @@ if (type === "arrow") {
         const critRate = hasCritArrow ? 0.5 : 0;
         const critBonus = hasCritArrow ? 0.5 : 0;
 
-        // ★ スキル3：次の攻撃ターンの追撃のみ防御貫通
-        const forcePierce = !!this.archer_next_pierce;
+        // ★ スキル3：残りラウンド中は矢追撃が防御貫通
+        const forcePierce = !!this.archer_next_pierce || Number(this.archer_pierce_rounds ?? 0) > 0;
 
 
 
@@ -2465,8 +2481,13 @@ if (type === "arrow") {
         for (let r = 0; r < repeat; r++) {
             for (const arrow of arrows) {                const { power, pierce, name, effect } = arrow;
 
-                // 普通の矢：威力は「装備・バフ込み攻撃力」
-                const basePower = (effect === "normal") ? this.get_total_attack() : power;
+                const counterBase = effect === "counter"
+                    ? Math.floor(Number(this.damage_taken_last_turn ?? this.damage_taken_last_round ?? 0) / 2)
+                    : 0;
+                // 普通の矢：威力は「装備・バフ込み攻撃力」。反撃の矢は基礎威力に反撃分を加算する。
+                const basePower = (effect === "normal")
+                    ? this.get_total_attack()
+                    : Number(power ?? 0) + counterBase;
 
                 // スキル3：次の攻撃ターンの追撃のみ防御貫通（追撃のみ）
                 const pierceFinal = pierce || forcePierce;
@@ -2509,23 +2530,15 @@ console.log(
                     opponent.freeze_debuffs.push({ atkDown: 2, rounds: 2, owner: this });
                 }
 
-                // counter：前ラウンド被ダメ50%
+                // counter：反撃分は基礎ダメージへ加算済み
                 else if (effect === "counter") {
-                    const base = this.damage_taken_last_T ?? 0;
-                    const bonus = Math.floor(base / 2);
-                    if (bonus > 0) opponent.take_damage(bonus, false);
                 }                // critical：会心の矢（装備中のみ有効）
                 else if (effect === "critical") {
                     // 効果は「装備中の会心の矢があるか」で判定（上の hasCritArrow / critRate / critBonus）
                 }
 }
         }
-
-
-        // ★ スキル3（追撃のみ防御貫通）：この攻撃ターンで消費
-        if (forcePierce) {
-            this.archer_next_pierce = false;
-        }
+        // 防御貫通の残りラウンドは server.js の攻撃処理後に消費する
 
         return results;
     }

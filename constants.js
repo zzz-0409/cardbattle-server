@@ -304,8 +304,8 @@ export const JOB_SKILLS = {
       name: "会心装填",
       min_level: 3,
       power: null,
-      effect: "全矢に防御貫通付与",
-      description: "装備中のすべての矢が防御貫通になる。",
+      effect: "全矢に防御貫通付与（2R）",
+      description: "2Rの間、装備中のすべての矢が防御貫通になる。",
     },
   ],
 
@@ -409,7 +409,7 @@ export const ARROW_DATA = {
     crit_chance: 0.25,
     crit_multiplier: 1.5,
     price: 30,
-    effect_text: "装備中の全ての矢に会心率50% 会心ダメ+50%",
+    effect_text: "基礎20ダメージ+装備中の全ての矢に会心率50% 会心ダメ+50%",
   },
 };
 
