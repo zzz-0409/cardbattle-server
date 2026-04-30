@@ -92,6 +92,7 @@ export class Player {
         this.madman_guts = false;
         this.madman_no_heal = false;
         this.madman_rage_active = false;
+        this.blessing_count = 0;
         this.skill_sealed_rounds = 0;   // ← これが絶対必要！
 
         // --- 弓兵専用フィールド ---
@@ -305,7 +306,8 @@ export class Player {
         const heal = Number(amount ?? 0);
         if (heal <= 0) return 0;
         const before = this.hp;
-        this.hp = Math.min(this.max_hp, this.hp + heal);
+        const healCap = this.job === "僧侶" ? 400 : this.max_hp;
+        this.hp = Math.min(healCap, this.hp + heal);
         return this.hp - before;
     }
 
@@ -455,7 +457,7 @@ export class Player {
             return this._use_knight_skill(stype, opponent);
         }
         if (stype.startsWith("priest_")) {
-            return this._use_priest_skill(stype);
+            return this._use_priest_skill(stype, opponent);
         }
         if (stype.startsWith("thief_")) {
             return this._use_thief_skill(stype, opponent);
@@ -1578,6 +1580,8 @@ if (type === "arrow") {
         const before = this.active_buffs.length;
         this.active_buffs = this.active_buffs.filter(
             b =>
+                b?.unremovable ||
+                b?.passive ||
                 b.type !== "攻撃力低下" &&
                 b.type !== "防御力低下" &&
                 b.type !== "スキル封印"
@@ -1790,50 +1794,50 @@ if (type === "arrow") {
     // ---------------------------------------------------------
     // 僧侶スキル（Python版完全移植）
     // ---------------------------------------------------------
-    _use_priest_skill(stype) {
+    _use_priest_skill(stype, opponent) {
 
         if (this.skill_sealed) {
             log(`${this.name} はスキル封印されている！`);
             return false;
         }
 
-        const heal_bonus = this.job_data?.heal_bonus ?? 0;
-
-        // ---------- スキル1：ヒール ----------
         if (stype === "priest_1") {
-            const heal = 27 + heal_bonus;
-            const healed = this.restore_hp(heal);
-            log(healed > 0 ? `✨ ヒール！ HP +${healed}` : `✨ ヒール！ しかし回復できない！`);
+            this.active_buffs.push({
+                type: "継続回復",
+                power: 2,
+                rounds: 10,
+                source: "祝福",
+                uid: crypto.randomUUID(),
+            });
+            this.blessing_count = Number(this.blessing_count ?? 0) + 1;
+            log("✨ 継続回復！ 10Rの間、毎ターンHPを2回復する！");
             this.used_skill_set.add(stype);
             return true;
         }
 
-        // ---------- スキル2：ディスペルヒール ----------
         if (stype === "priest_2") {
-            const heal = 32 + heal_bonus;
-            const healed = this.restore_hp(heal);
-            log(healed > 0 ? `✨ ディスペルヒール！ HP +${healed}` : `✨ ディスペルヒール！ しかし回復できない！`);
-
             this.remove_negative_buffs();
-
-            // DOT（鬼火など）解除
             this.dot_effects = [];
-            log("✨ デバフ解除！");
+            this.active_buffs.push({
+                type: "継続回復",
+                power: 3,
+                rounds: 10,
+                source: "祝福",
+                uid: crypto.randomUUID(),
+            });
+            this.blessing_count = Number(this.blessing_count ?? 0) + 1;
+            log("✨ デバフ解除＋継続回復！ 10Rの間、毎ターンHPを3回復する！");
 
             this.used_skill_set.add(stype);
             return true;
         }
 
-        // ---------- スキル3：グレーターヒール ----------
         if (stype === "priest_3") {
-            const heal = 37 + heal_bonus;
-            const healed = this.restore_hp(heal);
-            log(healed > 0 ? `✨ グレーターヒール！ HP +${healed}` : `✨ グレーターヒール！ しかし回復できない！`);
-
-            this.remove_negative_buffs();
-
-            this.dot_effects = [];
-            log("✨ デバフ解除！");
+            if (!opponent) return false;
+            const blessing = Number(this.blessing_count ?? 0);
+            const dmg = Math.max(0, Math.floor(Number(this.hp ?? 0) / 10) + blessing);
+            opponent.take_damage(dmg, true, this);
+            log(`✨ ホーリースマイト！ ${dmg}ダメージ！（祝福 ${blessing}）`);
 
             this.used_skill_set.add(stype);
             return true;
@@ -1850,7 +1854,7 @@ if (type === "arrow") {
 
         const before = this.active_buffs.length;
         this.active_buffs = this.active_buffs.filter(
-            b => !negative_types.includes(b.type)
+            b => b?.unremovable || b?.passive || !negative_types.includes(b.type)
         );
         const freezeRemoved = Array.isArray(this.freeze_debuffs) ? this.freeze_debuffs.length : 0;
         this.freeze_debuffs = [];
@@ -2201,7 +2205,9 @@ if (type === "arrow") {
             }
 
             // ---- Python仕様どおり：バフ解除、封印解除、バリア解除 ----
-            opponent.active_buffs = [];
+            opponent.active_buffs = (opponent.active_buffs ?? []).filter(
+                b => b?.unremovable || b?.passive
+            );
             opponent.skill_sealed = false;
             opponent.barrier = 0;
 

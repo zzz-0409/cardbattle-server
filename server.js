@@ -158,6 +158,59 @@ function buildSkillRemaining(player) {
 function buildBuffUIData(player) {
   const out = [];
 
+  if (player.job === "戦士") {
+    out.push({
+      kind: "passive_atk",
+      power: 3,
+      remain: null,
+      source: "戦士パッシブ",
+      text: "戦士パッシブ：基礎攻撃力 +3（解除不可）",
+      unremovable: true,
+      passive: true,
+    });
+  } else if (player.job === "騎士") {
+    out.push({
+      kind: "passive_def",
+      power: 3,
+      remain: null,
+      source: "騎士パッシブ",
+      text: "騎士パッシブ：基礎防御力 +3（解除不可）",
+      unremovable: true,
+      passive: true,
+    });
+  } else if (player.job === "僧侶") {
+    out.push({
+      kind: "passive_regen",
+      power: 1,
+      remain: null,
+      source: "僧侶パッシブ",
+      text: "僧侶パッシブ：自分のターン開始時、現在HPの1/40を回復（最低1 / 最大HP400 / 解除不可）",
+      unremovable: true,
+      passive: true,
+    });
+  } else if (player.job === "盗賊") {
+    const coinBonus = Number(player.job_data?.coin_per_turn_bonus ?? 3);
+    out.push({
+      kind: "passive_coin",
+      power: coinBonus,
+      remain: null,
+      source: "盗賊パッシブ",
+      text: `盗賊パッシブ：初期コイン+5、毎ターンコイン+${coinBonus}（解除不可）`,
+      unremovable: true,
+      passive: true,
+    });
+  } else if (player.job === "錬金術師") {
+    out.push({
+      kind: "passive_discount",
+      power: 20,
+      remain: null,
+      source: "錬金術師パッシブ",
+      text: "錬金術師パッシブ：通常装備の購入価格20%引き（解除不可）",
+      unremovable: true,
+      passive: true,
+    });
+  }
+
   // アイテム由来（攻撃/防御バフ・デバフなど）
   if (Array.isArray(player.active_buffs)) {
     for (const b of player.active_buffs) {
@@ -170,6 +223,7 @@ function buildBuffUIData(player) {
       else if (b.type === "防御力") kind = "def_up";
       else if (b.type === "攻撃力低下") kind = "atk_down";
       else if (b.type === "防御力低下") kind = "def_down";
+      else if (b.type === "継続回復") kind = "regen";
 
       const sign = (kind.endsWith("_down") || String(b.type ?? "").includes("低下")) ? "-" : "+";
       const remain = Number(dur ?? 0);
@@ -402,6 +456,42 @@ function createMadSpecialItem(star = 1) {
     self_heal: value,
     effect_text: `使用時に ${value} ダメージを受け、その後 ${value} 回復する`,
   };
+}
+
+function createPriestSpecialItem() {
+  const items = [
+    {
+      name: "聖なる香",
+      price: 12,
+      is_priest_item: true,
+      priest_effect: "regen",
+      effect_text: "10ラウンドの間、ターン開始時にHPを1回復する",
+      is_equip: false,
+    },
+    {
+      name: "祝福の刃",
+      price: 15,
+      is_priest_item: true,
+      priest_effect: "blessing_attack",
+      effect_text: "現在の祝福をすべて消費し、1Rの間、攻撃力を消費数の1/2アップする",
+      is_equip: false,
+    },
+    {
+      name: "大いなる祝祷",
+      price: 20,
+      is_priest_item: true,
+      priest_effect: "blessing_heal",
+      effect_text: "祝福を20消費し、HPを20回復する",
+      is_equip: false,
+    },
+  ];
+  return { ...items[Math.floor(Math.random() * items.length)] };
+}
+
+function replacePriestHpRecoveryItem(player, item) {
+  if (player?.job !== "僧侶") return item;
+  if (item?.effect_type !== "HP") return item;
+  return createPriestSpecialItem();
 }
 
 
@@ -816,6 +906,10 @@ export class Match {
   // ============================
   sendHealEvent(targetPlayer, amount, targetType = "body") {
     if (!amount || amount <= 0) return;
+
+    if (targetType !== "doll" && targetPlayer?.job === "僧侶") {
+      targetPlayer.blessing_count = Number(targetPlayer.blessing_count ?? 0) + 1;
+    }
 
     const isTargetP1 = (targetPlayer === this.P1);
 
@@ -1479,6 +1573,27 @@ export class Match {
 
     this.sendItemList(actorWS, actor);
 
+    if (actor.job === "僧侶") {
+      const passiveHeal = Math.max(1, Math.floor(Number(actor.hp ?? 0) / 40));
+      const healedPassive = actor.restore_hp?.(passiveHeal) ?? 0;
+      if (healedPassive > 0) {
+        this.sendHealEvent(actor, healedPassive);
+      }
+
+      for (const b of actor.active_buffs ?? []) {
+        if (b?.type !== "継続回復") continue;
+        const dur = Number(b.rounds ?? b.duration ?? 0);
+        if (dur <= 0) continue;
+        const healed = actor.restore_hp?.(Number(b.power ?? 0)) ?? 0;
+        if (healed > 0) {
+          this.sendHealEvent(actor, healed);
+        }
+      }
+
+      this.sendStatusInfo(actorWS, actor);
+      this.sendSimpleStatusBoth();
+    }
+
     // ===============================
     // 自己バフ：ラウンド開始時に減少
     // ===============================
@@ -1764,6 +1879,7 @@ export class Match {
       entry = (r < 50)
         ? generateEquipmentForLevel(level)
         : generateOneShopItem(level);
+      entry = replacePriestHpRecoveryItem(P, entry);
 
       list.push({ ...entry });
     }
@@ -2001,6 +2117,89 @@ export class Match {
         return;
       }
 
+    if (action === "unequip" || action === "unequip_special") {
+      const targetUid = String(uid ?? "");
+      const finishUnequip = (item, destination) => {
+        if (!item) return false;
+        P.items ??= [];
+        P.equipment_inventory ??= [];
+        P.special_inventory ??= [];
+        P.arrow_inventory ??= [];
+        P[destination] ??= [];
+        P[destination].push(item);
+        if (P.recalc_mage_passives) P.recalc_mage_passives();
+        if (P.recalc_stats) P.recalc_stats();
+        this.sendBattle(`${item.name ?? "装備"} を外した！`);
+        this.sendPopup(`${item.name ?? "装備"} を外した！`, wsPlayer, 2000);
+        this.sendItemList(wsPlayer, P);
+        this.sendStatusInfo(wsPlayer, P);
+        this.sendSimpleStatusBoth();
+        this.updateHP();
+        return true;
+      };
+
+      if (P.equipment && String(P.equipment.uid ?? "") === targetUid) {
+        const item = P.equipment;
+        P.equipment = null;
+        finishUnequip(item, "equipment_inventory");
+        return;
+      }
+
+      if (P.arrow && String(P.arrow.uid ?? "") === targetUid) {
+        const item = P.arrow;
+        P.arrow = null;
+        finishUnequip(item, "arrow_inventory");
+        return;
+      }
+
+      if (P.arrow2 && String(P.arrow2.uid ?? "") === targetUid) {
+        const item = P.arrow2;
+        P.arrow2 = null;
+        finishUnequip(item, "arrow_inventory");
+        return;
+      }
+
+      if (P.mage_equips) {
+        for (const key of Object.keys(P.mage_equips)) {
+          const item = P.mage_equips[key];
+          if (item && String(item.uid ?? "") === targetUid) {
+            P.mage_equips[key] = null;
+            finishUnequip(item, "special_inventory");
+            return;
+          }
+        }
+      }
+
+      if (P.alchemist_equip && String(P.alchemist_equip.uid ?? "") === targetUid) {
+        const item = P.alchemist_equip;
+        P.alchemist_equip = null;
+        finishUnequip(item, "special_inventory");
+        return;
+      }
+
+      if (P.doll?.costumes) {
+        for (const key of Object.keys(P.doll.costumes)) {
+          const item = P.doll.costumes[key];
+          if (item && String(item.uid ?? "") === targetUid) {
+            P.doll.costumes[key] = null;
+            finishUnequip(item, "special_inventory");
+            return;
+          }
+        }
+      }
+
+      if (P.special_equipped && String(P.special_equipped.uid ?? "") === targetUid) {
+        const item = P.special_equipped;
+        P.special_equipped = null;
+        finishUnequip(item, "special_inventory");
+        return;
+      }
+
+      this.sendPopup("外す装備が見つかりません", wsPlayer, 2500);
+      this.sendError("❌ 外す装備が見つかりません。", wsPlayer);
+      return;
+    }
+
     // ============================
     // 1) uid からアイテムを検索（最優先）
     // ============================
@@ -2024,6 +2223,7 @@ export class Match {
       // ★ 使用回数が尽きた/既に消費済み等
       this.sendPopup("アイテムの使用回数がなくなりました", wsPlayer, 2500);
       this.sendError("❌ アイテムが見つかりません。", wsPlayer);
+      this.sendItemList(wsPlayer, P);
       return;
     }
 
@@ -2341,9 +2541,102 @@ export class Match {
         // ★ ターン内の使用回数上限に達した場合も中央ポップアップ
         this.sendPopup("このターンのアイテム使用回数がなくなりました", wsPlayer, 2500);
         this.sendError("1ターンに使用できるアイテムは2つまでです。", wsPlayer);
+        this.sendItemList(wsPlayer, P);
         return;
       }
-      P.item_use_count += 1;
+
+      const hpHealCap = P.job === "僧侶" ? 400 : Number(P.max_hp ?? 0);
+      if (item.effect_type === "HP" && Number(P.hp ?? 0) >= hpHealCap) {
+        this.sendPopup("HPが上限のため使用できません", wsPlayer, 2500);
+        this.sendError("❌ HPが上限のため使用できません。", wsPlayer);
+        this.sendItemList(wsPlayer, P);
+        return;
+      }
+
+      if (item.is_mage_item && P.job === "魔導士" && Number(P.mana ?? 0) >= Number(P.mana_max ?? 0)) {
+        this.sendPopup("魔力が上限のため使用できません", wsPlayer, 2500);
+        this.sendError("❌ 魔力が上限のため使用できません。", wsPlayer);
+        this.sendItemList(wsPlayer, P);
+        return;
+      }
+
+      if (item.is_priest_item) {
+        if (P.job !== "僧侶") {
+          this.sendPopup("僧侶専用アイテムです", wsPlayer, 2500);
+          this.sendError("❌ 僧侶専用アイテムです。", wsPlayer);
+          this.sendItemList(wsPlayer, P);
+          return;
+        }
+
+        let success = true;
+        let message = `${item.name} を使用した！`;
+
+        if (item.priest_effect === "regen") {
+          P.active_buffs ??= [];
+          P.active_buffs.push({
+            type: "継続回復",
+            power: 1,
+            rounds: 10,
+            source: item.name ?? "聖なる香",
+            uid: crypto.randomUUID(),
+          });
+          message = `${item.name} を使用した！ 10Rの間、HPを1ずつ回復する`;
+        } else if (item.priest_effect === "blessing_attack") {
+          const consumed = Math.max(0, Number(P.blessing_count ?? 0));
+          if (consumed <= 0) {
+            success = false;
+            message = "祝福がありません";
+          } else {
+            const power = Math.floor(consumed / 2);
+            P.blessing_count = 0;
+            if (power > 0) {
+              P.active_buffs ??= [];
+              P.active_buffs.push({
+                type: "攻撃力",
+                power,
+                rounds: 1,
+                source: item.name ?? "祝福の刃",
+                uid: crypto.randomUUID(),
+              });
+            }
+            message = `${item.name} を使用した！ 祝福${consumed}を消費し、攻撃力+${power}`;
+          }
+        } else if (item.priest_effect === "blessing_heal") {
+          const blessing = Math.max(0, Number(P.blessing_count ?? 0));
+          if (blessing < 20) {
+            success = false;
+            message = "祝福が20必要です";
+          } else if (Number(P.hp ?? 0) >= 400) {
+            success = false;
+            message = "HPが上限のため使用できません";
+          } else {
+            P.blessing_count = blessing - 20;
+            const beforeHp = Number(P.hp ?? 0);
+            const healed = P.restore_hp?.(20) ?? 0;
+            if (healed > 0) {
+              this.sendHealEvent(P, healed);
+              P.blessing_count = blessing - 20;
+            }
+            message = `${item.name} を使用した！ 祝福20を消費し、HP ${beforeHp} → ${P.hp}`;
+          }
+        }
+
+        if (!success) {
+          this.sendPopup(message, wsPlayer, 2500);
+          this.sendError(`❌ ${message}`, wsPlayer);
+          this.sendItemList(wsPlayer, P);
+          return;
+        }
+
+        P.item_use_count += 1;
+        P[source] = P[source].filter(x => x.uid !== uid);
+        this.sendBattle(message);
+        this.sendPopup(message, wsPlayer, 2200);
+        this.sendItemList(wsPlayer, P);
+        this.sendStatusInfo(wsPlayer, P);
+        this.sendSimpleStatusBoth();
+        return;
+      }
 
       if (P.apply_item) {
         const beforeHp = P.hp;
@@ -2361,7 +2654,14 @@ export class Match {
         const beforeSelfDefBuff = Number(P.get_def_buff_total?.() ?? 0) + Number(P.barrier ?? 0);
         const beforeOpponentDefBuff = Number(opponent?.get_def_buff_total?.() ?? 0) + Number(opponent?.barrier ?? 0);
 
-        P.apply_item(item);
+        const applyResult = P.apply_item(item);
+        if (applyResult === false) {
+          this.sendPopup("このアイテムは使用できません", wsPlayer, 2500);
+          this.sendError("❌ このアイテムは使用できません。", wsPlayer);
+          this.sendItemList(wsPlayer, P);
+          return;
+        }
+        P.item_use_count += 1;
 
         const selfDamage = Math.max(0, Number(P.last_item_self_damage ?? 0));
         if (selfDamage > 0) {
@@ -2421,6 +2721,12 @@ export class Match {
           this.sendShikigamiSummonEvent(P, P.last_summoned_shikigami);
           P.last_summoned_shikigami = [];
         }
+      }
+      else {
+        this.sendPopup("このアイテムは使用できません", wsPlayer, 2500);
+        this.sendError("❌ このアイテムは使用できません。", wsPlayer);
+        this.sendItemList(wsPlayer, P);
+        return;
       }
 
       this.sendBattle(`${item.name} を使用した！`);
@@ -2560,9 +2866,11 @@ export class Match {
       // ===== 基本ステータス（★これが無いと undefined）=====
       hp: P.hp,
       max_hp: P.max_hp,
+      overheal_max_hp: P.job === "僧侶" ? 400 : P.max_hp,
       attack: P.doll ? (P.doll.is_broken ? 0 : P.getDollAttack()) : P.get_total_attack(),
       defense: P.doll ? (P.doll.is_broken ? 0 : P.getDollDefense()) : P.get_total_defense(),
       coins: P.coins,
+      blessing_count: Number(P.blessing_count ?? 0),
       level: P.level,
       exp: P.exp,
       mad_state: buildMadStateData(P),
@@ -2628,9 +2936,11 @@ export class Match {
         name: self.name ?? "Player",
         hp: self.hp,
         max_hp: self.max_hp,
+        overheal_max_hp: self.job === "僧侶" ? 400 : self.max_hp,
         attack: self.doll ? (self.doll.is_broken ? 0 : self.getDollAttack()) : self.get_total_attack(),
         defense: self.doll ? (self.doll.is_broken ? 0 : self.getDollDefense()) : self.get_total_defense(),
         coins: self.coins,
+        blessing_count: Number(self.blessing_count ?? 0),
         level: self.level,
         exp: self.exp ?? 0,
         next_level_exp: selfNextLevelExp,
@@ -2690,9 +3000,11 @@ export class Match {
         name: enemy.name ?? "CPU",
         hp: enemy.hp,
         max_hp: enemy.max_hp,
+        overheal_max_hp: enemy.job === "僧侶" ? 400 : enemy.max_hp,
         attack: enemy.doll ? (enemy.doll.is_broken ? 0 : enemy.getDollAttack()) : enemy.get_total_attack(),
         defense: enemy.doll ? (enemy.doll.is_broken ? 0 : enemy.getDollDefense()) : enemy.get_total_defense(),
         coins: enemy.coins,
+        blessing_count: Number(enemy.blessing_count ?? 0),
         level: enemy.level,
         exp: enemy.exp ?? 0,
         next_level_exp: enemyNextLevelExp,
