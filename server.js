@@ -388,7 +388,7 @@ function sampleDistinctItems(items, count) {
   return pool.slice(0, Math.min(count, pool.length));
 }
 
-const DOLL_CHARGE_COST = 10;
+const DOLL_CHARGE_COST = 15;
 
 function createMadSpecialItem(star = 1) {
   const value = star === 3 ? 30 : star === 2 ? 20 : 10;
@@ -1016,7 +1016,7 @@ export class Match {
           return {
             title: "衣装修復/強化 Lv5",
             desc: hasAnyCostume
-              ? "衣装を1つ選び、ぼろぼろ修復+星1上げる。さらに装備中の全衣装の星を2上げる"
+              ? "衣装を1つ選び、星を1上げる。さらに装備中の全衣装の星を1上げる"
               : "衣装がないため今回は効果を使えない",
             level,
             progress_now: progressNow,
@@ -1232,22 +1232,16 @@ export class Match {
 
       if (level === 5) {
         const beforeName = costume.name ?? "衣装";
-        if (costume.condition === "boroboro") {
-          costume.condition = "normal";
-          actor.updateCostumeDisplayName(costume);
-          popupMessages.push(`🧵 ${beforeName} を修理した！`);
-        } else {
-          costume.star += 1;
-          actor.updateCostumeDisplayName(costume);
-          popupMessages.push(`⭐ ${beforeName} の星が 1 上がった！`);
-        }
+        costume.star += 1;
+        actor.updateCostumeDisplayName(costume);
+        popupMessages.push(`⭐ ${beforeName} の星が 1 上がった！`);
 
         for (const eq of Object.values(actor.doll.costumes ?? {})) {
           if (!eq) continue;
-          eq.star += 2;
+          eq.star += 1;
           actor.updateCostumeDisplayName(eq);
         }
-        popupMessages.push("✨ 装備中の全ての衣装の星が 2 上がった！");
+        popupMessages.push("✨ 装備中の全ての衣装の星が 1 上がった！");
         return this.finalizeDollChargeChoice(
           wsPlayer,
           actor,
@@ -1415,15 +1409,19 @@ export class Match {
       this.sendHealEvent(actor, actor.doll.durability, "doll");
     }
 
-    if (this.round >= 30) {
+    const battleRound = Math.ceil(Number(this.round ?? 1) / 2);
+    if (battleRound >= 30) {
       if (!this.suddenDeathAnnounced) {
         this.suddenDeathAnnounced = true;
-        this.sendSystem("サドンデスモードに突入した");
+        const warningText = "⚠ サドンデスモードに突入！以降、自分のターン開始時に防御無視ダメージを受けます";
+        this.sendSystem(warningText);
+        this.sendBattle(warningText);
+        this.sendPopup(warningText, null, 3600, "boom");
       }
-      const suddenDamage = 10 + Math.max(0, this.round - 30);
+      const suddenDamage = 10 + Math.max(0, battleRound - 30);
       actor.sudden_death_debuff = {
         power: suddenDamage,
-        round: this.round,
+        round: battleRound,
         unremovable: true
       };
       let dealtSudden = 0;
