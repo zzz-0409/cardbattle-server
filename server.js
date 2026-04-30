@@ -1649,7 +1649,7 @@ export class Match {
           entry = {
             uid: crypto.randomUUID(),
             name: "修理キット",
-            price: 15,
+            price: 25,
             is_doll_item: true,
             effect_text: "人形の耐久を20回復"
           };
