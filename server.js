@@ -1153,7 +1153,7 @@ export class Match {
   buildDollChargeParts(actor, excluded = []) {
     const blocked = new Set((excluded ?? []).map(String));
     return Object.entries(actor.doll?.costumes ?? {})
-      .filter(([part, costume]) => !!costume && !blocked.has(String(part)))
+      .filter(([part, costume]) => !!costume && !blocked.has(String(part)) && Number(costume?.star ?? 1) < 8)
       .map(([p, costume]) => ({
         key: p,
         label: { head: "帽子", body: "服", leg: "ズボン", foot: "靴" }[p] ?? p,
@@ -1240,7 +1240,7 @@ export class Match {
       ];
       if (picked?.key === "costume_boost") {
         const parts = Object.entries(actor.doll.costumes ?? {})
-          .filter(([, costume]) => !!costume)
+          .filter(([, costume]) => !!costume && Number(costume?.star ?? 1) < 8)
           .map(([part]) => part);
         const part = parts.length > 0
           ? parts[Math.floor(Math.random() * parts.length)]
@@ -1316,7 +1316,7 @@ export class Match {
       }
 
       const costume = actor.doll.costumes?.[part];
-      if (!costume || selectedParts.includes(String(part))) {
+      if (!costume || selectedParts.includes(String(part)) || Number(costume?.star ?? 1) >= 8) {
         this.sendError("❌ その衣装は選択できません。", wsPlayer);
         return false;
       }
@@ -1326,13 +1326,13 @@ export class Match {
 
       if (level === 5) {
         const beforeName = costume.name ?? "衣装";
-        costume.star += 1;
+        costume.star = Math.min(8, Number(costume.star ?? 1) + 1);
         actor.updateCostumeDisplayName(costume);
         popupMessages.push(`⭐ ${beforeName} の星が 1 上がった！`);
 
         for (const eq of Object.values(actor.doll.costumes ?? {})) {
           if (!eq) continue;
-          eq.star += 1;
+          eq.star = Math.min(8, Number(eq.star ?? 1) + 1);
           actor.updateCostumeDisplayName(eq);
         }
         popupMessages.push("✨ 装備中の全ての衣装の星が 1 上がった！");
@@ -1350,15 +1350,16 @@ export class Match {
         actor.updateCostumeDisplayName(costume);
         popupMessages.push(`🧵 ${beforeName} を修理した！`);
       } else {
-        costume.star += 1;
+        costume.star = Math.min(8, Number(costume.star ?? 1) + 1);
         actor.updateCostumeDisplayName(costume);
         popupMessages.push(`⭐ ${beforeName} の星が 1 上がった！`);
       }
 
       const nextSelectedParts = [...selectedParts, String(part)];
+      const remainingParts = this.buildDollChargeParts(actor, nextSelectedParts);
       const remaining = Math.max(
         0,
-        Math.min(level, Object.values(actor.doll.costumes ?? {}).filter(Boolean).length) - nextSelectedParts.length
+        Math.min(level, nextSelectedParts.length + remainingParts.length) - nextSelectedParts.length
       );
 
       if (remaining > 0) {
@@ -2922,6 +2923,36 @@ export class Match {
       enemyHP: this.P1.hp
     });
   }
+
+  sendInitialStatusSnapshot() {
+    safeSend(this.p1, { type: "job_info", job: this.P1.job });
+    safeSend(this.p2, { type: "job_info", job: this.P2.job });
+
+    this.updateHP();
+
+    safeSend(this.p1, { type: "coin_info", coins: this.P1.coins });
+    safeSend(this.p2, { type: "coin_info", coins: this.P2.coins });
+
+    safeSend(this.p1, {
+      type: "level_info",
+      level: this.P1.level,
+      canLevelUp: this.P1.can_level_up()
+    });
+    safeSend(this.p2, {
+      type: "level_info",
+      level: this.P2.level,
+      canLevelUp: this.P2.can_level_up()
+    });
+
+    safeSend(this.p1, { type: "exp_info", exp: this.P1.exp });
+    safeSend(this.p2, { type: "exp_info", exp: this.P2.exp });
+
+    this.sendStatusInfo(this.p1, this.P1);
+    this.sendStatusInfo(this.p2, this.P2);
+    this.sendItemList(this.p1, this.P1);
+    this.sendItemList(this.p2, this.P2);
+    this.sendSimpleStatusBoth();
+  }
   
   // =========================================================
   // ★ 簡易ステータス即時同期（自分＋相手）
@@ -4147,6 +4178,7 @@ function startCpuMatch(humanWS) {
     self_name: humanWS.player?.name ?? "Player",
     enemy_name: "CPU"
   });
+  match.sendInitialStatusSnapshot();
 
   // ★ CPUが後攻なら即思考開始
   setTimeout(() => maybeCpuTurn(match), 1000);
@@ -5082,6 +5114,7 @@ wss.on("connection", (ws) => {
         self_name: p2.player?.name ?? "Player",
         enemy_name: p1.player?.name ?? "Player"
       });
+      match.sendInitialStatusSnapshot();
 
       // 既存の対人戦と同じメッセージ処理を流用するため、
       // この後の join_random と同じ処理ブロックに落とす必要がある。
@@ -5343,6 +5376,7 @@ wss.on("connection", (ws) => {
           self_name: p2.player?.name ?? "Player",
           enemy_name: p1.player?.name ?? "Player"
         });
+        match.sendInitialStatusSnapshot();
 
         // =====================================
         // 共通メッセージハンドラ（正）

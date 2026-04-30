@@ -2607,12 +2607,15 @@ console.log(
             return { ok: false, reason: "人形が存在しません" };
         }
 
+        const maxStar = 8;
         const upgraded = [];
         for (const [part, c] of Object.entries(this.doll.costumes)) {
             if (!c) continue;
-            c.star += 1;
+            const beforeStar = Number(c.star ?? 1);
+            if (beforeStar >= maxStar) continue;
+            c.star = Math.min(maxStar, beforeStar + 1);
             this.updateCostumeDisplayName(c);
-            upgraded.push(`${part} ★${c.star - 1}→★${c.star}`);
+            upgraded.push(`${part} ★${beforeStar}→★${c.star}`);
         }
 
         if (upgraded.length === 0) {
