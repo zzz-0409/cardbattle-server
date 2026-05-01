@@ -6,7 +6,7 @@
 export const MAGE_MANA_ITEMS = [
     {
         name: "魔力水（小）",
-        price: 10,
+        price: 20,
         effect_type: "MANA",
         power: 10,
         duration: 0,
@@ -16,7 +16,7 @@ export const MAGE_MANA_ITEMS = [
     },
     {
         name: "魔力水（中）",
-        price: 15,
+        price: 25,
         effect_type: "MANA",
         power: 20,
         duration: 0,
@@ -26,7 +26,7 @@ export const MAGE_MANA_ITEMS = [
     },
     {
         name: "魔力水（大）",
-        price: 20,
+        price: 30,
         effect_type: "MANA",
         power: 30,
         duration: 0,

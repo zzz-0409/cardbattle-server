@@ -394,10 +394,10 @@ export const ARROW_DATA = {
 
   counter: {
     name: "反撃の矢",
-    power: 10,
+    power: 15,
     effect: "counter",
     equip_type: "arrow",
-    price: 30,
+    price: 20,
     effect_text: "10ダメ+前のラウンドの被ダメの半分で反撃",
   },
 
@@ -417,15 +417,15 @@ export const ARROW_DATA = {
 // 魔導士専用：魔力回復アイテム
 export const MAGE_MANA_ITEMS = [
   {
-    name: "魔力水（小）", price: 10, effect_type: "MANA",
+    name: "魔力水（小）", price: 20, effect_type: "MANA",
     power: 10, duration: 0, is_equip: false, effect_text: "魔力+10"
   },
   {
-    name: "魔力水（中）", price: 15, effect_type: "MANA",
+    name: "魔力水（中）", price: 25, effect_type: "MANA",
     power: 20, duration: 0, is_equip: false, effect_text: "魔力+20"
   },
   {
-    name: "魔力水（大）", price: 20, effect_type: "MANA",
+    name: "魔力水（大）", price: 30, effect_type: "MANA",
     power: 30, duration: 0, is_equip: false, effect_text: "魔力+30"
   }
 ];
@@ -443,7 +443,7 @@ export const MAGE_EQUIPS = [
 // ================================
 export const DOLL_REPAIR_KIT = {
   name: "修理キット",
-  price: 25,
+  price: 30,
   category: "item",
   is_doll_item: true,
   effect_text: "人形の耐久を20回復",

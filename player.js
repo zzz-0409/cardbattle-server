@@ -2582,7 +2582,7 @@ console.log(
     if (stype === "doll_1") {
         this.items.push({
             name: "修理キット",
-            price: 25,
+            price: 30,
             category: "item",
             is_doll_item: true,
             effect_text: "人形の耐久を20回復",

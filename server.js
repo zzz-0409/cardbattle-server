@@ -462,7 +462,7 @@ function createPriestSpecialItem() {
   const items = [
     {
       name: "聖なる香",
-      price: 12,
+      price: 30,
       is_priest_item: true,
       priest_effect: "regen",
       effect_text: "10ラウンドの間、ターン開始時にHPを1回復する",
@@ -1765,7 +1765,7 @@ export class Match {
           entry = {
             uid: crypto.randomUUID(),
             name: "修理キット",
-            price: 25,
+            price: 30,
             is_doll_item: true,
             effect_text: "人形の耐久を20回復"
           };
