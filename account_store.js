@@ -9,12 +9,15 @@ import path from "path";
 
 const DATA_DIR = path.resolve("./data");
 const DATA_FILE = path.join(DATA_DIR, "accounts.json");
+const DATA_TMP_FILE = DATA_FILE + ".tmp";
+const DATA_BACKUP_FILE = DATA_FILE + ".backup";
+const DATA_BACKUP_DIR = path.join(DATA_DIR, "backup");
 
 const DEFAULT_RATING = 1000;
 const MIN_RATING = 500;
 const NAME_MIN = 2;
 const NAME_MAX = 12;
-const NAME_CHANGE_COOLDOWN_MS = 0;
+const NAME_CHANGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7日
 
 function nowMs() {
   return Date.now();
@@ -24,28 +27,92 @@ function ensureDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+function normalizeDb(data) {
+  if (!data || typeof data !== "object") return { accounts: {} };
+  if (!data.accounts || typeof data.accounts !== "object") data.accounts = {};
+  return data;
+}
+
+function writeInitialDbIfMissing() {
+  if (fs.existsSync(DATA_FILE)) return;
+  fs.writeFileSync(DATA_FILE, JSON.stringify({ accounts: {} }, null, 2), "utf-8");
+}
+
 function loadJsonSafe() {
+  ensureDir();
+
   try {
-    ensureDir();
-    if (!fs.existsSync(DATA_FILE)) {
-      fs.writeFileSync(DATA_FILE, JSON.stringify({ accounts: {} }, null, 2), "utf-8");
-    }
+    writeInitialDbIfMissing();
     const raw = fs.readFileSync(DATA_FILE, "utf-8");
-    const data = JSON.parse(raw);
-    if (!data || typeof data !== "object") return { accounts: {} };
-    if (!data.accounts || typeof data.accounts !== "object") data.accounts = {};
-    return data;
-  } catch {
-    return { accounts: {} };
+    return normalizeDb(JSON.parse(raw));
+  } catch (e) {
+    console.warn("⚠ accounts.json 読み込み失敗。backupから復旧を試します:", e);
+  }
+
+  try {
+    if (fs.existsSync(DATA_BACKUP_FILE)) {
+      const raw = fs.readFileSync(DATA_BACKUP_FILE, "utf-8");
+      const backup = normalizeDb(JSON.parse(raw));
+      saveJsonSafe(backup);
+      console.log("✅ accounts.json.backup から復旧しました");
+      return backup;
+    }
+  } catch (e) {
+    console.error("❌ backup復旧失敗:", e);
+  }
+
+  return { accounts: {} };
+}
+
+function rotateGenerationBackups() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return;
+    if (!fs.existsSync(DATA_BACKUP_DIR)) {
+      fs.mkdirSync(DATA_BACKUP_DIR, { recursive: true });
+    }
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const generationFile = path.join(DATA_BACKUP_DIR, `accounts_${stamp}.json`);
+    fs.copyFileSync(DATA_FILE, generationFile);
+
+    const files = fs.readdirSync(DATA_BACKUP_DIR)
+      .filter(name => name.startsWith("accounts_") && name.endsWith(".json"))
+      .map(name => ({
+        name,
+        time: fs.statSync(path.join(DATA_BACKUP_DIR, name)).mtimeMs
+      }))
+      .sort((a, b) => b.time - a.time);
+
+    for (const f of files.slice(20)) {
+      fs.unlinkSync(path.join(DATA_BACKUP_DIR, f.name));
+    }
+  } catch (e) {
+    console.warn("⚠ 世代バックアップ作成失敗:", e);
   }
 }
 
 function saveJsonSafe(data) {
   try {
     ensureDir();
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+
+    const normalized = normalizeDb(data);
+    const json = JSON.stringify(normalized, null, 2);
+
+    if (fs.existsSync(DATA_FILE)) {
+      fs.copyFileSync(DATA_FILE, DATA_BACKUP_FILE);
+      rotateGenerationBackups();
+    }
+
+    fs.writeFileSync(DATA_TMP_FILE, json, "utf-8");
+    fs.renameSync(DATA_TMP_FILE, DATA_FILE);
+
+    console.log("💾 accounts.json 保存成功");
     return true;
-  } catch {
+  } catch (e) {
+    console.error("❌ accounts.json 保存失敗:", e);
+    try {
+      if (fs.existsSync(DATA_TMP_FILE)) fs.unlinkSync(DATA_TMP_FILE);
+    } catch {}
     return false;
   }
 }
@@ -180,14 +247,19 @@ export function importJobRecordBackup(accountId, backupJobs = {}) {
     const curHasProgress = (curWins + curLosses) > 0 || curRating !== DEFAULT_RATING;
     const backupHasProgress = (wins + losses) > 0 || rating !== DEFAULT_RATING;
 
-    // 原則：サーバ側に進捗があるなら上書きしない
-    // 例外：サーバ側が初期化状態で、バックアップに進捗がある場合のみ反映
-    if (!curHasProgress && backupHasProgress) {
+    const backupUpdatedAt = Math.max(0, Number(rec?.updatedAt ?? 0) || 0);
+    const curUpdatedAt = Math.max(0, Number(cur?.updatedAt ?? 0) || 0);
+
+    // サーバ側が初期化状態なら復元。
+    // さらに、localStorage側の方が明確に新しい場合も復元する。
+    // これによりサーバ再起動後、復元済みアカウントが accounts.json に残り、
+    // 本人がログインしていない間もランキングに表示されやすくなる。
+    if ((!curHasProgress && backupHasProgress) || (backupHasProgress && backupUpdatedAt > curUpdatedAt)) {
       acc.jobs[job] = {
         rating,
         wins,
         losses,
-        updatedAt: nowMs()
+        updatedAt: backupUpdatedAt || nowMs()
       };
       applied += 1;
     }
@@ -206,13 +278,19 @@ export function changeAccountName({ accountId, name }) {
   }
 
   const acc = db.accounts[accountId];
+  const last = Number(acc.lastNameChangeAt ?? 0);
+  const nextAllowed = last + NAME_CHANGE_COOLDOWN_MS;
   const now = nowMs();
+
+  if (last > 0 && now < nextAllowed) {
+    return { ok: false, reason: "名前変更は7日に1回までです", nextNameChangeAt: nextAllowed };
+  }
 
   acc.name = name;
   acc.lastNameChangeAt = now;
 
   saveJsonSafe(db);
-  return { ok: true, account: { id: acc.id, name: acc.name, nextNameChangeAt: now } };
+  return { ok: true, account: { id: acc.id, name: acc.name, nextNameChangeAt: now + NAME_CHANGE_COOLDOWN_MS } };
 }
 
 // 職業別の戦績+レートを返す（クライアントの職業カード用）
