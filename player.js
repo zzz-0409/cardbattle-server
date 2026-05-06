@@ -1902,6 +1902,12 @@ if (type === "arrow") {
                 this.used_items_this_round -= 1; // 使用回数を戻す（無料扱い）
             }
 
+            if (opponent && opponent.hp > 0) {
+                const damage = this.getActualAttack ? this.getActualAttack() : this.get_total_attack();
+                const dealt = opponent.take_damage(damage, false, this);
+                log(`🗡 ダークアルケミーの追撃！ 通常攻撃で ${dealt} ダメージ！`);
+            }
+
             this.used_skill_set.add(stype);
             return true;
         }

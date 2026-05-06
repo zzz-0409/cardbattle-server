@@ -196,8 +196,8 @@ export const JOB_SKILLS = {
       name: "ダークアルケミー",
       min_level: 3,
       power: null,
-      effect: "所持アイテム全発動（消費なし）",
-      description: "所持アイテムをすべて即時発動（消費なし）。",
+      effect: "所持アイテム全発動（消費なし）＋通常攻撃",
+      description: "所持アイテムをすべて即時発動（消費なし）し、その後通常攻撃を行う。",
     },
   ],
 
@@ -324,7 +324,7 @@ export const JOB_SKILLS = {
       min_level: 2,
       power: null,
       effect: "装備中衣装の星+1",
-      description: "装備しているすべての部位の衣装の★を1上げる。",
+      description: "装備しているすべての部位の衣装の★を1上げる（最大★8）。",
     },
     {
       type: "doll_3",

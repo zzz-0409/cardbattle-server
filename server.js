@@ -739,6 +739,7 @@ export class Match {
     this.p2 = p2;
 
     this.skill_lock = false;
+    this.action_resolving = false;
 
     this.P1 = p1.player;
     this.P2 = p2.player;
@@ -898,6 +899,83 @@ export class Match {
       amount,
       kind,
     });
+  }
+
+  sendSkillEffectEvent(targetPlayer, effect, targetType = "body") {
+    if (!targetPlayer || !effect) return;
+
+    const isTargetP1 = (targetPlayer === this.P1);
+    const resolveTarget = (isP1, type) => {
+      if (type === "doll") return isP1 ? "self_doll" : "enemy_doll";
+      return isP1 ? "self" : "enemy";
+    };
+
+    safeSend(this.p1, {
+      type: "skill_effect_event",
+      target: resolveTarget(isTargetP1, targetType),
+      effect,
+    });
+
+    safeSend(this.p2, {
+      type: "skill_effect_event",
+      target: resolveTarget(!isTargetP1, targetType),
+      effect,
+    });
+  }
+
+  getSkillEffectEvents(actor, target, stype, beforeHpActor = actor?.hp) {
+    const targetType = target?.job === "人形使い" && target?.doll ? "doll" : "body";
+    const selfType = String(stype).startsWith("doll_") && actor?.doll ? "doll" : "body";
+    const targetEvent = (effect) => ({ player: target, type: targetType, effect });
+    const selfEvent = (effect) => ({ player: actor, type: selfType, effect });
+    const bodySelfEvent = (effect) => ({ player: actor, type: "body", effect });
+
+    const eventMap = {
+      warrior_1: [targetEvent("warrior_1_target")],
+      warrior_2: [targetEvent("warrior_2_target"), bodySelfEvent("warrior_2_self")],
+      warrior_3: [targetEvent("warrior_3_target")],
+      knight_1: [targetEvent("knight_1_target"), bodySelfEvent("knight_1_self")],
+      knight_2: [targetEvent("knight_2_target"), bodySelfEvent("knight_2_self")],
+      knight_3: [targetEvent("knight_3_target")],
+      priest_1: [bodySelfEvent("priest_1_self")],
+      priest_2: [bodySelfEvent("priest_2_self")],
+      priest_3: [targetEvent("priest_3_target")],
+      thief_1: [targetEvent("thief_1_target")],
+      thief_2: [targetEvent("thief_2_target")],
+      thief_3: [targetEvent("thief_3_target"), bodySelfEvent("thief_3_self")],
+      mage_1: [bodySelfEvent("mage_1_self")],
+      mage_2: [targetEvent("mage_2_target")],
+      mage_3: [targetEvent("mage_3_target")],
+      onmyoji_1: [bodySelfEvent("onmyoji_1_self")],
+      onmyoji_2: [bodySelfEvent("onmyoji_2_self")],
+      onmyoji_3: [bodySelfEvent("onmyoji_3_self")],
+      alchemist_1: [bodySelfEvent("alchemist_1_self")],
+      alchemist_2: [bodySelfEvent("alchemist_2_self")],
+      alchemist_3: [bodySelfEvent("alchemist_3_self")],
+      archer_1: [bodySelfEvent("archer_1_self")],
+      archer_2: [bodySelfEvent("archer_2_self")],
+      archer_3: [bodySelfEvent("archer_3_self")],
+      doll_1: [selfEvent("doll_1_self")],
+      doll_2: [selfEvent("doll_2_self")],
+      doll_3: [selfEvent("doll_3_self")],
+      mad_2: [bodySelfEvent("mad_2_self")],
+      mad_3: [bodySelfEvent("mad_3_self")],
+    };
+
+    if (stype === "mad_1") {
+      const selfDamaged = Number(actor?.hp ?? 0) < Number(beforeHpActor ?? 0);
+      return selfDamaged
+        ? [bodySelfEvent("mad_1_self")]
+        : [targetEvent("mad_1_target")];
+    }
+
+    return eventMap[stype] ?? [targetEvent(`${stype}_target`)];
+  }
+
+  sendSkillEffectEvents(actor, target, stype, beforeHpActor = actor?.hp) {
+    for (const event of this.getSkillEffectEvents(actor, target, stype, beforeHpActor)) {
+      this.sendSkillEffectEvent(event.player, event.effect, event.type);
+    }
   }
 
 
@@ -1110,7 +1188,7 @@ export class Match {
           return {
             title: "衣装修復/強化 Lv5",
             desc: hasAnyCostume
-              ? "衣装を1つ選び、星を1上げる。さらに装備中の全衣装の星を1上げる"
+              ? "衣装を1つ選び、星を1上げる（最大★8）。さらに装備中の全衣装の星を1上げる（最大★8）"
               : "衣装がないため今回は効果を使えない",
             level,
             progress_now: progressNow,
@@ -1122,7 +1200,7 @@ export class Match {
         return {
           title: `衣装修復/強化 Lv${level}`,
           desc: hasAnyCostume
-            ? `衣装を ${level} 個選び、ぼろぼろなら修理、通常なら星を1上げる`
+            ? `衣装を ${level} 回選び、ぼろぼろなら修理、通常なら星を1上げる（同じ衣装も選択可 / 最大★8）`
             : "衣装がないため今回は効果を使えない",
           level,
           progress_now: progressNow,
@@ -1151,9 +1229,8 @@ export class Match {
   }
 
   buildDollChargeParts(actor, excluded = []) {
-    const blocked = new Set((excluded ?? []).map(String));
     return Object.entries(actor.doll?.costumes ?? {})
-      .filter(([part, costume]) => !!costume && !blocked.has(String(part)) && Number(costume?.star ?? 1) < 8)
+      .filter(([, costume]) => !!costume && Number(costume?.star ?? 1) < 8)
       .map(([p, costume]) => ({
         key: p,
         label: { head: "帽子", body: "服", leg: "ズボン", foot: "靴" }[p] ?? p,
@@ -1161,6 +1238,15 @@ export class Match {
         condition: costume?.condition ?? "normal",
         star: Number(costume?.star ?? 1),
       }));
+  }
+
+  countDollChargeCostumeCapacity(actor) {
+    return Object.values(actor.doll?.costumes ?? {}).reduce((sum, costume) => {
+      if (!costume) return sum;
+      const star = Number(costume?.star ?? 1);
+      if (star >= 8) return sum;
+      return sum + (8 - star) + (costume?.condition === "boroboro" ? 1 : 0);
+    }, 0);
   }
 
   sendDollChargeCostumeSelect(wsPlayer, actor) {
@@ -1309,14 +1395,14 @@ export class Match {
           selectedParts,
           remaining: level === 5
             ? 1
-            : Math.min(level, availableParts.length),
+            : Math.min(level, this.countDollChargeCostumeCapacity(actor)),
         };
         this.sendDollChargeCostumeSelect(wsPlayer, actor);
         return true;
       }
 
       const costume = actor.doll.costumes?.[part];
-      if (!costume || selectedParts.includes(String(part)) || Number(costume?.star ?? 1) >= 8) {
+      if (!costume || Number(costume?.star ?? 1) >= 8) {
         this.sendError("❌ その衣装は選択できません。", wsPlayer);
         return false;
       }
@@ -1356,10 +1442,10 @@ export class Match {
       }
 
       const nextSelectedParts = [...selectedParts, String(part)];
-      const remainingParts = this.buildDollChargeParts(actor, nextSelectedParts);
+      const remainingCapacity = this.countDollChargeCostumeCapacity(actor);
       const remaining = Math.max(
         0,
-        Math.min(level, nextSelectedParts.length + remainingParts.length) - nextSelectedParts.length
+        Math.min(level, nextSelectedParts.length + remainingCapacity) - nextSelectedParts.length
       );
 
       if (remaining > 0) {
@@ -1368,7 +1454,7 @@ export class Match {
           selectedParts: nextSelectedParts,
           remaining,
         };
-        this.sendPopup(`衣装を強化した！ あと ${remaining} 個選択してください。`, wsPlayer, 1800);
+        this.sendPopup(`衣装を強化した！ あと ${remaining} 回選択してください。`, wsPlayer, 1800);
         if (wsPlayer?.isBot) {
           const nextParts = this.buildDollChargeParts(actor, nextSelectedParts);
           if (nextParts.length > 0) {
@@ -1890,6 +1976,11 @@ export class Match {
   // ---------- ★ショップを開く ----------
   openShop(wsPlayer) {
       const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
+      if (wsPlayer !== this.current || this.action_resolving) {
+        this.sendPopup("相手が考え中です。", wsPlayer, 1400);
+        this.sendError("❌ 今は行動できません。", wsPlayer);
+        return;
+      }
 
       // ★更新禁止：ここでは何もしない
       // generateShopList を絶対に呼ばない！
@@ -1906,6 +1997,11 @@ export class Match {
   buyItem(wsPlayer, index) {
    
     const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
+    if (wsPlayer !== this.current || this.action_resolving) {
+      this.sendPopup("相手が考え中です。", wsPlayer, 1400);
+      this.sendError("❌ 今は行動できません。", wsPlayer);
+      return;
+    }
 
     if (!P.shop_items || !P.shop_items[index]) {
       this.sendError("❌ 商品が存在しません。", wsPlayer);
@@ -2111,10 +2207,9 @@ export class Match {
   // --------------------------------------------------------
   useItem(wsPlayer, uid, action, slot = 1) {
       const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
-      if (this.hasPendingDollCharge(P)) {
-        this.sendPopup("チャージ効果を選択してください。", wsPlayer, 2500);
-        this.sendError("❌ 先にチャージ効果を選択してください。", wsPlayer);
-        this.resendPendingDollCharge(wsPlayer, P);
+      if (wsPlayer !== this.current || this.action_resolving) {
+        this.sendPopup("相手が考え中です。", wsPlayer, 1400);
+        this.sendError("❌ 今は行動できません。", wsPlayer);
         return;
       }
 
@@ -3132,6 +3227,11 @@ export class Match {
       this.sendSystem("⚠ この対戦はすでに終了しています。");
       return;
     }
+    if (this.action_resolving) {
+      this.sendPopup("相手が考え中です。", wsPlayer, 1400);
+      this.sendError("❌ 行動処理中です。", wsPlayer);
+      return;
+    }
 
     // 自分のラウンド以外は行動不可
     if (wsPlayer !== this.current) {
@@ -3141,13 +3241,6 @@ export class Match {
 
     const actor = wsPlayer === this.p1 ? this.P1 : this.P2;
     const target = wsPlayer === this.p1 ? this.P2 : this.P1;
-
-    if (this.hasPendingDollCharge(actor)) {
-      this.sendPopup("チャージ効果を選択してください。", wsPlayer, 2500);
-      this.sendError("❌ 先にチャージ効果を選択してください。", wsPlayer);
-      this.resendPendingDollCharge(wsPlayer, actor);
-      return;
-    }
 
     // ★ バフラウンド処理（正しい位置）
     if (actor.process_buffs) actor.process_buffs();
@@ -3384,6 +3477,7 @@ export class Match {
         for (const msg of result.logs ?? []) {
           this.sendSkill(msg);
         }
+        this.sendSkillEffectEvents(actor, target, stype, beforeHpActor);
 
         this.updateHP();
         this.sendStatusInfo(wsPlayer, actor);
@@ -3487,6 +3581,8 @@ export class Match {
       this.skill_lock = false;
       return false; // ★ 失敗を返す（ターン消費させない）
     }
+
+    this.sendSkillEffectEvents(actor, target, stype, beforeHpActor);
 
     // ============================
     // ★ ダメージイベント送信（スキル成功後に差分を見る）
@@ -3890,6 +3986,7 @@ export class Match {
      ========================================================= */
   endRound() { // ★ 修正（旧 endTurn）
     this.skill_lock = false;
+    this.action_resolving = false;
 
     if (this.ended) return;
 
@@ -3951,10 +4048,9 @@ export class Match {
   // ---------- ★修正版：ショップを開く ----------
   openShop(wsPlayer) {
     const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
-    if (this.hasPendingDollCharge(P)) {
-      this.sendPopup("チャージ効果を選択してください。", wsPlayer, 2500);
-      this.sendError("❌ 先にチャージ効果を選択してください。", wsPlayer);
-      this.resendPendingDollCharge(wsPlayer, P);
+    if (wsPlayer !== this.current || this.action_resolving) {
+      this.sendPopup("相手が考え中です。", wsPlayer, 1400);
+      this.sendError("❌ 今は行動できません。", wsPlayer);
       return;
     }
 
@@ -4631,6 +4727,36 @@ export async function cpuStep(match, ws) {
   return true;
 }
 
+const CPU_THINK_MIN_MS = 750;
+const CPU_THINK_MAX_MS = 1450;
+const CPU_ATTACK_ONLY_MIN_MS = 3200;
+const CPU_ATTACK_ONLY_MAX_MS = 3800;
+const CPU_STEP_INTERVAL_MS = 650;
+
+function randomCpuThinkDelay(minMs = CPU_THINK_MIN_MS, maxMs = CPU_THINK_MAX_MS) {
+  return minMs + Math.floor(Math.random() * (maxMs - minMs + 1));
+}
+
+function getCpuOpponentSocket(match, botWS) {
+  if (match?.p1 === botWS) return match.p2;
+  if (match?.p2 === botWS) return match.p1;
+  return match?.p1?.isBot ? match.p2 : match?.p2?.isBot ? match.p1 : null;
+}
+
+async function waitCpuThink(match, botWS, label = "考え中", minMs = CPU_THINK_MIN_MS, maxMs = CPU_THINK_MAX_MS) {
+  if (match.simulate) return true;
+  if (match.ended || match.current !== botWS) return false;
+
+  const ms = randomCpuThinkDelay(minMs, maxMs);
+  const targetWs = getCpuOpponentSocket(match, botWS);
+  if (targetWs && !targetWs.isBot) {
+    match.sendPopup(`CPUが${label}...`, targetWs, Math.max(1800, Math.min(ms + 450, 4200)));
+  }
+
+  await new Promise(r => setTimeout(r, ms));
+  return !match.ended && match.current === botWS;
+}
+
 // =========================================================
 // ★ CPU AI：ターン処理（1ラウンドで準備→最後に消費）
 // =========================================================
@@ -4663,6 +4789,8 @@ export async function maybeCpuTurn(match) {
       if (action.type === "skill" || action.type === "attack") {
         break;
       }
+
+      if (!(await waitCpuThink(match, botWS, "考え中"))) return;
 
       switch (action.type) {
 
@@ -4919,7 +5047,7 @@ export async function maybeCpuTurn(match) {
 
       // ちょい待って状態更新（UI同期やログが落ち着く）
       if (!match.simulate) {
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, CPU_STEP_INTERVAL_MS));
       }
 
     }
@@ -4927,6 +5055,7 @@ export async function maybeCpuTurn(match) {
     // ★ 準備行動で何も起きなかった場合は強制攻撃（無限防止）
     // ============================
     if (!didSomething) {
+      if (!(await waitCpuThink(match, botWS, "攻撃を考え中", CPU_ATTACK_ONLY_MIN_MS, CPU_ATTACK_ONLY_MAX_MS))) return;
       await match.handleAction(botWS, "攻撃");
       return;
     }
@@ -4939,6 +5068,13 @@ export async function maybeCpuTurn(match) {
 
     const finalState = analyzeCpuState(match, botWS);
     const finalAction = decideCpuAction(finalState);
+    if (!(await waitCpuThink(
+      match,
+      botWS,
+      finalAction.type === "skill" ? "スキルを考え中" : "攻撃を考え中",
+      finalAction.type === "attack" ? CPU_ATTACK_ONLY_MIN_MS : CPU_THINK_MIN_MS,
+      finalAction.type === "attack" ? CPU_ATTACK_ONLY_MAX_MS : CPU_THINK_MAX_MS
+    ))) return;
 
     if (finalAction.type === "skill") {
 
@@ -5754,4 +5890,3 @@ wss.on("connection", (ws) => {
     }
   });
 });
-
