@@ -22,6 +22,14 @@ import {
   recordMatchResult,
   recordMatchResultNoRating,
   recordCpuMatchResult,
+  recordDojoProgress,
+  getDojoTrailState,
+  addDojoPrestige,
+  addDojoTrailAttackGrowth,
+  unlockDojoTrailNode,
+  getSavedDojoRun,
+  saveDojoRun,
+  clearSavedDojoRun,
   importJobRecordBackup
 } from "./account_store.js";
 
@@ -750,9 +758,10 @@ export class Match {
     this.P2.match = this;
 
     // ==============================
-    // ★ マッチ種別（random / room / cpu）
+    // ★ マッチ種別（random / room / cpu / dojo）
     // ==============================
     this.matchType = p1.matchType || p2.matchType || "random";
+    this.dojoRun = p1.dojoRun || p2.dojoRun || null;
 
     // ★ 切断判定のために相互参照
     try { this.p1.currentMatch = this; } catch {}
@@ -1707,9 +1716,11 @@ export class Match {
 
 
 
-    // ▼ コイン配布
-    const bonus = actor.get_coin_bonus_per_round();
-    actor.coins += (10 + bonus);
+    // ▼ コイン配布（達人への道では戦闘中配布しない）
+    if (this.matchType !== "dojo") {
+      const bonus = actor.get_coin_bonus_per_round();
+      actor.coins += (10 + bonus);
+    }
 
     if (actor.job === "人形使い" && actor.doll) {
       actor.doll.charge = Number(actor.doll.charge ?? 0) + Number(actor.get_doll_charge_per_round?.() ?? 0);
@@ -1995,7 +2006,6 @@ export class Match {
 
   // ---------- ★購入処理（完全版） ----------
   buyItem(wsPlayer, index) {
-   
     const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
     if (wsPlayer !== this.current || this.action_resolving) {
       this.sendPopup("相手が考え中です。", wsPlayer, 1400);
@@ -2481,6 +2491,20 @@ export class Match {
             this.sendBattle(`${item.name} を装備した！`);
             this.sendPopup(`${item.name} を装備した！`, wsPlayer, 2000);
         }
+    }
+
+    else if (action === "special" && item.equip_type === "dojo_special") {
+        const prev = P.special_equipment;
+        if (prev) {
+            P.special_inventory.push(prev);
+        }
+        P.special_equipment = item;
+        P[source] = P[source].filter(x => x.uid !== uid);
+        this.sendItemList(wsPlayer, P);
+        this.sendStatusInfo(wsPlayer, P);
+        this.sendSimpleStatusBoth();
+        this.sendBattle(`${item.name} を装備した！`);
+        this.sendPopup(`${item.name} を装備した！`, wsPlayer, 2000);
     }
 
     // ============================
@@ -3858,6 +3882,11 @@ export class Match {
 
 
 
+    if (this.matchType === "dojo") {
+      this.finishDojoBattle(result, winner, loser, wsWinner, wsLoser);
+      return;
+    }
+
     // ============================
     // ★ 対戦終了イベント（UI演出用）
     //   - 勝者: win / 敗者: lose / 引き分け: draw
@@ -3873,6 +3902,7 @@ export class Match {
       safeSend(this.p1, { type: "battle_end", result: "draw" });
       safeSend(this.p2, { type: "battle_end", result: "draw" });
     }
+
     if (winner && loser) {
 
       // 勝者 / 敗者
@@ -3960,6 +3990,88 @@ export class Match {
     }
   }
 
+  finishDojoBattle(result, winner, loser, wsWinner, wsLoser) {
+    const run = this.dojoRun;
+    const humanWs = this.p1?.isBot ? this.p2 : this.p1;
+    const human = humanWs === this.p1 ? this.P1 : this.P2;
+    if (!run || !humanWs || !human) {
+      safeSend(humanWs, { type: "battle_end", result: result === "draw" ? "draw" : "lose" });
+      return;
+    }
+
+    const humanWon =
+      (result === "p1" && humanWs === this.p1) ||
+      (result === "p2" && humanWs === this.p2);
+
+    if (!humanWon) {
+      if (humanWs.accountId) {
+        clearSavedDojoRun({ accountId: humanWs.accountId, job: run.jobName });
+      }
+      if (humanWs.accountId) {
+        recordDojoProgress({
+          accountId: humanWs.accountId,
+          job: run.jobName,
+          stage: Number(run.stage ?? 1),
+          cleared: false
+        });
+      }
+      safeSend(humanWs, {
+        type: "dojo_failed",
+        run: buildDojoRunView(run, human, humanWs),
+        result: result === "draw" ? "draw" : "lose"
+      });
+      return;
+    }
+
+    returnDojoBattleItemsToStorage(human);
+    const drops = generateDojoDrops(run, human);
+    applyDojoDrops(run, human, drops);
+    if (humanWs.accountId) {
+      const prestigeGain = drops
+        .filter(drop => drop?.type === "prestige")
+        .reduce((sum, drop) => sum + Number(drop.amount ?? 0), 0);
+      addDojoPrestige({ accountId: humanWs.accountId, job: run.jobName ?? "戦士", amount: prestigeGain });
+      const trailState = getDojoTrailState({ accountId: humanWs.accountId, job: run.jobName ?? "戦士" });
+      if ((trailState?.trailNodes || []).map(Number).includes(5)) {
+        addDojoTrailAttackGrowth({ accountId: humanWs.accountId, job: run.jobName ?? "戦士", amount: 1 });
+      }
+      applyDojoTrailBonusesToPlayer(humanWs);
+    }
+    run.lastDrops = drops;
+    run.highestStage = Math.max(Number(run.highestStage ?? 0), Number(run.stage ?? 1));
+    const isClear = Number(run.stage ?? 1) >= 30;
+    if (humanWs.accountId) {
+      recordDojoProgress({
+        accountId: humanWs.accountId,
+        job: run.jobName,
+        stage: Number(run.stage ?? 1),
+        cleared: isClear
+      });
+    }
+
+    if (isClear) {
+      run.cleared = true;
+      if (humanWs.accountId) {
+        clearSavedDojoRun({ accountId: humanWs.accountId, job: run.jobName });
+      }
+      safeSend(humanWs, {
+        type: "dojo_clear",
+        run: buildDojoRunView(run, human, humanWs),
+        drops
+      });
+      return;
+    }
+
+    run.stage = Number(run.stage ?? 1) + 1;
+    run.waiting = true;
+    saveCurrentDojoRun(humanWs);
+    safeSend(humanWs, {
+      type: "dojo_stage_clear",
+      run: buildDojoRunView(run, human, humanWs),
+      drops
+    });
+  }
+
 
 
 
@@ -3993,13 +4105,13 @@ export class Match {
     const actor = this.current === this.p1 ? this.P1 : this.P2;
     const target = this.current === this.p1 ? this.P2 : this.P1;
 
-    // ★ 最大レベル未満の時だけ毎ターン EXP +5
-    if ((LEVEL_REQUIREMENTS[actor.level] ?? null) != null) {
+    // ★ 最大レベル未満の時だけ毎ターン EXP +5（達人への道では戦闘中EXPなし）
+    if (this.matchType !== "dojo" && (LEVEL_REQUIREMENTS[actor.level] ?? null) != null) {
       actor.exp = (actor.exp ?? 0) + 5;
     }
 
     // 自動レベルアップ判定
-    const res = actor.try_level_up_auto ? actor.try_level_up_auto() : null;
+    const res = this.matchType !== "dojo" && actor.try_level_up_auto ? actor.try_level_up_auto() : null;
 
     if (res && res.auto) {
       this.sendSkill(
@@ -4063,6 +4175,807 @@ export class Match {
     });
   }
 
+}
+
+function getDojoStageKind(stage) {
+  if (Number(stage) === 30) return "final_boss";
+  if (Number(stage) % 10 === 0) return "boss";
+  if (Number(stage) % 5 === 0) return "mid_boss";
+  return "normal";
+}
+
+const DOJO_TRAIL_NODE_COUNT = 80;
+const DOJO_TRAIL_ATTACK_ICON = "Assets/dojo/trail-icons/attack-up.png";
+const DOJO_TRAIL_EXCALIBUR_ICON = "Assets/dojo/trail-icons/excalibur.png";
+const DOJO_TRAIL_SMALL_EFFECTS = [
+  { name: "攻撃力 +1", effect_text: "全小軌跡共通の小効果：攻撃力が1上昇する。" },
+  { name: "防御力 +1", effect_text: "全小軌跡共通の小効果：防御力が1上昇する。" },
+  { name: "最大HP +5", effect_text: "全小軌跡共通の小効果：最大HPが5上昇する。" },
+  { name: "回復量 +1%", effect_text: "全小軌跡共通の小効果：回復量が1%上昇する。" },
+  { name: "コイン獲得 +1%", effect_text: "全小軌跡共通の小効果：コイン獲得量が1%上昇する。" }
+];
+
+const DOJO_TRAIL_LEFT_COLUMN_EFFECTS = {
+  1: { name: "攻撃力 +1", effect_text: "攻撃力が1上昇する。", icon: DOJO_TRAIL_ATTACK_ICON },
+  2: { name: "攻撃力 +1", effect_text: "攻撃力が1上昇する。", icon: DOJO_TRAIL_ATTACK_ICON },
+  3: { name: "攻撃力 +1", effect_text: "攻撃力が1上昇する。", icon: DOJO_TRAIL_ATTACK_ICON },
+  4: { name: "攻撃力 +1", effect_text: "攻撃力が1上昇する。", icon: DOJO_TRAIL_ATTACK_ICON },
+  5: { name: "闘志の大軌跡", effect_text: "解放後、達人への道でステージをクリアするたびに攻撃力が1上昇する。", icon: DOJO_TRAIL_ATTACK_ICON },
+  6: { name: "攻撃力 +2", effect_text: "攻撃力が2上昇する。", icon: DOJO_TRAIL_ATTACK_ICON },
+  7: { name: "攻撃力 +2", effect_text: "攻撃力が2上昇する。", icon: DOJO_TRAIL_ATTACK_ICON },
+  8: { name: "攻撃力 +2", effect_text: "攻撃力が2上昇する。", icon: DOJO_TRAIL_ATTACK_ICON },
+  9: { name: "攻撃力 +2", effect_text: "攻撃力が2上昇する。", icon: DOJO_TRAIL_ATTACK_ICON },
+  10: { name: "聖剣の大軌跡", effect_text: "特殊装備エクスカリバーを入手する。", icon: DOJO_TRAIL_EXCALIBUR_ICON }
+};
+
+function createDojoExcalibur() {
+  return {
+    uid: crypto.randomUUID(),
+    name: "エクスカリバー",
+    is_equip: true,
+    equip_type: "dojo_special",
+    dojo_special_effect: "excalibur",
+    attack_bonus: 5,
+    icon_src: DOJO_TRAIL_EXCALIBUR_ICON,
+    effect_text: "攻撃力+5。攻撃力アップバフが自身についた時、次の自分の攻撃力+10（重複なし）。"
+  };
+}
+
+function createDojoTrailNode(id) {
+  const branchSize = 10;
+  const branch = Math.floor((id - 1) / branchSize);
+  const lane = ((id - 1) % branchSize) + 1;
+  const within = (lane - 1) % 5;
+  const isMajor = within === 4;
+  const group = Math.ceil(lane / 5);
+  const distanceByLane = [0, 9.5, 14, 18.5, 24, 32, 41.5, 47, 52, 58, 64.5];
+  const angle = (-138 + branch * (96 / 7)) * Math.PI / 180;
+  const distance = distanceByLane[lane] ?? (10 + lane * 6);
+  const effect = DOJO_TRAIL_LEFT_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SMALL_EFFECTS[(id - 1) % DOJO_TRAIL_SMALL_EFFECTS.length];
+  return {
+    id,
+    isMajor,
+    branch,
+    ring: group,
+    lane,
+    name: effect.name ?? (isMajor ? `大きな軌跡 ${Math.ceil(id / 5)}` : "軌跡"),
+    effect: effect.effect_text,
+    effect_text: effect.effect_text,
+    icon: effect.icon ?? null,
+    cost: isMajor ? 3 : 1,
+    x: 50 + Math.cos(angle) * distance,
+    y: 90 + Math.sin(angle) * distance
+  };
+}
+
+const DOJO_TRAIL_NODES = Array.from({ length: DOJO_TRAIL_NODE_COUNT }, (_, i) => createDojoTrailNode(i + 1));
+
+function buildDojoTrailView(wsOrAccountId, jobName = "戦士") {
+  const accountId = typeof wsOrAccountId === "string" ? wsOrAccountId : wsOrAccountId?.accountId;
+  const job = typeof wsOrAccountId === "string" ? jobName : (wsOrAccountId?.dojoRun?.jobName ?? jobName);
+  const state = accountId ? getDojoTrailState({ accountId, job }) : null;
+  const unlocked = new Set((state?.trailNodes || []).map(Number));
+  return {
+    prestigePoints: Number(state?.prestigePoints ?? 0),
+    unlockedNodes: [...unlocked].sort((a, b) => a - b),
+    unlockedCount: unlocked.size,
+    trailAttackGrowth: Number(state?.trailAttackGrowth ?? 0),
+    total: DOJO_TRAIL_NODE_COUNT,
+    nodes: DOJO_TRAIL_NODES.map(node => ({ ...node, unlocked: unlocked.has(node.id) }))
+  };
+}
+
+function getDojoTrailAttackBonus(state) {
+  const unlocked = new Set((state?.trailNodes || []).map(Number));
+  let bonus = Number(state?.trailAttackGrowth ?? 0);
+  for (const id of [1, 2, 3, 4]) if (unlocked.has(id)) bonus += 1;
+  for (const id of [6, 7, 8, 9]) if (unlocked.has(id)) bonus += 2;
+  return bonus;
+}
+
+function hasDojoExcalibur(player) {
+  const lists = [
+    player?.dojoStorage?.special,
+    player?.special_inventory,
+    player?.special_equipment ? [player.special_equipment] : []
+  ];
+  return lists.some(list => (list || []).some(it => it?.dojo_special_effect === "excalibur" || it?.name === "エクスカリバー"));
+}
+
+function addDojoExcaliburToStorage(player) {
+  if (!player || hasDojoExcalibur(player)) return false;
+  addUniqueDojoStorage(player, "special", createDojoExcalibur());
+  return true;
+}
+
+function applyDojoTrailBonusesToPlayer(ws) {
+  if (!ws?.accountId || !ws?.dojoRun || !ws?.player) return;
+  const state = getDojoTrailState({ accountId: ws.accountId, job: ws.dojoRun.jobName ?? "戦士" });
+  const player = ws.player;
+  const previous = Number(player._dojoTrailAttackBonusApplied ?? 0);
+  if (previous) {
+    player.base_attack = Number(player.base_attack ?? player.attack ?? 0) - previous;
+    player.attack = Number(player.attack ?? player.base_attack ?? 0) - previous;
+  }
+  const bonus = getDojoTrailAttackBonus(state);
+  player._dojoTrailAttackBonusApplied = bonus;
+  player.base_attack = Number(player.base_attack ?? player.attack ?? 0) + bonus;
+  player.attack = Number(player.attack ?? player.base_attack ?? 0) + bonus;
+  if ((state?.trailNodes || []).map(Number).includes(10)) addDojoExcaliburToStorage(player);
+}
+
+function createDojoEnemy(stage) {
+  const kind = getDojoStageKind(stage);
+  const enemy = new Player(
+    kind === "final_boss" ? "達人への道 最終師範"
+      : kind === "boss" ? `達人への道 大師範 ${stage}`
+      : kind === "mid_boss" ? `達人への道 中師範 ${stage}`
+      : `達人への道 門下生 ${stage}`,
+    1
+  );
+  const s = Number(stage ?? 1);
+  const bossBonus = kind === "final_boss" ? 30 : kind === "boss" ? 18 : kind === "mid_boss" ? 10 : 0;
+  enemy.max_hp = 70 + s * 7 + bossBonus;
+  enemy.hp = enemy.max_hp;
+  enemy.attack = 10 + Math.floor(s * 0.8) + Math.floor(bossBonus / 6);
+  enemy.defense = 4 + Math.floor(s * 0.35) + Math.floor(bossBonus / 10);
+  enemy.coins = 0;
+  enemy.exp = 0;
+  enemy.level = Math.min(3, 1 + Math.floor((s - 1) / 10));
+  enemy.isDojoEnemy = true;
+  enemy.dojoStage = s;
+  enemy.dojoStageKind = kind;
+  return enemy;
+}
+
+function resetDojoBattleState(player) {
+  player.used_skill_set = new Set();
+  player.active_buffs = [];
+  player.dot_effects = [];
+  player.freeze_debuffs = [];
+  player.shikigami_effects = [];
+  player.skill_sealed = false;
+  player.barrier = 0;
+  player.item_use_count = 0;
+  player.sudden_death_debuff = null;
+}
+
+function ensureDojoInventoryState(player) {
+  if (!player.dojoStorage || typeof player.dojoStorage !== "object") {
+    player.dojoStorage = {
+      items: [],
+      equipment: [],
+      special: []
+    };
+  }
+  player.dojoStorage.items = Array.isArray(player.dojoStorage.items) ? player.dojoStorage.items : [];
+  player.dojoStorage.equipment = Array.isArray(player.dojoStorage.equipment) ? player.dojoStorage.equipment : [];
+  player.dojoStorage.special = Array.isArray(player.dojoStorage.special) ? player.dojoStorage.special : [];
+  if (!player.dojoLoadout || typeof player.dojoLoadout !== "object") {
+    player.dojoLoadout = { items: [], equipment: [], special: [] };
+  }
+  player.dojoLoadout.items = Array.isArray(player.dojoLoadout.items) ? player.dojoLoadout.items : [];
+  player.dojoLoadout.equipment = Array.isArray(player.dojoLoadout.equipment) ? player.dojoLoadout.equipment : [];
+  player.dojoLoadout.special = Array.isArray(player.dojoLoadout.special) ? player.dojoLoadout.special : [];
+  if (!player.dojoCarrySlots || typeof player.dojoCarrySlots !== "object") {
+    player.dojoCarrySlots = { items: 1, equipment: 1, special: 1 };
+  }
+  player.dojoCarrySlots.items = Math.max(1, Number(player.dojoCarrySlots.items ?? 1));
+  player.dojoCarrySlots.equipment = Math.max(1, Number(player.dojoCarrySlots.equipment ?? 1));
+  player.dojoCarrySlots.special = Math.max(1, Number(player.dojoCarrySlots.special ?? 1));
+}
+
+function pruneDojoLoadout(player) {
+  ensureDojoInventoryState(player);
+  for (const key of ["items", "equipment", "special"]) {
+    const available = new Set(player.dojoStorage[key].map(it => String(it?.uid)));
+    const limit = Number(player.dojoCarrySlots[key] ?? 1);
+    player.dojoLoadout[key] = player.dojoLoadout[key]
+      .map(String)
+      .filter(uid => available.has(uid))
+      .slice(0, limit);
+  }
+}
+
+function dojoStorageKey(category) {
+  if (category === "item" || category === "items") return "items";
+  if (category === "equip" || category === "equipment") return "equipment";
+  if (category === "special") return "special";
+  return null;
+}
+
+function addUniqueDojoStorage(player, category, item) {
+  if (!item) return;
+  ensureDojoInventoryState(player);
+  const key = dojoStorageKey(category);
+  if (!key) return;
+  if (!item.uid) item.uid = crypto.randomUUID();
+  const list = player.dojoStorage[key];
+  if (!list.some(x => String(x?.uid) === String(item.uid))) {
+    list.push(item);
+  }
+}
+
+function addItemToDojoStorage(player, item) {
+  if (!item) return;
+  if (item.is_arrow || item.equip_type === "arrow" || item.equip_type === "mage_equip" || item.equip_type === "alchemist_unique" || item.equip_type === "dojo_special" || item.is_doll_costume) {
+    addUniqueDojoStorage(player, "special", item);
+  } else if (item.is_equip) {
+    addUniqueDojoStorage(player, "equipment", item);
+  } else {
+    addUniqueDojoStorage(player, "items", item);
+  }
+}
+
+function returnDojoBattleItemsToStorage(player) {
+  ensureDojoInventoryState(player);
+  for (const it of player.items ?? []) addUniqueDojoStorage(player, "items", it);
+  if (player.equipment) addUniqueDojoStorage(player, "equipment", player.equipment);
+  for (const it of player.equipment_inventory ?? []) addUniqueDojoStorage(player, "equipment", it);
+  if (player.special_equipment) addUniqueDojoStorage(player, "special", player.special_equipment);
+  for (const it of player.special_inventory ?? []) addUniqueDojoStorage(player, "special", it);
+  if (player.arrow) addUniqueDojoStorage(player, "special", player.arrow);
+  if (player.arrow2) addUniqueDojoStorage(player, "special", player.arrow2);
+  for (const it of player.arrow_inventory ?? []) addUniqueDojoStorage(player, "special", it);
+  for (const it of Object.values(player.mage_equips ?? {})) {
+    if (it) addUniqueDojoStorage(player, "special", it);
+  }
+  if (player.alchemist_equip) addUniqueDojoStorage(player, "special", player.alchemist_equip);
+
+  player.items = [];
+  player.equipment = null;
+  player.equipment_inventory = [];
+  player.special_equipment = null;
+  player.special_inventory = [];
+  player.arrow = null;
+  player.arrow2 = null;
+  player.arrow_inventory = [];
+  if (player.mage_equips) {
+    for (const key of Object.keys(player.mage_equips)) player.mage_equips[key] = null;
+  }
+  player.alchemist_equip = null;
+}
+
+function takeSelectedDojoStorage(player, key) {
+  ensureDojoInventoryState(player);
+  const slotCount = Number(player.dojoCarrySlots[key] ?? 1);
+  const selected = new Set(player.dojoLoadout[key].slice(0, slotCount).map(String));
+  const picked = [];
+  player.dojoStorage[key] = player.dojoStorage[key].filter(item => {
+    if (selected.has(String(item?.uid))) {
+      picked.push(item);
+      return false;
+    }
+    return true;
+  });
+  player.dojoLoadout[key] = picked.map(it => it.uid);
+  return picked;
+}
+
+function applyDojoLoadoutToBattle(player) {
+  ensureDojoInventoryState(player);
+  player.items = takeSelectedDojoStorage(player, "items");
+  player.equipment_inventory = takeSelectedDojoStorage(player, "equipment");
+  const special = takeSelectedDojoStorage(player, "special");
+  player.special_inventory = special.filter(it => !(it.is_arrow || it.equip_type === "arrow"));
+  player.arrow_inventory = special.filter(it => it.is_arrow || it.equip_type === "arrow");
+  player.equipment = null;
+  player.special_equipment = null;
+  player.arrow = null;
+  player.arrow2 = null;
+}
+
+function buildDojoRunView(run, player, wsOrAccountId = null) {
+  ensureDojoInventoryState(player);
+  pruneDojoLoadout(player);
+  const currentExp = Number(player?.exp ?? 0);
+  const nextExp = LEVEL_REQUIREMENTS[player?.level] ?? null;
+  return {
+    stage: Number(run?.stage ?? 1),
+    maxStage: 30,
+    jobName: run?.jobName ?? player?.job ?? "戦士",
+    hp: Number(player?.hp ?? 0),
+    max_hp: Number(player?.max_hp ?? 0),
+    level: Number(player?.level ?? 1),
+    exp: currentExp,
+    next_level_exp: nextExp,
+    next_level_remaining: nextExp == null ? 0 : Math.max(0, Number(nextExp) - currentExp),
+    coins: Number(player?.coins ?? 0),
+    items: player.dojoStorage.items,
+    equipment: player.dojoStorage.equipment,
+    special: player.dojoStorage.special,
+    loadout: player.dojoLoadout,
+    carrySlots: player.dojoCarrySlots,
+    trail: buildDojoTrailView(wsOrAccountId, run?.jobName ?? player?.job ?? "戦士"),
+    lastDrops: run?.lastDrops ?? [],
+    highestStage: Number(run?.highestStage ?? 0),
+    cleared: !!run?.cleared
+  };
+}
+
+function generateDojoDrops(run, player) {
+  const stage = Number(run?.stage ?? 1);
+  const kind = getDojoStageKind(stage);
+  const coin = (kind === "final_boss" ? 60 : kind === "boss" ? 40 : kind === "mid_boss" ? 25 : 12) + stage;
+  const exp = (kind === "final_boss" ? 45 : kind === "boss" ? 30 : kind === "mid_boss" ? 20 : 10) + Math.floor(stage / 2);
+  const prestige = (kind === "final_boss" ? 20 : kind === "boss" ? 10 : kind === "mid_boss" ? 5 : 2) + Math.floor(stage / 5);
+  const proof = kind === "final_boss" ? 3 : kind === "boss" ? 2 : 1;
+  const drops = [{ type: "coin", name: "コイン", amount: coin }];
+  drops.push({ type: "exp", name: "EXP", amount: exp });
+  drops.push({ type: "prestige", name: "名声ポイント", amount: prestige });
+  drops.push({ type: "proof", name: "達人の証", amount: proof });
+  const level = Math.min(3, Math.max(1, Math.ceil(stage / 10)));
+  const eq = generateEquipmentForLevel(level);
+  eq.uid = crypto.randomUUID();
+  drops.push({ type: "equip", name: eq.name, item: eq });
+  const item = generateOneShopItem(level);
+  item.uid = crypto.randomUUID();
+  drops.push({ type: "item", name: item.name, item });
+  return drops;
+}
+
+function applyDojoDrops(run, player, drops) {
+  for (const drop of drops ?? []) {
+    if (drop?.type === "coin") {
+      player.coins = Number(player.coins ?? 0) + Number(drop.amount ?? 0);
+    } else if (drop?.type === "exp") {
+      player.exp = Number(player.exp ?? 0) + Number(drop.amount ?? 0);
+    } else if (drop?.type === "equip" && drop.item) {
+      addUniqueDojoStorage(player, "equipment", drop.item);
+    } else if (drop?.type === "item" && drop.item) {
+      addItemToDojoStorage(player, drop.item);
+    } else if (drop?.type === "special" && drop.item) {
+      addUniqueDojoStorage(player, "special", drop.item);
+    }
+  }
+}
+
+function addShopItemToPlayerInventory(P, item) {
+  P.items = Array.isArray(P.items) ? P.items : [];
+  P.equipment_inventory = Array.isArray(P.equipment_inventory) ? P.equipment_inventory : [];
+  P.special_inventory = Array.isArray(P.special_inventory) ? P.special_inventory : [];
+  P.arrow_inventory = Array.isArray(P.arrow_inventory) ? P.arrow_inventory : [];
+  if (item.is_arrow || item.equip_type === "arrow") {
+    P.arrow_inventory.push(item);
+  } else if (item.is_doll_costume && P.job === "人形使い") {
+    P.special_inventory.push(item);
+  } else if (item.equip_type === "mage_equip" || item.equip_type === "alchemist_unique") {
+    P.special_inventory.push(item);
+  } else if (item.is_mad_special_item) {
+    P.items.push(item);
+  } else if (item.is_equip) {
+    P.equipment_inventory.push(item);
+  } else {
+    P.items.push(item);
+  }
+}
+
+function serializeDojoPlayer(player) {
+  return {
+    name: player?.name ?? "Player",
+    job: player?.job ?? "戦士",
+    level: Number(player?.level ?? 1),
+    exp: Number(player?.exp ?? 0),
+    hp: Number(player?.hp ?? 0),
+    max_hp: Number(player?.max_hp ?? 0),
+    base_attack: Number(player?.base_attack ?? player?.attack ?? 0) - Number(player?._dojoTrailAttackBonusApplied ?? 0),
+    attack: Number(player?.attack ?? 0) - Number(player?._dojoTrailAttackBonusApplied ?? 0),
+    defense: Number(player?.defense ?? 0),
+    coins: Number(player?.coins ?? 0),
+    items: player?.items ?? [],
+    dojoStorage: player?.dojoStorage ?? { items: [], equipment: [], special: [] },
+    dojoLoadout: player?.dojoLoadout ?? { items: [], equipment: [], special: [] },
+    dojoCarrySlots: player?.dojoCarrySlots ?? { items: 1, equipment: 1, special: 1 },
+    equipment: player?.equipment ?? null,
+    equipment_inventory: player?.equipment_inventory ?? [],
+    special_equipment: player?.special_equipment ?? null,
+    special_inventory: player?.special_inventory ?? [],
+    arrow: player?.arrow ?? null,
+    arrow2: player?.arrow2 ?? null,
+    arrow_inventory: player?.arrow_inventory ?? [],
+    arrow_slots: Number(player?.arrow_slots ?? 1),
+    shop_items: player?.shop_items ?? []
+  };
+}
+
+function restoreDojoPlayer(saved, fallbackName = "Player") {
+  const player = new Player(saved?.name || fallbackName, 1);
+  player.level = Math.max(1, Number(saved?.level ?? player.level ?? 1));
+  player.exp = Number(saved?.exp ?? 0);
+  player.max_hp = Math.max(1, Number(saved?.max_hp ?? player.max_hp ?? 200));
+  player.hp = Math.max(1, Math.min(player.max_hp, Number(saved?.hp ?? player.max_hp)));
+  player.base_attack = Number(saved?.base_attack ?? player.base_attack ?? player.attack ?? 0);
+  player.attack = Number(saved?.attack ?? player.attack ?? player.base_attack ?? 0);
+  player.defense = Number(saved?.defense ?? player.defense ?? 0);
+  player.coins = Number(saved?.coins ?? 0);
+  player.items = Array.isArray(saved?.items) ? saved.items : [];
+  player.dojoStorage = saved?.dojoStorage ?? { items: [], equipment: [], special: [] };
+  player.dojoLoadout = saved?.dojoLoadout ?? { items: [], equipment: [], special: [] };
+  player.dojoCarrySlots = saved?.dojoCarrySlots ?? { items: 1, equipment: 1, special: 1 };
+  ensureDojoInventoryState(player);
+  player.equipment = saved?.equipment ?? null;
+  player.equipment_inventory = Array.isArray(saved?.equipment_inventory) ? saved.equipment_inventory : [];
+  player.special_equipment = saved?.special_equipment ?? null;
+  player.special_inventory = Array.isArray(saved?.special_inventory) ? saved.special_inventory : [];
+  player.arrow = saved?.arrow ?? player.arrow ?? null;
+  player.arrow2 = saved?.arrow2 ?? null;
+  player.arrow_inventory = Array.isArray(saved?.arrow_inventory) ? saved.arrow_inventory : [];
+  player.arrow_slots = Math.max(1, Number(saved?.arrow_slots ?? player.arrow_slots ?? 1));
+  player.shop_items = Array.isArray(saved?.shop_items) ? saved.shop_items : [];
+  return player;
+}
+
+function buildDojoSavePayload(ws) {
+  if (!ws?.dojoRun || !ws?.player) return null;
+  return {
+    run: {
+      ...ws.dojoRun,
+      waiting: true
+    },
+    player: serializeDojoPlayer(ws.player)
+  };
+}
+
+function saveCurrentDojoRun(ws) {
+  if (!ws?.accountId || !ws?.dojoRun || !ws?.player) return;
+  saveDojoRun({
+    accountId: ws.accountId,
+    job: ws.dojoRun.jobName ?? "戦士",
+    savedRun: buildDojoSavePayload(ws)
+  });
+}
+
+function ensureDojoPrepShop(ws) {
+  if (!ws?.player) return [];
+  if (!Array.isArray(ws.player.shop_items) || ws.player.shop_items.length === 0) {
+    ws.player.shop_items = Match.prototype.generateShopList.call(null, ws.player);
+  }
+  return ws.player.shop_items;
+}
+
+function sendDojoPrepShop(ws) {
+  safeSend(ws, {
+    type: "dojo_shop_list",
+    items: ensureDojoPrepShop(ws)
+  });
+}
+
+function startDojoStage(humanWS) {
+  const run = humanWS.dojoRun;
+  if (!run || !humanWS.player) return;
+  run.waiting = false;
+  applyDojoTrailBonusesToPlayer(humanWS);
+  applyDojoLoadoutToBattle(humanWS.player);
+  resetDojoBattleState(humanWS.player);
+  humanWS.player.turn_order = "first";
+  humanWS.matchType = "dojo";
+  humanWS.dojoRun = run;
+
+  const botWS = createBotSocket();
+  botWS.matchType = "dojo";
+  botWS.dojoRun = run;
+  botWS.player = createDojoEnemy(run.stage);
+
+  const match = new Match(humanWS, botWS);
+  humanWS.currentMatch = match;
+  safeSend(humanWS, {
+    type: "match_start",
+    mode: "dojo",
+    self_name: humanWS.player?.name ?? "Player",
+    enemy_name: botWS.player.name,
+    dojo: buildDojoRunView(run, humanWS.player, humanWS)
+  });
+  match.sendInitialStatusSnapshot();
+}
+
+function startDojoRun(ws, { accountId, name, job, resume }) {
+  const jobKey = Number(job);
+  if (jobKey !== 1) {
+    safeSend(ws, { type: "dojo_error", msg: "フェーズ1では戦士のみ挑戦できます。" });
+    return;
+  }
+  ws.accountId = accountId ? String(accountId) : null;
+  ws.matchType = "dojo";
+  const acc = ws.accountId ? getOrCreateAccount(ws.accountId) : null;
+  const playerName = name || acc?.name || "Player";
+
+  const saved = ws.accountId ? getSavedDojoRun({ accountId: ws.accountId, job: "戦士" }) : null;
+  if (saved && jobKey === 1) {
+    const resumeMode = resume;
+    if (resumeMode !== "continue" && resumeMode !== "new") {
+      safeSend(ws, {
+        type: "dojo_resume_available",
+        stage: Number(saved?.run?.stage ?? 1),
+        savedAt: saved?.savedAt ?? null
+      });
+      return;
+    }
+    if (resumeMode === "continue") {
+      ws.player = restoreDojoPlayer(saved.player, playerName);
+      ws.dojoRun = {
+        ...(saved.run ?? {}),
+        mode: "dojo",
+        jobName: "戦士",
+        waiting: true,
+        cleared: false
+      };
+      sendDojoWaiting(ws);
+      return;
+    }
+    clearSavedDojoRun({ accountId: ws.accountId, job: "戦士" });
+  }
+
+  const player = new Player(playerName, 1);
+  player.coins = 0;
+  player.exp = 0;
+  ensureDojoInventoryState(player);
+  ws.player = player;
+  ws.dojoRun = {
+    mode: "dojo",
+    jobName: "戦士",
+    stage: 1,
+    highestStage: 1,
+    startedAt: Date.now(),
+    lastDrops: [],
+    trailUpgrades: {},
+    waiting: true,
+    cleared: false
+  };
+  if (ws.accountId) {
+    recordDojoProgress({ accountId: ws.accountId, job: "戦士", stage: 1, cleared: false });
+  }
+  sendDojoWaiting(ws);
+}
+
+function sendDojoWaiting(ws) {
+  if (!ws?.dojoRun || !ws?.player) return;
+  applyDojoTrailBonusesToPlayer(ws);
+  safeSend(ws, { type: "dojo_waiting", run: buildDojoRunView(ws.dojoRun, ws.player, ws) });
+}
+
+async function handleDojoSocketMessage(ws, m) {
+  if (m.type === "dojo_next_stage") {
+    if (!ws.dojoRun || !ws.player) return;
+    if (ws.dojoRun.cleared) {
+      safeSend(ws, { type: "dojo_error", msg: "すでに達人への道を踏破しています。" });
+      return;
+    }
+    startDojoStage(ws);
+    return;
+  }
+
+  if (m.type === "dojo_end_run") {
+    const endMode = m.mode === "abandon" ? "abandon" : "save";
+    if (ws.dojoRun && ws.accountId) {
+      if (endMode === "save") {
+        saveCurrentDojoRun(ws);
+      } else {
+        clearSavedDojoRun({ accountId: ws.accountId, job: ws.dojoRun.jobName ?? "戦士" });
+      }
+      recordDojoProgress({
+        accountId: ws.accountId,
+        job: ws.dojoRun.jobName,
+        stage: Number(ws.dojoRun.stage ?? 1),
+        cleared: false
+      });
+    }
+    ws.dojoRun = null;
+    ws.currentMatch = null;
+    ws.matchType = null;
+    safeSend(ws, { type: "dojo_ended" });
+    return;
+  }
+
+  if (m.type === "dojo_waiting_request") {
+    sendDojoWaiting(ws);
+    return;
+  }
+
+  if (m.type === "open_dojo_trail") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    safeSend(ws, { type: "dojo_trail_state", trail: buildDojoTrailView(ws) });
+    return;
+  }
+
+  if (m.type === "dojo_unlock_trail") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    const nodeId = Math.floor(Number(m.nodeId ?? 0) || 0);
+    const node = DOJO_TRAIL_NODES.find(n => n.id === nodeId);
+    if (!node || !ws.accountId) {
+      safeSend(ws, { type: "dojo_error", msg: "軌跡を解放できません。" });
+      return;
+    }
+    const result = unlockDojoTrailNode({
+      accountId: ws.accountId,
+      job: ws.dojoRun.jobName ?? "戦士",
+      nodeId,
+      cost: node.cost
+    });
+    if (!result.ok) {
+      safeSend(ws, { type: "popup", msg: result.reason === "not enough points" ? "名声ポイントが足りません。" : "この軌跡は解放できません。", ms: 2400 });
+    } else {
+      if (nodeId === 10 && addDojoExcaliburToStorage(ws.player)) {
+        saveCurrentDojoRun(ws);
+      }
+      applyDojoTrailBonusesToPlayer(ws);
+      safeSend(ws, { type: "popup", msg: `${node.name} を解放しました。`, ms: 2200 });
+    }
+    safeSend(ws, { type: "dojo_trail_state", trail: buildDojoTrailView(ws) });
+    sendDojoWaiting(ws);
+    return;
+  }
+
+  if (m.type === "dojo_level_up_request") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    const P = ws.player;
+    const req = LEVEL_REQUIREMENTS[P.level];
+    if (req == null) {
+      safeSend(ws, { type: "dojo_level_up_check", canExp: false, canCoins: false, isMax: true });
+      return;
+    }
+    const need = req - Number(P.exp ?? 0);
+    if (need <= 0) {
+      safeSend(ws, { type: "dojo_level_up_check", canExp: true, canCoins: false });
+    } else if (Number(P.coins ?? 0) >= need) {
+      safeSend(ws, { type: "dojo_level_up_check", canExp: false, canCoins: true, needCoins: need });
+    } else {
+      safeSend(ws, { type: "dojo_level_up_check", canExp: false, canCoins: false });
+    }
+    return;
+  }
+
+  if (m.type === "dojo_level_up_exp") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    const P = ws.player;
+    const res = P.try_level_up_auto ? P.try_level_up_auto() : null;
+    if (!res || !res.auto) {
+      safeSend(ws, { type: "popup", msg: "EXPが足りません。", ms: 2400 });
+      return;
+    }
+    saveCurrentDojoRun(ws);
+    safeSend(ws, { type: "popup", msg: `${P.name} は Lv${P.level} にアップ！`, ms: 2400 });
+    sendDojoWaiting(ws);
+    return;
+  }
+
+  if (m.type === "dojo_level_up_coins") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    const P = ws.player;
+    const res = P.try_level_up_with_coins ? P.try_level_up_with_coins() : null;
+    if (!res || !res.success) {
+      safeSend(ws, { type: "popup", msg: "コインが足りません。", ms: 2400 });
+      return;
+    }
+    saveCurrentDojoRun(ws);
+    safeSend(ws, { type: "popup", msg: `${P.name} は Lv${P.level} にアップ！`, ms: 2400 });
+    sendDojoWaiting(ws);
+    return;
+  }
+
+  if (m.type === "open_dojo_shop") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    sendDojoPrepShop(ws);
+    return;
+  }
+
+  if (m.type === "dojo_shop_reroll") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    const cost = 5;
+    if (Number(ws.player.coins ?? 0) < cost) {
+      safeSend(ws, { type: "popup", msg: `コインが足りません（必要:${cost}）`, ms: 2500 });
+      return;
+    }
+    ws.player.coins = Number(ws.player.coins ?? 0) - cost;
+    ws.player.shop_items = Match.prototype.generateShopList.call(null, ws.player);
+    saveCurrentDojoRun(ws);
+    sendDojoPrepShop(ws);
+    sendDojoWaiting(ws);
+    return;
+  }
+
+  if (m.type === "dojo_buy_item") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    const P = ws.player;
+    ensureDojoPrepShop(ws);
+    const index = Number(m.index);
+    if (!Number.isInteger(index) || !P.shop_items?.[index]) {
+      safeSend(ws, { type: "error_log", msg: "❌ 商品が存在しません。" });
+      return;
+    }
+    const item = { ...P.shop_items[index], uid: crypto.randomUUID() };
+    const basePrice = Number(item.price ?? 0);
+    const price = P.job === "錬金術師" && item.is_equip && item.equip_type !== "alchemist_unique"
+      ? Math.max(1, Math.floor(basePrice * 0.8))
+      : basePrice;
+    if (Number(P.coins ?? 0) < price) {
+      safeSend(ws, { type: "popup", msg: `コインが足りません（必要:${price}）`, ms: 2500 });
+      return;
+    }
+    P.coins = Number(P.coins ?? 0) - price;
+    addItemToDojoStorage(P, item);
+    P.shop_items.splice(index, 1);
+    saveCurrentDojoRun(ws);
+    safeSend(ws, { type: "dojo_purchased_item", item });
+    safeSend(ws, { type: "popup", msg: `${item.name} を購入しました`, ms: 2200 });
+    sendDojoPrepShop(ws);
+    sendDojoWaiting(ws);
+    return;
+  }
+
+  if (m.type === "dojo_set_loadout") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    const key = dojoStorageKey(m.category);
+    const uid = String(m.uid ?? "");
+    if (!key || !uid) return;
+    const P = ws.player;
+    ensureDojoInventoryState(P);
+    const exists = P.dojoStorage[key].some(it => String(it?.uid) === uid);
+    if (!exists) return;
+    const selected = new Set(P.dojoLoadout[key].map(String));
+    if (selected.has(uid)) {
+      selected.delete(uid);
+    } else {
+      if (selected.size >= Number(P.dojoCarrySlots[key] ?? 1)) {
+        const first = selected.values().next().value;
+        if (first) selected.delete(first);
+      }
+      selected.add(uid);
+    }
+    P.dojoLoadout[key] = [...selected];
+    saveCurrentDojoRun(ws);
+    sendDojoWaiting(ws);
+    return;
+  }
+
+  const match = ws.currentMatch;
+  if (!match || match.matchType !== "dojo") return;
+  const P = ws.player;
+  if (match.ended) return;
+
+  if (m.type === "level_up_request" || m.type === "level_up_exp" || m.type === "level_up_coins") {
+    match.sendError("達人への道では戦闘中レベルアップは使用できません。", ws);
+    safeSend(ws, { type: "level_up_check", canExp: false, canCoins: false, dojoDisabled: true });
+    return;
+  }
+
+  if (m.type === "open_shop") {
+    match.openShop(ws);
+    return;
+  }
+  if (m.type === "buy_item") {
+    match.buyItem(ws, m.index);
+    return;
+  }
+  if (m.type === "shop_reroll") {
+    match.shopReroll(ws);
+    return;
+  }
+
+  if (m.type === "dojo_auto_action") {
+    if (match.current !== ws) return;
+    await autoPlayerTurn(match, ws);
+    return;
+  }
+
+  if (m.type === "action") {
+    await match.handleAction(ws, m.action);
+    return;
+  }
+  if (m.type === "request_status_detail") {
+    match.sendStatusDetail(ws, match.P1, match.P2, m.target === "enemy" ? "enemy" : "self");
+    return;
+  }
+  if (m.type === "use_item") {
+    match.useItem(ws, m.item_id, m.action, m.slot);
+    return;
+  }
+  if (m.type === "combine_equips") {
+    match.combineNormalEquips(ws, m.uid1, m.uid2);
+    return;
+  }
+  if (m.type === "skill1") await match.useSkill(ws, P, P.opponent, 1);
+  if (m.type === "skill2") await match.useSkill(ws, P, P.opponent, 2);
+  if (m.type === "skill3") await match.useSkill(ws, P, P.opponent, 3);
 }
 
 function startCpuMatch(humanWS) {
@@ -4688,8 +5601,13 @@ export async function cpuStep(match, ws) {
 
   // 準備行動は1回だけ
   if (action.type === "use_item" && state.usableItem) {
-    cpuUseItemDirect(match, ws, state.usableItem);
-    return state.usableItem.consumes_turn === true; // ラウンド消費アイテムのみ true
+    const used = cpuUseItemDirect(match, ws, state.usableItem);
+    const consumesTurn = used && (
+      state.usableItem.name === "修理キット" ||
+      state.usableItem.consumes_turn === true
+    );
+    if (consumesTurn) match.endRound();
+    return consumesTurn;
   }
 
   if (action.type === "equip" && state.equipItem) {
@@ -4725,6 +5643,27 @@ export async function cpuStep(match, ws) {
 
   await match.handleAction(ws, "攻撃");
   return true;
+}
+
+async function autoPlayerTurn(match, ws) {
+  if (!match || !ws || match.ended || match.current !== ws) return;
+  if (match._playerAutoThinking) return;
+
+  match._playerAutoThinking = true;
+  try {
+    for (let i = 0; i < 4; i++) {
+      if (match.ended || match.current !== ws) return;
+      const consumedTurn = await cpuStep(match, ws);
+      if (consumedTurn || match.ended || match.current !== ws) return;
+      if (!match.simulate) await new Promise(r => setTimeout(r, 220));
+    }
+
+    if (!match.ended && match.current === ws) {
+      await match.handleAction(ws, "攻撃");
+    }
+  } finally {
+    match._playerAutoThinking = false;
+  }
 }
 
 const CPU_THINK_MIN_MS = 750;
@@ -5155,6 +6094,30 @@ wss.on("connection", (ws) => {
 
   ws.on("message", (raw) => {
     const msg = JSON.parse(raw.toString());
+
+    if (msg.type === "join_dojo") {
+      const accountId = msg.account_id ? String(msg.account_id) : null;
+      let name = msg.name || "Player";
+      if (accountId) {
+        const acc = getOrCreateAccount(accountId);
+        if (acc?.name) name = acc.name;
+      }
+      startDojoRun(ws, {
+        accountId,
+        name,
+        job: msg.job,
+        resume: msg.resume
+      });
+      return;
+    }
+
+    if (ws.matchType === "dojo") {
+      handleDojoSocketMessage(ws, msg).catch(err => {
+        console.error("[DOJO] message error", err);
+        safeSend(ws, { type: "dojo_error", msg: "達人への道の処理でエラーが発生しました。" });
+      });
+      return;
+    }
 
     if (msg.type === "join_cpu") {
       

@@ -9,8 +9,8 @@
         "戦士": {
           "rating": 1000,
           "wins": 0,
-          "losses": 1,
-          "updatedAt": 1769402854495
+          "losses": 2,
+          "updatedAt": 1778169867176
         },
         "騎士": {
           "rating": 1000,
@@ -65,6 +65,70 @@
           "wins": 0,
           "losses": 0,
           "updatedAt": 0
+        }
+      },
+      "dojoProgress": {
+        "戦士": {
+          "highestStage": 5,
+          "clearCount": 0,
+          "cleared": false,
+          "updatedAt": 1778206591634,
+          "savedRun": {
+            "run": {
+              "mode": "dojo",
+              "jobName": "戦士",
+              "stage": 1,
+              "highestStage": 1,
+              "startedAt": 1778169697353,
+              "lastDrops": [],
+              "trailUpgrades": {},
+              "waiting": true,
+              "cleared": false
+            },
+            "player": {
+              "name": "zzz...",
+              "job": "戦士",
+              "level": 1,
+              "exp": 0,
+              "hp": 200,
+              "max_hp": 200,
+              "base_attack": 23,
+              "attack": 23,
+              "defense": 0,
+              "coins": 0,
+              "items": [],
+              "dojoStorage": {
+                "items": [],
+                "equipment": [],
+                "special": []
+              },
+              "dojoLoadout": {
+                "items": [],
+                "equipment": [],
+                "special": []
+              },
+              "dojoCarrySlots": {
+                "items": 1,
+                "equipment": 1,
+                "special": 1
+              },
+              "equipment": null,
+              "equipment_inventory": [],
+              "special_equipment": null,
+              "special_inventory": [],
+              "arrow": null,
+              "arrow2": null,
+              "arrow_inventory": [],
+              "arrow_slots": 1,
+              "shop_items": []
+            },
+            "savedAt": 1778169822597
+          },
+          "prestigePoints": 1,
+          "trailNodes": [
+            1
+          ],
+          "trailAttackGrowth": 0
         }
       }
     },

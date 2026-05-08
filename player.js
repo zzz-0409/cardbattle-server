@@ -332,6 +332,9 @@ export class Player {
         if (this.alchemist_equip) {
             total += this.alchemist_equip.atk ?? 0;
         }
+        if (this.special_equipment?.dojo_special_effect === "excalibur") {
+            total += Number(this.special_equipment.attack_bonus ?? 5);
+        }
         
         // ============================
         // freeze デバフ
@@ -355,7 +358,17 @@ export class Player {
         }
 
         // それ以外は本体攻撃
-        return this.get_total_attack();
+        let attack = this.get_total_attack();
+        if (this.special_equipment?.dojo_special_effect === "excalibur") {
+            const hasAttackBuff = Number(this.get_attack_buff_total?.() ?? 0) > 0;
+            if (hasAttackBuff && !this.excalibur_attack_boost_used) {
+                attack += 10;
+                this.excalibur_attack_boost_used = true;
+            } else if (!hasAttackBuff) {
+                this.excalibur_attack_boost_used = false;
+            }
+        }
+        return attack;
     }
 
 
