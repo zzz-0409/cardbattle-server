@@ -693,7 +693,7 @@ server.on("request", (req, res) => {
   }
 
   // ----------------------------
-  // API: change name (cooldown 7d)
+  // API: change name
   //   POST /api/account/change_name
   //   { account_id, name }
   // ----------------------------

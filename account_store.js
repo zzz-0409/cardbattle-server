@@ -20,7 +20,7 @@ const DEFAULT_RATING = 1000;
 const MIN_RATING = 500;
 const NAME_MIN = 2;
 const NAME_MAX = 12;
-const NAME_CHANGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7日
+const NAME_CHANGE_COOLDOWN_MS = 0; // 名前変更のクールダウンなし
 
 function nowMs() {
   return Date.now();
@@ -227,7 +227,7 @@ export function registerAccount({ accountId, name }) {
     account: {
       id: db.accounts[accountId].id,
       name: db.accounts[accountId].name,
-      nextNameChangeAt: (db.accounts[accountId].lastNameChangeAt || 0) + NAME_CHANGE_COOLDOWN_MS
+      nextNameChangeAt: 0
     }
   };
 }
@@ -308,19 +308,13 @@ export function changeAccountName({ accountId, name }) {
   }
 
   const acc = db.accounts[accountId];
-  const last = Number(acc.lastNameChangeAt ?? 0);
-  const nextAllowed = last + NAME_CHANGE_COOLDOWN_MS;
   const now = nowMs();
-
-  if (last > 0 && now < nextAllowed) {
-    return { ok: false, reason: "名前変更は7日に1回までです", nextNameChangeAt: nextAllowed };
-  }
 
   acc.name = name;
   acc.lastNameChangeAt = now;
 
   saveJsonSafe(db);
-  return { ok: true, account: { id: acc.id, name: acc.name, nextNameChangeAt: now + NAME_CHANGE_COOLDOWN_MS } };
+  return { ok: true, account: { id: acc.id, name: acc.name, nextNameChangeAt: 0 } };
 }
 
 // 職業別の戦績+レートを返す（クライアントの職業カード用）
@@ -358,7 +352,7 @@ export function getAccountSummary(accountId, jobNames = []) {
     account: {
       id: acc.id,
       name: acc.name,
-      nextNameChangeAt: (Number(acc.lastNameChangeAt ?? 0) || 0) + NAME_CHANGE_COOLDOWN_MS
+      nextNameChangeAt: 0
     },
     jobs: out,
     dojoProgress: dojoOut
