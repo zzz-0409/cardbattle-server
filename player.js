@@ -55,6 +55,20 @@ function log(msg) {
   console.log(msg);
 }
 
+function isThiefStealableItem(item) {
+    if (!item) return false;
+    if (item.is_mage_item || item.effect_type === "MANA") return false;
+    if (item.is_onmyoji_item) return false;
+    if (item.is_doll_item || item.is_doll_costume) return false;
+    if (item.is_mad_special_item) return false;
+    if (item.is_priest_item) return false;
+    if (item.is_arrow || item.equip_type === "arrow") return false;
+    if (item.equip_type === "mage_equip") return false;
+    if (item.equip_type === "alchemist_unique") return false;
+    if (item.equip_type === "dojo_special") return false;
+    return true;
+}
+
 
 
 export class Player {
@@ -335,6 +349,9 @@ export class Player {
         if (this.special_equipment?.dojo_special_effect === "excalibur") {
             total += Number(this.special_equipment.attack_bonus ?? 5);
         }
+        if (this.special_equipment?.dojo_special_effect === "aegis") {
+            total += Math.max(0, Number(this.get_def_buff_total?.() ?? 0));
+        }
         
         // ============================
         // freeze デバフ
@@ -391,6 +408,9 @@ export class Player {
         // ============================
         if (this.alchemist_equip) {
             total += this.alchemist_equip.def ?? 0;
+        }
+        if (this.special_equipment?.dojo_special_effect === "aegis") {
+            total += Number(this.special_equipment.defense_bonus ?? 5);
         }
 
         // ============================
@@ -1937,16 +1957,13 @@ if (type === "arrow") {
 
         // --- 相手アイテムから盗めるものを探す ---
         opponent.items.forEach((it, idx) => {
-            // ★ 魔力アイテムは盗めない
-            if (it.effect_type === "MANA") return;
+            if (!isThiefStealableItem(it)) return;
             candidates.push({ origin: "items", index: idx, obj: it });
         });
 
         // --- 相手の通常装備インベントリ（複数） ---
         opponent.equipment_inventory.forEach((eq, idx) => {
-            // ★ mage_equip と alchemist_unique は盗めない
-            if (eq.equip_type === "mage_equip" ||
-                eq.equip_type === "alchemist_unique") return;
+            if (!isThiefStealableItem(eq)) return;
 
             candidates.push({ origin: "equip_inv", index: idx, obj: eq });
         });
@@ -1988,8 +2005,14 @@ if (type === "arrow") {
             return false;
         }
 
+        const shopCandidates = shopArr.filter(isThiefStealableItem);
+        if (shopCandidates.length === 0) {
+            log("奪えるものが何もなかった…");
+            return false;
+        }
+
         // ランダム盗み
-        const stolen = shopArr[Math.floor(Math.random() * shopArr.length)];
+        const stolen = shopCandidates[Math.floor(Math.random() * shopCandidates.length)];
 
         // 配列から削除
         if (shopArr === this.shop_items) {

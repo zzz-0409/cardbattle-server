@@ -4186,7 +4186,9 @@ function getDojoStageKind(stage) {
 
 const DOJO_TRAIL_NODE_COUNT = 80;
 const DOJO_TRAIL_ATTACK_ICON = "Assets/dojo/trail-icons/attack-up.png";
+const DOJO_TRAIL_DEFENSE_ICON = "Assets/dojo/trail-icons/defense-up.png";
 const DOJO_TRAIL_EXCALIBUR_ICON = "Assets/dojo/trail-icons/excalibur.png";
+const DOJO_TRAIL_AEGIS_ICON = "Assets/dojo/trail-icons/aegis.png";
 const DOJO_TRAIL_SMALL_EFFECTS = [
   { name: "攻撃力 +1", effect_text: "全小軌跡共通の小効果：攻撃力が1上昇する。" },
   { name: "防御力 +1", effect_text: "全小軌跡共通の小効果：防御力が1上昇する。" },
@@ -4208,6 +4210,19 @@ const DOJO_TRAIL_LEFT_COLUMN_EFFECTS = {
   10: { name: "聖剣の大軌跡", effect_text: "特殊装備エクスカリバーを入手する。", icon: DOJO_TRAIL_EXCALIBUR_ICON }
 };
 
+const DOJO_TRAIL_SECOND_COLUMN_EFFECTS = {
+  11: { name: "防御力 +1", effect_text: "防御力が1上昇する。", icon: DOJO_TRAIL_DEFENSE_ICON },
+  12: { name: "防御力 +1", effect_text: "防御力が1上昇する。", icon: DOJO_TRAIL_DEFENSE_ICON },
+  13: { name: "防御力 +1", effect_text: "防御力が1上昇する。", icon: DOJO_TRAIL_DEFENSE_ICON },
+  14: { name: "防御力 +1", effect_text: "防御力が1上昇する。", icon: DOJO_TRAIL_DEFENSE_ICON },
+  15: { name: "堅攻の大軌跡", effect_text: "自身の現在の攻撃力の1/10だけ基礎攻撃力が上昇する。", icon: DOJO_TRAIL_DEFENSE_ICON },
+  16: { name: "防御力 +2", effect_text: "防御力が2上昇する。", icon: DOJO_TRAIL_DEFENSE_ICON },
+  17: { name: "防御力 +2", effect_text: "防御力が2上昇する。", icon: DOJO_TRAIL_DEFENSE_ICON },
+  18: { name: "防御力 +2", effect_text: "防御力が2上昇する。", icon: DOJO_TRAIL_DEFENSE_ICON },
+  19: { name: "防御力 +2", effect_text: "防御力が2上昇する。", icon: DOJO_TRAIL_DEFENSE_ICON },
+  20: { name: "守護盾の大軌跡", effect_text: "特殊装備アイギスを入手する。", icon: DOJO_TRAIL_AEGIS_ICON }
+};
+
 function createDojoExcalibur() {
   return {
     uid: crypto.randomUUID(),
@@ -4221,6 +4236,19 @@ function createDojoExcalibur() {
   };
 }
 
+function createDojoAegis() {
+  return {
+    uid: crypto.randomUUID(),
+    name: "アイギス",
+    is_equip: true,
+    equip_type: "dojo_special",
+    dojo_special_effect: "aegis",
+    defense_bonus: 5,
+    icon_src: DOJO_TRAIL_AEGIS_ICON,
+    effect_text: "基礎防御力+5。防御力アップバフを受けている間、その数値分だけ攻撃力も上昇する。"
+  };
+}
+
 function createDojoTrailNode(id) {
   const branchSize = 10;
   const branch = Math.floor((id - 1) / branchSize);
@@ -4231,7 +4259,7 @@ function createDojoTrailNode(id) {
   const distanceByLane = [0, 9.5, 14, 18.5, 24, 32, 41.5, 47, 52, 58, 64.5];
   const angle = (-138 + branch * (96 / 7)) * Math.PI / 180;
   const distance = distanceByLane[lane] ?? (10 + lane * 6);
-  const effect = DOJO_TRAIL_LEFT_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SMALL_EFFECTS[(id - 1) % DOJO_TRAIL_SMALL_EFFECTS.length];
+  const effect = DOJO_TRAIL_LEFT_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SECOND_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SMALL_EFFECTS[(id - 1) % DOJO_TRAIL_SMALL_EFFECTS.length];
   return {
     id,
     isMajor,
@@ -4273,6 +4301,21 @@ function getDojoTrailAttackBonus(state) {
   return bonus;
 }
 
+function getDojoTrailDefenseBonus(state) {
+  const unlocked = new Set((state?.trailNodes || []).map(Number));
+  let bonus = 0;
+  for (const id of [11, 12, 13, 14]) if (unlocked.has(id)) bonus += 1;
+  for (const id of [16, 17, 18, 19]) if (unlocked.has(id)) bonus += 2;
+  return bonus;
+}
+
+function getDojoTrailRatioAttackBonus(state, player, staticAttackBonus) {
+  const unlocked = new Set((state?.trailNodes || []).map(Number));
+  if (!unlocked.has(15)) return 0;
+  const currentBaseAttack = Number(player?.base_attack ?? player?.attack ?? 0);
+  return Math.max(0, Math.floor((currentBaseAttack + Number(staticAttackBonus ?? 0)) / 10));
+}
+
 function hasDojoExcalibur(player) {
   const lists = [
     player?.dojoStorage?.special,
@@ -4282,9 +4325,24 @@ function hasDojoExcalibur(player) {
   return lists.some(list => (list || []).some(it => it?.dojo_special_effect === "excalibur" || it?.name === "エクスカリバー"));
 }
 
+function hasDojoAegis(player) {
+  const lists = [
+    player?.dojoStorage?.special,
+    player?.special_inventory,
+    player?.special_equipment ? [player.special_equipment] : []
+  ];
+  return lists.some(list => (list || []).some(it => it?.dojo_special_effect === "aegis" || it?.name === "アイギス"));
+}
+
 function addDojoExcaliburToStorage(player) {
   if (!player || hasDojoExcalibur(player)) return false;
   addUniqueDojoStorage(player, "special", createDojoExcalibur());
+  return true;
+}
+
+function addDojoAegisToStorage(player) {
+  if (!player || hasDojoAegis(player)) return false;
+  addUniqueDojoStorage(player, "special", createDojoAegis());
   return true;
 }
 
@@ -4292,16 +4350,27 @@ function applyDojoTrailBonusesToPlayer(ws) {
   if (!ws?.accountId || !ws?.dojoRun || !ws?.player) return;
   const state = getDojoTrailState({ accountId: ws.accountId, job: ws.dojoRun.jobName ?? "戦士" });
   const player = ws.player;
-  const previous = Number(player._dojoTrailAttackBonusApplied ?? 0);
-  if (previous) {
-    player.base_attack = Number(player.base_attack ?? player.attack ?? 0) - previous;
-    player.attack = Number(player.attack ?? player.base_attack ?? 0) - previous;
+  const previousAttack = Number(player._dojoTrailAttackBonusApplied ?? 0);
+  const previousDefense = Number(player._dojoTrailDefenseBonusApplied ?? 0);
+  if (previousAttack) {
+    player.base_attack = Number(player.base_attack ?? player.attack ?? 0) - previousAttack;
+    player.attack = Number(player.attack ?? player.base_attack ?? 0) - previousAttack;
   }
-  const bonus = getDojoTrailAttackBonus(state);
-  player._dojoTrailAttackBonusApplied = bonus;
-  player.base_attack = Number(player.base_attack ?? player.attack ?? 0) + bonus;
-  player.attack = Number(player.attack ?? player.base_attack ?? 0) + bonus;
+  if (previousDefense) {
+    player.base_defense = Number(player.base_defense ?? player.defense ?? 0) - previousDefense;
+    player.defense = Number(player.defense ?? player.base_defense ?? 0) - previousDefense;
+  }
+  const staticAttackBonus = getDojoTrailAttackBonus(state);
+  const attackBonus = staticAttackBonus + getDojoTrailRatioAttackBonus(state, player, staticAttackBonus);
+  const defenseBonus = getDojoTrailDefenseBonus(state);
+  player._dojoTrailAttackBonusApplied = attackBonus;
+  player._dojoTrailDefenseBonusApplied = defenseBonus;
+  player.base_attack = Number(player.base_attack ?? player.attack ?? 0) + attackBonus;
+  player.attack = Number(player.attack ?? player.base_attack ?? 0) + attackBonus;
+  player.base_defense = Number(player.base_defense ?? player.defense ?? 0) + defenseBonus;
+  player.defense = Number(player.defense ?? player.base_defense ?? 0) + defenseBonus;
   if ((state?.trailNodes || []).map(Number).includes(10)) addDojoExcaliburToStorage(player);
+  if ((state?.trailNodes || []).map(Number).includes(20)) addDojoAegisToStorage(player);
 }
 
 function createDojoEnemy(stage) {
@@ -4560,7 +4629,8 @@ function serializeDojoPlayer(player) {
     max_hp: Number(player?.max_hp ?? 0),
     base_attack: Number(player?.base_attack ?? player?.attack ?? 0) - Number(player?._dojoTrailAttackBonusApplied ?? 0),
     attack: Number(player?.attack ?? 0) - Number(player?._dojoTrailAttackBonusApplied ?? 0),
-    defense: Number(player?.defense ?? 0),
+    base_defense: Number(player?.base_defense ?? player?.defense ?? 0) - Number(player?._dojoTrailDefenseBonusApplied ?? 0),
+    defense: Number(player?.defense ?? 0) - Number(player?._dojoTrailDefenseBonusApplied ?? 0),
     coins: Number(player?.coins ?? 0),
     items: player?.items ?? [],
     dojoStorage: player?.dojoStorage ?? { items: [], equipment: [], special: [] },
@@ -4586,6 +4656,7 @@ function restoreDojoPlayer(saved, fallbackName = "Player") {
   player.hp = Math.max(1, Math.min(player.max_hp, Number(saved?.hp ?? player.max_hp)));
   player.base_attack = Number(saved?.base_attack ?? player.base_attack ?? player.attack ?? 0);
   player.attack = Number(saved?.attack ?? player.attack ?? player.base_attack ?? 0);
+  player.base_defense = Number(saved?.base_defense ?? player.base_defense ?? player.defense ?? 0);
   player.defense = Number(saved?.defense ?? player.defense ?? 0);
   player.coins = Number(saved?.coins ?? 0);
   player.items = Array.isArray(saved?.items) ? saved.items : [];
@@ -4794,7 +4865,7 @@ async function handleDojoSocketMessage(ws, m) {
     if (!result.ok) {
       safeSend(ws, { type: "popup", msg: result.reason === "not enough points" ? "名声ポイントが足りません。" : "この軌跡は解放できません。", ms: 2400 });
     } else {
-      if (nodeId === 10 && addDojoExcaliburToStorage(ws.player)) {
+      if ((nodeId === 10 && addDojoExcaliburToStorage(ws.player)) || (nodeId === 20 && addDojoAegisToStorage(ws.player))) {
         saveCurrentDojoRun(ws);
       }
       applyDojoTrailBonusesToPlayer(ws);
