@@ -10,11 +10,27 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, "data");
+const LOCAL_DATA_DIR = path.join(__dirname, "data");
+const RENDER_DEFAULT_DISK_DIR = "/var/data/cardbattle";
+const DATA_DIR_ENV_NAME = ["ACCOUNT_DATA_DIR", "CARDBATTLE_DATA_DIR", "DATA_DIR"]
+  .find(name => process.env[name]);
+
+function resolveDataDir() {
+  if (DATA_DIR_ENV_NAME) return path.resolve(process.env[DATA_DIR_ENV_NAME]);
+
+  if (process.env.RENDER && fs.existsSync("/var/data")) {
+    return RENDER_DEFAULT_DISK_DIR;
+  }
+
+  return LOCAL_DATA_DIR;
+}
+
+const DATA_DIR = resolveDataDir();
 const DATA_FILE = path.join(DATA_DIR, "accounts.json");
 const DATA_TMP_FILE = DATA_FILE + ".tmp";
 const DATA_BACKUP_FILE = DATA_FILE + ".backup";
 const DATA_BACKUP_DIR = path.join(DATA_DIR, "backup");
+const DATA_DIR_SOURCE = DATA_DIR_ENV_NAME || (DATA_DIR === LOCAL_DATA_DIR ? "local" : "render-disk-default");
 
 const DEFAULT_RATING = 1000;
 const MIN_RATING = 500;
@@ -121,6 +137,69 @@ function saveJsonSafe(data) {
 }
 
 // 文字列検証
+function isLikelyPersistentDataDir() {
+  if (DATA_DIR_ENV_NAME) return true;
+  if (!process.env.RENDER) return false;
+  return path.resolve(DATA_DIR).startsWith(path.resolve("/var/data"));
+}
+
+function checkWritableDataDir() {
+  try {
+    ensureDir();
+    const probe = path.join(DATA_DIR, `.write-test-${process.pid}-${Date.now()}`);
+    fs.writeFileSync(probe, "ok", "utf-8");
+    fs.unlinkSync(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getAccountStoreInfo() {
+  let accountCount = 0;
+  let dataFileExists = false;
+  let dataFileMtimeMs = 0;
+
+  try {
+    const db = loadJsonSafe();
+    accountCount = Object.keys(db.accounts || {}).length;
+    dataFileExists = fs.existsSync(DATA_FILE);
+    if (dataFileExists) {
+      dataFileMtimeMs = fs.statSync(DATA_FILE).mtimeMs;
+    }
+  } catch (e) {
+    return {
+      ok: false,
+      reason: e?.message || String(e),
+      dataDir: DATA_DIR,
+      dataFile: DATA_FILE,
+      dataDirSource: DATA_DIR_SOURCE,
+      render: Boolean(process.env.RENDER),
+      likelyPersistent: isLikelyPersistentDataDir(),
+      persistenceWarning: process.env.RENDER && !isLikelyPersistentDataDir()
+        ? "Render local filesystem is ephemeral unless this path is a persistent disk."
+        : "",
+      writable: checkWritableDataDir()
+    };
+  }
+
+  return {
+    ok: true,
+    dataDir: DATA_DIR,
+    dataFile: DATA_FILE,
+    dataDirSource: DATA_DIR_SOURCE,
+    render: Boolean(process.env.RENDER),
+    likelyPersistent: isLikelyPersistentDataDir(),
+    persistenceWarning: process.env.RENDER && !isLikelyPersistentDataDir()
+      ? "Render local filesystem is ephemeral unless this path is a persistent disk."
+      : "",
+    writable: checkWritableDataDir(),
+    dataFileExists,
+    dataFileMtimeMs,
+    accountCount
+  };
+}
+
 export function validateAccountName(name) {
   if (typeof name !== "string") return { ok: false, reason: "名前が不正です" };
   // 改行・タブ禁止
@@ -659,13 +738,25 @@ export function getJobTopRankings(jobName, topN = 5) {
 
   const rows = Object.values(db.accounts).map(acc => {
     if (!acc || !acc.id) return null;
-    ensureJobSlot(acc, jobName);
+    const rec = acc.jobs?.[jobName];
+    if (!rec || typeof rec !== "object") return null;
+
+    let rating = Number(rec.rating ?? DEFAULT_RATING);
+    if (!Number.isFinite(rating)) rating = DEFAULT_RATING;
+    rating = Math.max(MIN_RATING, Math.floor(rating));
+
+    const wins = Math.max(0, Number(rec.wins ?? 0) || 0);
+    const losses = Math.max(0, Number(rec.losses ?? 0) || 0);
+    const updatedAt = Math.max(0, Number(rec.updatedAt ?? 0) || 0);
+    const hasProgress = wins + losses > 0 || rating !== DEFAULT_RATING || updatedAt > 0;
+    if (!hasProgress) return null;
+
     return {
       accountId: acc.id,
       name: acc.name || "(no name)",
-      rating: acc.jobs[jobName].rating,
-      wins: acc.jobs[jobName].wins,
-      updatedAt: acc.jobs[jobName].updatedAt
+      rating,
+      wins,
+      updatedAt
     };
   }).filter(Boolean);
 

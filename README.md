@@ -1,5 +1,27 @@
 # cardbattle-js (deployment bundle)
 
+## Render ranking persistence
+
+Ranking data is stored in `accounts.json`.
+
+For Render Free web services, local filesystem changes are lost on redeploy,
+restart, and spin-down. That means rankings saved to `cardbattle-server/data`
+can disappear.
+
+Use one of these durable storage options:
+
+- Paid Render web service + Persistent Disk
+  - Recommended mount path: `/var/data`
+  - Environment variable: `ACCOUNT_DATA_DIR=/var/data/cardbattle`
+- A real database such as Render Postgres
+
+After deploy, open:
+
+`/api/ranking/storage_status`
+
+Check that `likelyPersistent` is `true` and `accountCount` is not reset after a
+restart/redeploy.
+
 
 ## 2026-01-22 更新（nogit最新版 → Git運用）
 

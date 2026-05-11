@@ -133,10 +133,12 @@ export class Player {
         this.items = [];                 // Pythonの self.items
         this.equipment_inventory = [];   // 通常装備所持枠
         this.equipment = null;           // 通常装備（1枠）
+        this.extra_equipments = [];      // 達人への道などで増えた通常装備枠
 
         this.used_items_this_round = 0;
 
         this.special_inventory = [];   // 魔導士装備・矢などの特殊装備用
+        this.extra_special_equipments = []; // 達人への道などで増えた特殊装備枠
         this.pending_alchemist_selection = [];
         this.pending_doll_charge_choices = null;
         this.pending_doll_charge_option = null;
@@ -339,6 +341,11 @@ export class Player {
         if (this.equipment?.equip_category === "攻撃力") {
             total += this.equipment.equip_power ?? this.equipment.power ?? 0;
         }
+        for (const eq of this.extra_equipments ?? []) {
+            if (eq?.equip_category === "攻撃力") {
+                total += eq.equip_power ?? eq.power ?? 0;
+            }
+        }
 
         // ============================
         // ★ 錬金術師 特殊装備（直接参照）
@@ -348,6 +355,13 @@ export class Player {
         }
         if (this.special_equipment?.dojo_special_effect === "excalibur") {
             total += Number(this.special_equipment.attack_bonus ?? 5);
+        }
+        for (const eq of this.extra_special_equipments ?? []) {
+            if (eq?.dojo_special_effect === "excalibur") {
+                total += Number(eq.attack_bonus ?? 5);
+            } else if (eq?.dojo_special_effect === "aegis") {
+                total += Math.max(0, Number(this.get_def_buff_total?.() ?? 0));
+            }
         }
         if (this.special_equipment?.dojo_special_effect === "aegis") {
             total += Math.max(0, Number(this.get_def_buff_total?.() ?? 0));
@@ -402,6 +416,11 @@ export class Player {
         if (this.equipment?.equip_category === "防御力") {
             total += this.equipment.equip_power ?? this.equipment.power ?? 0;
         }
+        for (const eq of this.extra_equipments ?? []) {
+            if (eq?.equip_category === "防御力") {
+                total += eq.equip_power ?? eq.power ?? 0;
+            }
+        }
 
         // ============================
         // ★ 錬金術師 特殊装備（直接参照）
@@ -411,6 +430,11 @@ export class Player {
         }
         if (this.special_equipment?.dojo_special_effect === "aegis") {
             total += Number(this.special_equipment.defense_bonus ?? 5);
+        }
+        for (const eq of this.extra_special_equipments ?? []) {
+            if (eq?.dojo_special_effect === "aegis") {
+                total += Number(eq.defense_bonus ?? 5);
+            }
         }
 
         // ============================
@@ -785,6 +809,11 @@ if (type === "arrow") {
         // ============================
         if (this.equipment?.effect_type === "coin_per_turn") {
             total += this.equipment.power ?? 0;
+        }
+        for (const eq of this.extra_equipments ?? []) {
+            if (eq?.effect_type === "coin_per_turn") {
+                total += eq.power ?? 0;
+            }
         }
 
         // ============================
