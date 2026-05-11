@@ -887,6 +887,8 @@ server.on("request", (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
+
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 server.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);
 });
@@ -1143,6 +1145,12 @@ export class Match {
 
   sendSkillEffectEvents(actor, target, stype, beforeHpActor = actor?.hp) {
     for (const event of this.getSkillEffectEvents(actor, target, stype, beforeHpActor)) {
+      this.sendSkillEffectEvent(event.player, event.effect, event.type);
+    }
+  }
+
+  sendSkillEffectEventList(events = []) {
+    for (const event of events) {
       this.sendSkillEffectEvent(event.player, event.effect, event.type);
     }
   }
@@ -4038,13 +4046,15 @@ export class Match {
 
     const afterActorAttackBuff = Number(actor.get_attack_buff_total?.() ?? 0);
     const afterTargetAttackBuff = Number(target.get_attack_buff_total?.() ?? 0);
+    const actorAttackBuffIncreased = afterActorAttackBuff > beforeActorAttackBuff;
     const attackBuffIncreased =
-      afterActorAttackBuff > beforeActorAttackBuff ||
+      actorAttackBuffIncreased ||
       afterTargetAttackBuff > beforeTargetAttackBuff;
     const afterActorDefBuff = Number(actor.get_def_buff_total?.() ?? 0) + Number(actor.barrier ?? 0);
     const afterTargetDefBuff = Number(target.get_def_buff_total?.() ?? 0) + Number(target.barrier ?? 0);
+    const actorDefBuffIncreased = afterActorDefBuff > beforeActorDefBuff;
     const defBuffIncreased =
-      afterActorDefBuff > beforeActorDefBuff ||
+      actorDefBuffIncreased ||
       afterTargetDefBuff > beforeTargetDefBuff;
     const hasSkillDamage =
       beforeHpActor > actor.hp ||
@@ -4052,15 +4062,27 @@ export class Match {
       (beforeDollTarget != null &&
         target.doll &&
         Number(beforeDollTarget) > Number(target.doll.durability ?? 0));
+    const hasSelfBuffWithDamage = hasSkillDamage && (actorAttackBuffIncreased || actorDefBuffIncreased);
+    const skillEffectEvents = this.getSkillEffectEvents(actor, target, stype, beforeHpActor);
+    const selfSkillEffectEvents = skillEffectEvents.filter(event => event.player === actor);
+    const attackSkillEffectEvents = skillEffectEvents.filter(event => event.player !== actor);
 
-    if (hasSkillDamage && attackBuffIncreased) {
+    if (hasSelfBuffWithDamage) {
+      this.sendSkillEffectEventList(selfSkillEffectEvents);
+    }
+    if (hasSkillDamage && actorAttackBuffIncreased) {
       this.sendBuffVisualEvent(actor, "powerup");
     }
-    if (hasSkillDamage && defBuffIncreased) {
+    if (hasSkillDamage && actorDefBuffIncreased) {
       this.sendBuffVisualEvent(actor, "defup");
     }
 
-    this.sendSkillEffectEvents(actor, target, stype, beforeHpActor);
+    if (hasSelfBuffWithDamage) {
+      await wait(760);
+      this.sendSkillEffectEventList(attackSkillEffectEvents);
+    } else {
+      this.sendSkillEffectEventList(skillEffectEvents);
+    }
 
     // ============================
     // ★ ダメージイベント送信（スキル成功後に差分を見る）
