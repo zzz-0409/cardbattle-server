@@ -68,6 +68,19 @@ function attachPlayerProfile(player, profile = {}) {
   return player;
 }
 
+function buildMatchStartPayload(selfPlayer, enemyPlayer, extra = {}) {
+  return {
+    type: "match_start",
+    self_name: selfPlayer?.name ?? "Player",
+    self_job: selfPlayer?.job ?? "",
+    self_profile: selfPlayer?.profile ?? null,
+    enemy_name: enemyPlayer?.name ?? "Player",
+    enemy_job: enemyPlayer?.job ?? "",
+    enemy_profile: enemyPlayer?.profile ?? null,
+    ...extra
+  };
+}
+
 
 
 // ============================
@@ -5892,10 +5905,9 @@ function startDojoStage(humanWS) {
   const match = new Match(humanWS, botWS);
   humanWS.currentMatch = match;
   safeSend(humanWS, {
-    type: "match_start",
-    mode: "dojo",
-    self_name: humanWS.player?.name ?? "Player",
-    enemy_name: botWS.player.name,
+    ...buildMatchStartPayload(humanWS.player, botWS.player, {
+      mode: "dojo",
+    }),
     dojo: buildDojoRunView(run, humanWS.player, humanWS)
   });
   match.sendInitialStatusSnapshot();
@@ -6457,11 +6469,7 @@ function startCpuMatch(humanWS) {
 
   humanWS.on("message", handleCpuMessage);
 
-  safeSend(humanWS, {
-    type: "match_start",
-    self_name: humanWS.player?.name ?? "Player",
-    enemy_name: "CPU"
-  });
+  safeSend(humanWS, buildMatchStartPayload(humanWS.player, botWS.player));
   match.sendInitialStatusSnapshot();
 
   // ★ CPUが後攻なら即思考開始
@@ -7491,16 +7499,8 @@ wss.on("connection", (ws) => {
 
       const match = new Match(p1, p2);
 
-      safeSend(p1, {
-        type: "match_start",
-        self_name: p1.player?.name ?? "Player",
-        enemy_name: p2.player?.name ?? "Player"
-      });
-      safeSend(p2, {
-        type: "match_start",
-        self_name: p2.player?.name ?? "Player",
-        enemy_name: p1.player?.name ?? "Player"
-      });
+      safeSend(p1, buildMatchStartPayload(p1.player, p2.player));
+      safeSend(p2, buildMatchStartPayload(p2.player, p1.player));
       match.sendInitialStatusSnapshot();
 
       // 既存の対人戦と同じメッセージ処理を流用するため、
@@ -7753,16 +7753,8 @@ wss.on("connection", (ws) => {
         const match = new Match(p1, p2);
 
         // ★ これを追加
-        safeSend(p1, {
-          type: "match_start",
-          self_name: p1.player?.name ?? "Player",
-          enemy_name: p2.player?.name ?? "Player"
-        });
-        safeSend(p2, {
-          type: "match_start",
-          self_name: p2.player?.name ?? "Player",
-          enemy_name: p1.player?.name ?? "Player"
-        });
+        safeSend(p1, buildMatchStartPayload(p1.player, p2.player));
+        safeSend(p2, buildMatchStartPayload(p2.player, p1.player));
         match.sendInitialStatusSnapshot();
 
         // =====================================
