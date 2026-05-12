@@ -121,11 +121,14 @@ export class Player {
         this.archer_buff = null;          // 追撃バフ（{ rounds, extra }）
         this.archer_pierce_rounds = 0;    // 矢追撃の防御貫通残りラウンド
         this.archer_next_pierce = false;  // 旧セーブ互換
+        this.archer_no_consume_rounds = 0; // 矢を消費しない残りラウンド
+        this.archer_no_consume_permanent = false;
         this.damage_taken_last_round = 0; // 前ラウンドダメージ → 反撃矢用
 
 
         // freeze（A方式：スタックごとに2T）
         this.freeze_debuffs = [];  // [{atkDown:2, rounds:2}, ...]
+        this.defense_debuffs = []; // [{defDown:1, rounds:3}, ...]
 
 
 
@@ -142,6 +145,9 @@ export class Player {
         this.pending_alchemist_selection = [];
         this.pending_doll_charge_choices = null;
         this.pending_doll_charge_option = null;
+        this.dojo_invincible_rounds = 0;
+        this.dojo_attack_growth_active = false;
+        this.dojo_attack_growth_per_round = 0;
 
         // スキル使用管理
         this.used_skill_set = new Set();
@@ -402,7 +408,28 @@ export class Player {
         return attack;
     }
 
+    get_special_defense() {
+        let total = 0;
+        const equips = [
+            this.special_equipment,
+            ...(Array.isArray(this.extra_special_equipments) ? this.extra_special_equipments : []),
+        ];
+        for (const eq of equips) {
+            if (!eq) continue;
+            if (eq.dojo_special_effect === "special_defense") {
+                total += Number(eq.special_defense ?? 10);
+            }
+        }
+        return Math.max(0, total);
+    }
 
+    has_dojo_pierce_weapon() {
+        const equips = [
+            this.special_equipment,
+            ...(Array.isArray(this.extra_special_equipments) ? this.extra_special_equipments : []),
+        ];
+        return equips.some(eq => !!eq && eq.dojo_special_effect === "pierce_weapon");
+    }
 
     get_total_defense() {
         // ============================
@@ -448,7 +475,47 @@ export class Player {
             }
         }
 
+        if (Array.isArray(this.defense_debuffs)) {
+            for (const debuff of this.defense_debuffs) {
+                total -= Number(debuff?.defDown ?? debuff?.power ?? 0);
+            }
+        }
+
         return total;
+    }
+
+    normalize_arrow_ammo(arrow, fallback = 1) {
+        if (!arrow || typeof arrow !== "object") return 0;
+        const raw = Number(arrow.arrows_remaining ?? arrow.arrow_count);
+        const remaining = Number.isFinite(raw)
+            ? Math.max(0, Math.floor(raw))
+            : Math.max(0, Math.floor(Number(fallback ?? 1)));
+        arrow.arrows_remaining = remaining;
+        arrow.arrow_count = remaining;
+        return remaining;
+    }
+
+    get_equipped_arrow_entries() {
+        const entries = [];
+        if (this.arrow) {
+            if (this.normalize_arrow_ammo(this.arrow) > 0) {
+                entries.push({ slot: "arrow", item: this.arrow });
+            } else {
+                this.arrow = null;
+            }
+        }
+        if (this.arrow_slots >= 2 && this.arrow2) {
+            if (this.normalize_arrow_ammo(this.arrow2) > 0) {
+                entries.push({ slot: "arrow2", item: this.arrow2 });
+            } else {
+                this.arrow2 = null;
+            }
+        }
+        return entries;
+    }
+
+    has_usable_arrow() {
+        return this.get_equipped_arrow_entries().length > 0;
     }
 
 
@@ -952,8 +1019,8 @@ if (type === "arrow") {
         const raw = Math.round(this.get_total_attack() * 0.5) + 5;
         const real = opponent.take_damage(raw);
 
-        if (typeof real === "number" && real > 0) {
-            logs.push(real);
+        if (typeof real === "number" && Number.isFinite(real)) {
+            logs.push(Math.max(0, real));
         }
 
         // 内部トリガー消費
@@ -981,6 +1048,14 @@ if (type === "arrow") {
     take_damage(raw_attack, ignore_def = false, attacker = null, isExtraAttack = false) {
         let final = 0;
         let targetType = "body"; // デフォルトは本体
+        if (attacker?.has_dojo_pierce_weapon?.()) {
+            ignore_def = true;
+        }
+        if (Number(this.dojo_invincible_rounds ?? 0) > 0) {
+            log(`🛡 ${this.name} は無敵でダメージを受けない！`);
+            return 0;
+        }
+        const specialDefense = Number(this.get_special_defense?.() ?? 0);
 
         // =========================================
         // 1. 人形使い：人形がダメージを肩代わり
@@ -997,7 +1072,9 @@ if (type === "arrow") {
 
             // 人形の防御力で計算
             const dollDef = this.getDollDefense();
-            final = ignore_def ? Math.max(0, raw_attack) : Math.max(0, raw_attack - dollDef);
+            final = ignore_def
+                ? Math.max(0, raw_attack - specialDefense)
+                : Math.max(0, raw_attack - dollDef - specialDefense);
 
             this.doll.durability = Math.max(0, this.doll.durability - final);
             log(`🪆 人形が ${final} ダメージを受けた！ 耐久: ${this.doll.durability}/${this.doll.max_durability}`);
@@ -1070,7 +1147,9 @@ if (type === "arrow") {
         let multiplier = (this.job === "人形使い" && this.doll && this.doll.is_broken) ? 2 : 1;
         let actual_attack = raw_attack * multiplier;
 
-        final = ignore_def ? Math.max(0, actual_attack) : Math.max(0, actual_attack - this.get_total_defense());
+        final = ignore_def
+            ? Math.max(0, actual_attack - specialDefense)
+            : Math.max(0, actual_attack - this.get_total_defense() - specialDefense);
 
         if (this.job === "狂人" && this.madman_guts && this.hp - final <= 0) {
             this.madman_guts = false;
@@ -1368,6 +1447,24 @@ if (type === "arrow") {
             this.last_item_self_heal = healed;
             this.used_items_this_round += 1;
             return true;
+        }
+
+        if (item.is_dojo_special_item) {
+            if (item.dojo_special_item_effect === "invincible") {
+                const rounds = Math.max(1, Number(item.rounds ?? 2));
+                this.dojo_invincible_rounds = Math.max(Number(this.dojo_invincible_rounds ?? 0), rounds);
+                this.last_item_message = `${rounds}Rの間、無敵状態になった！`;
+                this.used_items_this_round += 1;
+                return true;
+            }
+
+            if (item.dojo_special_item_effect === "attack_growth") {
+                this.dojo_attack_growth_active = true;
+                this.dojo_attack_growth_per_round = Math.max(1, Number(item.power ?? 2));
+                this.last_item_message = `ステージクリアまで、毎ラウンド攻撃力+${this.dojo_attack_growth_per_round}`;
+                this.used_items_this_round += 1;
+                return true;
+            }
         }
 
 
@@ -1748,6 +1845,25 @@ if (type === "arrow") {
     // ---------------------------------------------------------
     // 戦士スキル（Python版完全移植）
     // ---------------------------------------------------------
+    get_dojo_skill_damage_bonus() {
+        const nodes = new Set((this.dojoTrailNodes || []).map(Number));
+        let bonus = 0;
+        for (const id of [51, 52, 53, 54]) if (nodes.has(id)) bonus += 5;
+        for (const id of [56, 57, 58, 59]) if (nodes.has(id)) bonus += 10;
+        return bonus;
+    }
+
+    count_attack_up_buff_types() {
+        const buffs = Array.isArray(this.active_buffs) ? this.active_buffs : [];
+        const keys = new Set();
+        for (const buff of buffs) {
+            if (String(buff?.type ?? "") !== "攻撃力") continue;
+            if (Number(buff?.power ?? 0) <= 0) continue;
+            keys.add(String(buff?.source ?? buff?.name ?? buff?.power ?? "攻撃力"));
+        }
+        return keys.size;
+    }
+
     _use_warrior_skill(stype, opponent) {
 
         // スキル封印
@@ -1758,7 +1874,7 @@ if (type === "arrow") {
 
         // ---------- スキル1：パワースラッシュ ----------
         if (stype === "warrior_1") {
-            const dmg = 20;
+            const dmg = 20 + this.get_dojo_skill_damage_bonus();
             log(`💥 パワースラッシュ！ 防御無視 ${dmg} ダメージ！`);
             opponent.take_damage(dmg, true);
             this.used_skill_set.add(stype);
@@ -1767,7 +1883,7 @@ if (type === "arrow") {
 
         // ---------- スキル2：ブレイブチャージ ----------
         if (stype === "warrior_2") {
-            const dmg = 30;
+            const dmg = 30 + this.get_dojo_skill_damage_bonus();
             log(`🔥 ブレイブチャージ！ 防御無視 ${dmg} ダメージ！`);
             opponent.take_damage(dmg, true);
 
@@ -1776,6 +1892,7 @@ if (type === "arrow") {
                 type: "攻撃力",
                 power: 3,
                 rounds: 3,
+                source: "ブレイブチャージ",
             });
 
             this.used_skill_set.add(stype);
@@ -1787,7 +1904,7 @@ if (type === "arrow") {
 
             const base = 10;
             const extra = this.get_total_attack();  // ← これで正しい攻撃力が取れる
-            const total = base + extra;
+            const total = base + extra + this.get_dojo_skill_damage_bonus();
 
             log(`⚔️ ラストブレード！ 防御無視 ${total} ダメージ！`);
             opponent.take_damage(total, true);
@@ -1795,6 +1912,34 @@ if (type === "arrow") {
             this.used_skill_set.add(stype);
             return true;
 }
+
+        // ---------- スキル4：剛勇覚醒 ----------
+        if (stype === "warrior_4") {
+            this.active_buffs.push({
+                type: "攻撃力",
+                power: 20,
+                rounds: 5,
+                source: "剛勇覚醒",
+            });
+
+            const total = this.get_total_attack() + this.get_dojo_skill_damage_bonus();
+            log(`🔥 剛勇覚醒！ 攻撃力+20（5R）後、${total} ダメージ！`);
+            opponent.take_damage(total, false, this);
+
+            this.used_skill_set.add(stype);
+            return true;
+        }
+
+        // ---------- スキル5：覇断一閃 ----------
+        if (stype === "warrior_5") {
+            const buffBonus = this.count_attack_up_buff_types() * 10;
+            const total = this.get_total_attack() + this.get_dojo_skill_damage_bonus() + buffBonus;
+            log(`⚔️ 覇断一閃！ 防御無視 ${total} ダメージ！（攻撃力アップ種類ボーナス +${buffBonus}）`);
+            opponent.take_damage(total, true, this);
+
+            this.used_skill_set.add(stype);
+            return true;
+        }
 
 
         log("未対応の戦士スキル:", stype);
@@ -1882,13 +2027,13 @@ if (type === "arrow") {
             this.dot_effects = [];
             this.active_buffs.push({
                 type: "継続回復",
-                power: 3,
-                rounds: 10,
+                power: 2,
+                rounds: 12,
                 source: "祝福",
                 uid: crypto.randomUUID(),
             });
             this.blessing_count = Number(this.blessing_count ?? 0) + 1;
-            log("✨ デバフ解除＋継続回復！ 10Rの間、毎ターンHPを3回復する！");
+            log("✨ デバフ解除＋継続回復！ 12Rの間、毎ターンHPを2回復する！");
 
             this.used_skill_set.add(stype);
             return true;
@@ -1898,8 +2043,9 @@ if (type === "arrow") {
             if (!opponent) return false;
             const blessing = Number(this.blessing_count ?? 0);
             const dmg = Math.max(0, Math.floor(Number(this.hp ?? 0) / 10) + blessing);
+            this.blessing_count = 0;
             opponent.take_damage(dmg, true, this);
-            log(`✨ ホーリースマイト！ ${dmg}ダメージ！（祝福 ${blessing}）`);
+            log(`✨ ホーリースマイト！ 祝福を全消費して ${dmg}ダメージ！（消費祝福 ${blessing}）`);
 
             this.used_skill_set.add(stype);
             return true;
@@ -1919,10 +2065,12 @@ if (type === "arrow") {
             b => b?.unremovable || b?.passive || !negative_types.includes(b.type)
         );
         const freezeRemoved = Array.isArray(this.freeze_debuffs) ? this.freeze_debuffs.length : 0;
+        const defenseRemoved = Array.isArray(this.defense_debuffs) ? this.defense_debuffs.length : 0;
         this.freeze_debuffs = [];
+        this.defense_debuffs = [];
         const after = this.active_buffs.length;
 
-        if (before !== after || freezeRemoved > 0) {
+        if (before !== after || freezeRemoved > 0 || defenseRemoved > 0) {
             log("✨ デバフを解除した！");
         }
     }
@@ -1982,6 +2130,7 @@ if (type === "arrow") {
     // ---------------------------------------------------------
     _thief_steal(opponent) {
 
+        this.last_thief_steal_result = null;
         let candidates = [];
 
         // --- 相手アイテムから盗めるものを探す ---
@@ -2004,11 +2153,25 @@ if (type === "arrow") {
             if (pick.origin === "items") {
                 const stolen = opponent.items.splice(pick.index, 1)[0];
                 this.items.push(stolen);
+                this.last_thief_steal_result = {
+                    success: true,
+                    source: "opponent",
+                    sourceName: opponent?.name ?? "相手",
+                    itemName: stolen?.name ?? "アイテム",
+                    itemKind: "アイテム"
+                };
                 log(`💰 ${this.name} は ${opponent.name} からアイテム『${stolen.name}』を奪った！`);
                 return true;
             } else {
                 const stolen = opponent.equipment_inventory.splice(pick.index, 1)[0];
                 this.equipment_inventory.push(stolen);
+                this.last_thief_steal_result = {
+                    success: true,
+                    source: "opponent",
+                    sourceName: opponent?.name ?? "相手",
+                    itemName: stolen?.name ?? "装備",
+                    itemKind: "装備"
+                };
                 log(`💰 ${this.name} は ${opponent.name} から装備『${stolen.name}』を奪った！`);
                 return true;
             }
@@ -2031,12 +2194,14 @@ if (type === "arrow") {
         // どちらにも盗めるものがない
         if (!shopArr) {
             log("奪えるものが何もなかった…");
+            this.last_thief_steal_result = { success: false };
             return false;
         }
 
         const shopCandidates = shopArr.filter(isThiefStealableItem);
         if (shopCandidates.length === 0) {
             log("奪えるものが何もなかった…");
+            this.last_thief_steal_result = { success: false };
             return false;
         }
 
@@ -2056,9 +2221,23 @@ if (type === "arrow") {
         // 装備かアイテムか振り分け
         if (stolen.is_equip || stolen.equip_type === "normal") {
             this.equipment_inventory.push(stolen);
+            this.last_thief_steal_result = {
+                success: true,
+                source: "shop",
+                sourceName: "ショップ",
+                itemName: stolen?.name ?? "装備",
+                itemKind: "装備"
+            };
             log(`🛒 ショップから装備『${stolen.name}』を盗んだ！`);
         } else {
             this.items.push(stolen);
+            this.last_thief_steal_result = {
+                success: true,
+                source: "shop",
+                sourceName: "ショップ",
+                itemName: stolen?.name ?? "アイテム",
+                itemKind: "アイテム"
+            };
             log(`🛒 ショップからアイテム『${stolen.name}』を盗んだ！`);
         }
 
@@ -2523,11 +2702,13 @@ if (type === "arrow") {
 
 
 
-        // ---------- スキル3：2ラウンドの間、矢追撃が防御貫通 ----------
+        // ---------- スキル3：矢を消費しない永続効果 ----------
         if (stype === "archer_3") {
-            this.archer_pierce_rounds = 2;
-            this.archer_next_pierce = true;
-            log("🎯 2ラウンドの間、矢の追撃が防御貫通になる！");
+            this.archer_no_consume_rounds = 0;
+            this.archer_no_consume_permanent = true;
+            this.archer_pierce_rounds = 0;
+            this.archer_next_pierce = false;
+            log("🎯 無尽射撃！ 以後、矢を消費せずに攻撃できる！");
             this.used_skill_set.add(stype);
             return true;
         }
@@ -2536,71 +2717,84 @@ if (type === "arrow") {
     }
     
     // ---------------------------------------------------------
-    // 弓兵：矢追撃処理（A方式 freeze・毒・会心・反撃対応）
+    // 弓兵：矢攻撃処理（freeze・毒・防御低下・反撃対応）
     // ---------------------------------------------------------
-    trigger_arrow_attack(opponent) {
+    trigger_arrow_attack(opponent, { consume = true } = {}) {
 
-        // --- 使用中の矢リスト作成 ---
-        const arrows = [];
-        if (this.arrow) arrows.push(this.arrow);
-        if (this.arrow_slots >= 2 && this.arrow2) arrows.push(this.arrow2);
+        const arrowEntries = this.get_equipped_arrow_entries();
+        if (arrowEntries.length === 0) {
+            return { ok: false, reason: "no_arrow", results: [] };
+        }
 
-        // ★ 会心の矢（装備中のみ有効）
-        const hasCritArrow = arrows.some(a => a.effect === "critical");
-        const critRate = hasCritArrow ? 0.5 : 0;
-        const critBonus = hasCritArrow ? 0.5 : 0;
-
-        // ★ スキル3：残りラウンド中は矢追撃が防御貫通
-        const forcePierce = !!this.archer_next_pierce || Number(this.archer_pierce_rounds ?? 0) > 0;
-
-
-
-        // 矢セットの繰り返し回数
         const repeat =
             (this.archer_buff && this.archer_buff.rounds > 0)
                 ? (1 + (this.archer_buff.extra ?? 1))
                 : 1;
-
+        const noConsume = !!this.archer_no_consume_permanent || Number(this.archer_no_consume_rounds ?? 0) > 0;
         const results = [];
+        const depletedSlots = new Set();
 
-        // --- 矢セット × 追撃回数 ---
         for (let r = 0; r < repeat; r++) {
-            for (const arrow of arrows) {                const { power, pierce, name, effect } = arrow;
+            for (const entry of arrowEntries) {
+                const arrow = entry.item;
+                const { power, pierce, name, effect } = arrow;
+                const isExtraAttack = r > 0;
+                const shouldConsume = consume && !noConsume && !isExtraAttack;
+                const targetType =
+                    opponent.doll && !opponent.doll.is_broken
+                        ? "doll"
+                        : "body";
 
                 const counterBase = effect === "counter"
                     ? Math.floor(Number(this.damage_taken_last_turn ?? this.damage_taken_last_round ?? 0) / 2)
                     : 0;
-                // 普通の矢：威力は「装備・バフ込み攻撃力」。反撃の矢は基礎威力に反撃分を加算する。
                 const basePower = (effect === "normal")
                     ? this.get_total_attack()
                     : Number(power ?? 0) + counterBase;
+                const pierceFinal = !!pierce || !!this.archer_next_pierce || Number(this.archer_pierce_rounds ?? 0) > 0;
+                const dealt = opponent.take_damage(basePower, pierceFinal, this);
 
-                // スキル3：次の攻撃ターンの追撃のみ防御貫通（追撃のみ）
-                const pierceFinal = pierce || forcePierce;
-
-                // 会心の矢：装備中のときのみ会心判定
-                const isCrit = (critRate > 0) ? (Math.random() < critRate) : false;
-                const finalPower = isCrit ? Math.round(basePower * (1 + critBonus)) : basePower;
-
-                const dealt = opponent.take_damage(finalPower, pierceFinal);
+                let remaining = this.normalize_arrow_ammo(arrow);
+                if (shouldConsume) {
+                    remaining = Math.max(0, remaining - 1);
+                    arrow.arrows_remaining = remaining;
+                    arrow.arrow_count = remaining;
+                    if (remaining <= 0) depletedSlots.add(entry.slot);
+                }
 
                 results.push({
                     name,
-                    power: finalPower,
+                    power: basePower,
                     dealt,
-                    isCrit,
+                    isCrit: false,
                     pierce: pierceFinal,
-                    effect
+                    effect,
+                    consumed: shouldConsume,
+                    noConsume,
+                    extraAttack: isExtraAttack,
+                    remaining,
+                    targetType,
+                    statusSnapshot: {
+                        hp: opponent.hp,
+                        max_hp: opponent.max_hp,
+                        doll: opponent.doll
+                            ? {
+                                durability: opponent.doll.durability,
+                                max_durability: opponent.doll.max_durability,
+                                is_broken: opponent.doll.is_broken,
+                                charge: Number(opponent.doll.charge ?? 0),
+                                pending_charge_ready: !!opponent.doll.pending_charge_ready,
+                            }
+                            : null,
+                    },
                 });
-console.log(
-                    `🏹 弓兵の追撃（${name}）！ ${finalPower} ダメージ`
-                    + (isCrit ? " (会心)" : "")
+
+                console.log(
+                    `🏹 弓兵の攻撃（${name}）！ ${basePower} ダメージ`
                     + (pierceFinal ? " (防御貫通)" : "")
+                    + (shouldConsume ? ` 残り${remaining}本` : "")
                 );
 
-                // ===== 効果別処理 =====
-
-                // poison：毒DOT（3 × 2R）
                 if (effect === "poison") {
                     opponent.dot_effects.push({
                         name: "毒",
@@ -2608,25 +2802,21 @@ console.log(
                         rounds: 2,
                         source: this.name,
                     });
-                }
-
-                // freeze：攻撃力-2 × スタック（各2R）
-                else if (effect === "freeze") {
+                } else if (effect === "freeze") {
                     if (!opponent.freeze_debuffs) opponent.freeze_debuffs = [];
                     opponent.freeze_debuffs.push({ atkDown: 2, rounds: 2, owner: this });
+                } else if (effect === "def_down") {
+                    if (!opponent.defense_debuffs) opponent.defense_debuffs = [];
+                    opponent.defense_debuffs.push({ defDown: 1, rounds: 3, owner: this });
                 }
-
-                // counter：反撃分は基礎ダメージへ加算済み
-                else if (effect === "counter") {
-                }                // critical：会心の矢（装備中のみ有効）
-                else if (effect === "critical") {
-                    // 効果は「装備中の会心の矢があるか」で判定（上の hasCritArrow / critRate / critBonus）
-                }
-}
+            }
         }
-        // 防御貫通の残りラウンドは server.js の攻撃処理後に消費する
 
-        return results;
+        for (const slot of depletedSlots) {
+            this[slot] = null;
+        }
+
+        return { ok: true, results };
     }
 
     // ---------------------------------------------------------

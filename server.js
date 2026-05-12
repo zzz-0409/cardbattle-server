@@ -44,8 +44,101 @@ export const DEV_MODE = process.argv.includes("--dev-ai");
 // デバッグログ ON/OFF
 const DEBUG = true;
 const SHOP_SLOT_COUNT = 5;
+const ARROW_SHOP_SET_COUNT = 3;
+const ARCHER_START_ARROW_COUNT = 5;
 
 const clients = new Set();
+
+function createArrowItem(base, count = ARROW_SHOP_SET_COUNT) {
+  const arrows = Math.max(1, Math.floor(Number(count ?? ARROW_SHOP_SET_COUNT)));
+  return {
+    ...base,
+    uid: crypto.randomUUID(),
+    is_equip: true,
+    is_arrow: true,
+    equip_type: "arrow",
+    arrow_count: arrows,
+    arrows_remaining: arrows,
+  };
+}
+
+function isArrowItem(item) {
+  return !!item && (item.is_arrow || item.equip_type === "arrow");
+}
+
+function getArrowStackKey(item) {
+  if (!isArrowItem(item)) return "";
+  return String(item.effect ?? item.arrow_effect ?? item.name ?? item.icon_src ?? "").trim().toLowerCase();
+}
+
+function getArrowAmmoCount(item) {
+  if (!isArrowItem(item)) return 0;
+  const count = Number(item.arrows_remaining ?? item.arrow_count ?? 0);
+  return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+}
+
+function setArrowAmmoCount(item, count) {
+  const next = Math.max(0, Math.floor(Number(count) || 0));
+  item.arrow_count = next;
+  item.arrows_remaining = next;
+  return item;
+}
+
+function mergeArrowAmmo(target, incoming) {
+  const add = Math.max(1, getArrowAmmoCount(incoming));
+  setArrowAmmoCount(target, getArrowAmmoCount(target) + add);
+  return target;
+}
+
+function cloneArrowStack(item, count) {
+  const clone = {
+    ...item,
+    uid: crypto.randomUUID(),
+  };
+  return setArrowAmmoCount(clone, count);
+}
+
+function addArrowToPlayerStack(P, item, { includeEquipped = true } = {}) {
+  if (!P || !isArrowItem(item)) return { item, merged: false, target: "none" };
+  P.arrow_inventory = Array.isArray(P.arrow_inventory) ? P.arrow_inventory : [];
+  const key = getArrowStackKey(item);
+  const inventoryTarget = P.arrow_inventory.find(it => getArrowStackKey(it) === key);
+  if (inventoryTarget) {
+    return { item: mergeArrowAmmo(inventoryTarget, item), merged: true, target: "inventory" };
+  }
+  if (includeEquipped) {
+    for (const slot of ["arrow", "arrow2"]) {
+      if (P[slot] && getArrowStackKey(P[slot]) === key) {
+        return { item: mergeArrowAmmo(P[slot], item), merged: true, target: "equipped", slot };
+      }
+    }
+  }
+  P.arrow_inventory.push(item);
+  return { item, merged: false, target: "inventory" };
+}
+
+function normalizePlayerArrowInventory(P) {
+  if (!P || !Array.isArray(P.arrow_inventory)) return;
+  const merged = [];
+  for (const item of P.arrow_inventory) {
+    if (!isArrowItem(item)) {
+      merged.push(item);
+      continue;
+    }
+    const key = getArrowStackKey(item);
+    const existing = merged.find(it => isArrowItem(it) && getArrowStackKey(it) === key);
+    if (existing) mergeArrowAmmo(existing, item);
+    else merged.push(item);
+  }
+  P.arrow_inventory = merged;
+}
+
+function getPlayerArrowSlotKey(slot) {
+  const equipSlot = Number(slot || 1);
+  if (equipSlot === 1) return "arrow";
+  if (equipSlot === 2) return "arrow2";
+  return "";
+}
 
 function safeSend(ws, payload) {
   if (!ws) return;
@@ -59,7 +152,9 @@ function normalizePlayerProfile(profile = {}) {
   const titleJobId = profile?.titleJobId != null ? String(profile.titleJobId).slice(0, 32) : "";
   const titleText = profile?.titleText != null ? String(profile.titleText).slice(0, 32) : "";
   const iconSrc = profile?.iconSrc != null ? String(profile.iconSrc).slice(0, 240) : "";
-  return { iconJobId, titleJobId, titleText, iconSrc };
+  const frameId = profile?.frameId != null ? String(profile.frameId).slice(0, 64) : "";
+  const frameSrc = profile?.frameSrc != null ? String(profile.frameSrc).slice(0, 240) : "";
+  return { iconJobId, titleJobId, titleText, iconSrc, frameId, frameSrc };
 }
 
 function attachPlayerProfile(player, profile = {}) {
@@ -77,6 +172,11 @@ function buildMatchStartPayload(selfPlayer, enemyPlayer, extra = {}) {
     enemy_name: enemyPlayer?.name ?? "Player",
     enemy_job: enemyPlayer?.job ?? "",
     enemy_profile: enemyPlayer?.profile ?? null,
+    enemy_is_dojo_enemy: !!enemyPlayer?.isDojoEnemy,
+    enemy_dojo_enemy_id: enemyPlayer?.dojoEnemyId ?? null,
+    enemy_dojo_enemy_image: enemyPlayer?.dojoEnemyImage ?? null,
+    enemy_dojo_enemy_scale: enemyPlayer?.dojoEnemyScale ?? 1,
+    enemy_dojo_stage_kind: enemyPlayer?.dojoStageKind ?? null,
     ...extra
   };
 }
@@ -178,13 +278,23 @@ function buildSpecialEquip(player) {
 function buildSkillRemaining(player) {
   const list = JOB_SKILLS?.[player.job] ?? [];
   const used = player.used_skill_set ?? new Set();
-  const out = { 1: 0, 2: 0, 3: 0 };
+  const out = {};
+  const trailNodes = new Set((player.dojoTrailNodes || []).map(Number));
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < list.length; i++) {
     const stype = list[i]?.type;
     const num = i + 1;
     if (!stype) {
       out[num] = 0;
+      continue;
+    }
+
+    if (player.job === "戦士" && stype === "warrior_4" && !trailNodes.has(55)) {
+      out[num] = -1;
+      continue;
+    }
+    if (player.job === "戦士" && stype === "warrior_5" && !trailNodes.has(60)) {
+      out[num] = -1;
       continue;
     }
 
@@ -235,7 +345,7 @@ function buildBuffUIData(player) {
       power: 1,
       remain: null,
       source: "僧侶パッシブ",
-      text: "僧侶パッシブ：自分のターン開始時、現在HPの1/40を回復（最低1 / 最大HP400 / 解除不可）",
+      text: "僧侶パッシブ：自分のターン開始時、HPを1回復（最大HP400 / 解除不可）",
       unremovable: true,
       passive: true,
     });
@@ -311,6 +421,20 @@ function buildBuffUIData(player) {
     }
   }
 
+  if (Array.isArray(player.defense_debuffs)) {
+    for (const d of player.defense_debuffs) {
+      const remain = Number(d.rounds ?? d.duration ?? 0);
+      const defDown = Number(d.defDown ?? d.power ?? 0);
+      out.push({
+        kind: "def_down",
+        power: defDown,
+        remain,
+        source: "防御低下の矢",
+        text: `防御低下：防御力-${defDown}（あと${remain}R）`,
+      });
+    }
+  }
+
   if (Array.isArray(player.dot_effects)) {
     for (const dot of player.dot_effects) {
       if (!dot) continue;
@@ -361,6 +485,17 @@ function buildBuffUIData(player) {
     });
   }
 
+  if (Number(player.dojo_invincible_rounds ?? 0) > 0) {
+    const rounds = Number(player.dojo_invincible_rounds ?? 0);
+    out.push({
+      kind: "barrier",
+      power: rounds,
+      remain: rounds,
+      source: "無敵の霊薬",
+      text: `無敵：受けるダメージを0にする（あと${rounds}R）`,
+    });
+  }
+
   if (player.job === "人形使い" && Number(player.doll?.revive_guard_rounds ?? 0) > 0) {
     out.push({
       kind: "repair_guard",
@@ -383,14 +518,19 @@ function buildBuffUIData(player) {
       text: `追撃強化：追加攻撃 +${extra}（あと${rounds}R）`,
     });
   }
-  if (player.job === "弓兵" && Number(player.archer_pierce_rounds ?? (player.archer_next_pierce ? 1 : 0)) > 0) {
-    const rounds = Number(player.archer_pierce_rounds ?? 1);
+  if (
+    player.job === "弓兵" &&
+    (!!player.archer_no_consume_permanent || Number(player.archer_no_consume_rounds ?? 0) > 0)
+  ) {
+    const rounds = Number(player.archer_no_consume_rounds ?? 0);
     out.push({
-      kind: "archer_pierce",
+      kind: "archer_no_consume",
       power: 0,
-      remain: rounds,
-      source: "防御貫通の矢",
-      text: `矢防御貫通：追撃が防御貫通（あと${rounds}R）`,
+      remain: player.archer_no_consume_permanent ? null : rounds,
+      source: "無尽射撃",
+      text: player.archer_no_consume_permanent
+        ? "無尽射撃：矢を消費しない（永続）"
+        : `無尽射撃：矢を消費しない（あと${rounds}R）`,
     });
   }
 
@@ -485,8 +625,13 @@ function buildDojoTrailBuffUIEntries(player) {
   const defenseBonus = Math.max(0, Number(player._dojoTrailDefenseBonusApplied ?? 0));
   const maxHpBonus = Math.max(0, Number(player._dojoTrailMaxHpBonusApplied ?? 0));
   const regen = Math.max(0, Number(player._dojoTrailRoundRegen ?? 0));
-  const coinGain = Math.max(0, Number(player._dojoTrailCoinGainPercent ?? 0));
+  const coinGainPercent = Math.max(0, Number(player._dojoTrailCoinGainPercent ?? 0));
+  const dropRateBonus = Math.max(0, Number(player._dojoTrailDropRateBonusPercent ?? 0));
+  const rareDropBonusCount = Math.max(0, Number(player._dojoTrailRareDropBonusCount ?? 0));
   const itemAttackGrowth = Math.max(0, Number(player.dojoItemAttackBuff ?? 0));
+  const skillDamageBonus =
+    [51, 52, 53, 54].reduce((sum, id) => sum + (nodes.has(id) ? 5 : 0), 0) +
+    [56, 57, 58, 59].reduce((sum, id) => sum + (nodes.has(id) ? 10 : 0), 0);
 
   if (attackBonus > 0) {
     out.push({
@@ -532,24 +677,113 @@ function buildDojoTrailBuffUIEntries(player) {
       passive: true,
     });
   }
-  if (coinGain > 0) {
+  if (coinGainPercent > 0) {
     out.push({
-      kind: "passive_coin",
-      power: coinGain,
+      kind: "other",
+      power: coinGainPercent,
       remain: null,
       source: "軌跡",
-      text: `軌跡：コイン獲得量 +${coinGain}%`,
+      text: `軌跡：コイン獲得量 +${coinGainPercent}%`,
       unremovable: true,
       passive: true,
     });
   }
   if (nodes.has(35)) {
     out.push({
-      kind: "passive_atk",
+      kind: "other",
       power: 1,
       remain: null,
-      source: "鍛冶屋の大軌跡",
-      text: "軌跡：ショップ購入時に攻撃力装備★1を追加入手",
+      source: "商才の大軌跡",
+      text: "軌跡：ショップ購入時、攻撃力装備★1も入手",
+      unremovable: true,
+      passive: true,
+    });
+  }
+  if (nodes.has(40)) {
+    const spentAttackBonus = Math.max(0, Math.floor(Number(player.dojoTrailState?.trailCoinSpent ?? player._dojoTrailCoinSpent ?? 0) / 50));
+    out.push({
+      kind: "passive_atk",
+      power: spentAttackBonus,
+      remain: null,
+      source: "蓄財の大軌跡",
+      text: `軌跡：消費コイン50枚につき攻撃力+1（現在+${spentAttackBonus}）`,
+      unremovable: true,
+      passive: true,
+    });
+  }
+  if (dropRateBonus > 0) {
+    out.push({
+      kind: "other",
+      power: dropRateBonus,
+      remain: null,
+      source: "軌跡",
+      text: `軌跡：アイテム・装備ドロップ率 +${dropRateBonus}%`,
+      unremovable: true,
+      passive: true,
+    });
+  }
+  if (nodes.has(45)) {
+    out.push({
+      kind: "other",
+      power: 1,
+      remain: null,
+      source: "宝箱の大軌跡",
+      text: "軌跡：勝利時、アイテムまたは装備が必ず1つドロップ",
+      unremovable: true,
+      passive: true,
+    });
+  }
+  if (rareDropBonusCount > 0) {
+    out.push({
+      kind: "other",
+      power: rareDropBonusCount,
+      remain: null,
+      source: "上級ドロップ率アップ",
+      text: `軌跡：★2・★3ドロップ確率アップ（${rareDropBonusCount}段階）`,
+      unremovable: true,
+      passive: true,
+    });
+  }
+  if (nodes.has(50)) {
+    out.push({
+      kind: "other",
+      power: 2,
+      remain: null,
+      source: "秘宝の大軌跡",
+      text: "軌跡：勝利時、アイテム1種と装備1種を保証。特殊アイテム/特殊装備も低確率で抽選",
+      unremovable: true,
+      passive: true,
+    });
+  }
+  if (skillDamageBonus > 0) {
+    out.push({
+      kind: "other",
+      power: skillDamageBonus,
+      remain: null,
+      source: "スキル威力の軌跡",
+      text: `軌跡：戦士スキルダメージ +${skillDamageBonus}`,
+      unremovable: true,
+      passive: true,
+    });
+  }
+  if (nodes.has(55)) {
+    out.push({
+      kind: "other",
+      power: 4,
+      remain: null,
+      source: "剛勇覚醒の大軌跡",
+      text: "軌跡：戦士スキル4「剛勇覚醒」解放",
+      unremovable: true,
+      passive: true,
+    });
+  }
+  if (nodes.has(60)) {
+    out.push({
+      kind: "other",
+      power: 5,
+      remain: null,
+      source: "覇断一閃の大軌跡",
+      text: "軌跡：戦士スキル5「覇断一閃」解放",
       unremovable: true,
       passive: true,
     });
@@ -988,6 +1222,7 @@ export class Match {
         type: "status_info",
         attack: actor.doll ? (actor.doll.is_broken ? 0 : actor.getDollAttack()) : actor.get_total_attack(),
         defense: actor.doll ? (actor.doll.is_broken ? 0 : actor.getDollDefense()) : actor.get_total_defense(),
+        special_defense: Math.max(0, Number(actor.get_special_defense?.() ?? 0)),
         buffs: buildStatusBuffDescriptionList(actor),
 
         // ★ これを必ず追加
@@ -1030,10 +1265,10 @@ export class Match {
 
 
 
-  sendBattle(msg) {
+  sendBattle(msg, extra = {}) {
     if (this.devMode) return;
-    safeSend(this.p1, { type: "battle_log", msg });
-    safeSend(this.p2, { type: "battle_log", msg });
+    safeSend(this.p1, { type: "battle_log", msg, ...extra });
+    safeSend(this.p2, { type: "battle_log", msg, ...extra });
   }
 
 
@@ -1053,13 +1288,78 @@ export class Match {
     safeSend(this.p2, { type: "system_log", msg });
   }
 
+  buildLiveStatusPatch(player, overrides = {}) {
+    if (!player) return null;
+    const nextLevelExp = LEVEL_REQUIREMENTS[player.level] ?? null;
+    const hasOverride = key => Object.prototype.hasOwnProperty.call(overrides, key);
+    const dollSource = hasOverride("doll") ? overrides.doll : player.doll;
+    return {
+      name: player.name ?? "Player",
+      profile: player.profile ?? null,
+      hp: hasOverride("hp") ? overrides.hp : player.hp,
+      max_hp: hasOverride("max_hp") ? overrides.max_hp : player.max_hp,
+      overheal_max_hp: player.job === "僧侶" ? 400 : (hasOverride("max_hp") ? overrides.max_hp : player.max_hp),
+      attack: player.doll ? (player.doll.is_broken ? 0 : player.getDollAttack()) : player.get_total_attack(),
+      defense: player.doll ? (player.doll.is_broken ? 0 : player.getDollDefense()) : player.get_total_defense(),
+      special_defense: Math.max(0, Number(player.get_special_defense?.() ?? 0)),
+      coins: player.coins,
+      blessing_count: Number(player.blessing_count ?? 0),
+      level: player.level,
+      exp: player.exp ?? 0,
+      next_level_exp: nextLevelExp,
+      next_level_label: nextLevelExp == null
+        ? "次Lv: MAX"
+        : `次LvまでEXP: ${Math.max(0, nextLevelExp - (player.exp ?? 0))}`,
+      job: player.job ?? "不明",
+      is_dojo_enemy: !!player.isDojoEnemy,
+      dojo_enemy_id: player.dojoEnemyId ?? null,
+      dojo_enemy_image: player.dojoEnemyImage ?? null,
+      dojo_enemy_scale: player.dojoEnemyScale ?? 1,
+      mana: player.job === "魔導士" ? player.mana : null,
+      mana_max: player.job === "魔導士" ? player.mana_max : null,
+      arrow_slots: player.arrow_slots ?? 1,
+      equip_slots: player.dojoEquipSlots ?? { equipment: 1, special: 1 },
+      damage_taken_last_round: player.damage_taken_last_round ?? 0,
+      damage_taken_last_turn: player.damage_taken_last_turn ?? 0,
+      archer_buff: player.archer_buff ?? null,
+      archer_no_consume_rounds: player.archer_no_consume_rounds ?? 0,
+      archer_no_consume_permanent: !!player.archer_no_consume_permanent,
+      archer_pierce_rounds: player.archer_pierce_rounds ?? (player.archer_next_pierce ? 1 : 0),
+      dojo_skill_damage_bonus: Math.max(0, Number(player.get_dojo_skill_damage_bonus?.() ?? 0)),
+      dojo_coin_gain_percent: Math.max(0, Number(player._dojoTrailCoinGainPercent ?? 0)),
+      equipment: [
+        ...(Array.isArray(player.equipment)
+          ? player.equipment
+          : (player.equipment ? [player.equipment] : [])),
+        ...(player.extra_equipments ?? [])
+      ],
+      doll: (dollSource != null)
+        ? {
+            durability: dollSource.durability,
+            max_durability: dollSource.max_durability,
+            is_broken: dollSource.is_broken,
+            charge: Number(dollSource.charge ?? 0),
+            charge_need: DOLL_CHARGE_COST,
+            pending_charge_ready: !!dollSource.pending_charge_ready,
+            attack: dollSource.is_broken ? 0 : player.getDollAttack(),
+            defense: player.getDollDefense(),
+          }
+        : null,
+      special_equip: buildSpecialEquip(player),
+      skill_remaining: buildSkillRemaining(player),
+      buffs_ui: buildBuffUIData(player),
+      mad_state: buildMadStateData(player),
+    };
+  }
 
 
 
-  sendDamageEvent(targetPlayer, amount, kind = "normal", targetType = "body") {
+
+  sendDamageEvent(targetPlayer, amount, kind = "normal", targetType = "body", extra = {}) {
     console.log("[SEND damage_event]", targetPlayer.name, amount, targetType);
 
-    if (!amount || amount <= 0) return;
+    const damageAmount = Math.max(0, Number(amount ?? 0));
+    if (damageAmount <= 0 && !extra.show_zero && !extra.allow_zero) return;
 
     const isTargetP1 = (targetPlayer === this.P1);
 
@@ -1072,17 +1372,27 @@ export class Match {
     safeSend(this.p1, {
       type: "damage_event",
       target: resolveTarget(isTargetP1, targetType),
-      amount,
+      amount: damageAmount,
       kind,
+      hit_sfx: damageAmount >= 50 ? "boom" : "attack",
+      status_patch: this.buildLiveStatusPatch(targetPlayer),
+      ...extra,
     });
 
     // p2 視点（反転）
     safeSend(this.p2, {
       type: "damage_event",
       target: resolveTarget(!isTargetP1, targetType),
-      amount,
+      amount: damageAmount,
       kind,
+      hit_sfx: damageAmount >= 50 ? "boom" : "attack",
+      status_patch: this.buildLiveStatusPatch(targetPlayer),
+      ...extra,
     });
+  }
+
+  getDamageTargetType(player) {
+    return player?.doll && !player.doll.is_broken ? "doll" : "body";
   }
 
   sendSkillEffectEvent(targetPlayer, effect, targetType = "body") {
@@ -1118,6 +1428,8 @@ export class Match {
       warrior_1: [targetEvent("warrior_1_target")],
       warrior_2: [targetEvent("warrior_2_target"), bodySelfEvent("warrior_2_self")],
       warrior_3: [targetEvent("warrior_3_target")],
+      warrior_4: [bodySelfEvent("warrior_4_self"), targetEvent("warrior_4_target")],
+      warrior_5: [targetEvent("warrior_5_target")],
       knight_1: [targetEvent("knight_1_target"), bodySelfEvent("knight_1_self")],
       knight_2: [targetEvent("knight_2_target"), bodySelfEvent("knight_2_self")],
       knight_3: [targetEvent("knight_3_target")],
@@ -1189,13 +1501,15 @@ export class Match {
     safeSend(this.p1, {
       type: "heal_event",
       target: resolveTarget(isTargetP1, targetType),
-      amount
+      amount,
+      status_patch: this.buildLiveStatusPatch(targetPlayer),
     });
 
     safeSend(this.p2, {
       type: "heal_event",
       target: resolveTarget(!isTargetP1, targetType),
-      amount
+      amount,
+      status_patch: this.buildLiveStatusPatch(targetPlayer),
     });
   }
 
@@ -1264,12 +1578,14 @@ export class Match {
       side: isP1 ? "self" : "enemy",
       buffs_ui,
       sfx_list,
+      status_patch: this.buildLiveStatusPatch(player),
     });
     safeSend(this.p2, {
       type: "buff_visual_event",
       side: isP1 ? "enemy" : "self",
       buffs_ui,
       sfx_list,
+      status_patch: this.buildLiveStatusPatch(player),
     });
   }
 
@@ -1297,6 +1613,24 @@ export class Match {
       safeSend(this.p1, payload);
       safeSend(this.p2, payload);
     }
+  }
+
+  sendThiefStealPopup(actor) {
+    const result = actor?.last_thief_steal_result;
+    if (!result) return;
+
+    if (result.success) {
+      const sourceName = result.source === "shop"
+        ? "ショップ"
+        : (result.sourceName ?? "相手");
+      const itemKind = result.itemKind ?? "持ち物";
+      const itemName = result.itemName ?? "不明な持ち物";
+      this.sendPopup(`${actor.name} が ${sourceName} から${itemKind}「${itemName}」を盗んだ！`, null, 3000);
+    } else {
+      this.sendPopup(`${actor.name} は盗みを試みたが、盗める物がなかった！`, null, 2400);
+    }
+
+    actor.last_thief_steal_result = null;
   }
 
   hasPendingDollCharge(actor) {
@@ -1744,13 +2078,7 @@ export class Match {
   // ★ 弓兵：初期矢を server 側で装備（状態決定はここだけ）
   for (const P of [this.P1, this.P2]) {
     if (P.job === "弓兵" && !P.arrow) {
-      const basicArrow = {
-        ...ARROW_DATA.normal,
-        uid: crypto.randomUUID(),
-        is_arrow: true,
-        equip_type: "arrow"
-      };
-      P.arrow = basicArrow;
+      P.arrow = createArrowItem(ARROW_DATA.normal, ARCHER_START_ARROW_COUNT);
     }
   }
 
@@ -1871,7 +2199,7 @@ export class Match {
     this.sendItemList(actorWS, actor);
 
     if (actor.job === "僧侶") {
-      const passiveHeal = Math.max(1, Math.floor(Number(actor.hp ?? 0) / 40));
+      const passiveHeal = 1;
       const healedPassive = actor.restore_hp?.(passiveHeal) ?? 0;
       if (healedPassive > 0) {
         this.sendHealEvent(actor, healedPassive);
@@ -1914,6 +2242,19 @@ export class Match {
         .filter(d => d.rounds > 0);
     }
 
+    for (const p of [this.P1, this.P2]) {
+      if (!p.defense_debuffs || p.defense_debuffs.length === 0) continue;
+
+      p.defense_debuffs = p.defense_debuffs
+        .map(d => {
+          if (d.owner === actor) {
+            return { ...d, rounds: Number(d.rounds ?? d.duration ?? 0) - 1 };
+          }
+          return d;
+        })
+        .filter(d => Number(d.rounds ?? d.duration ?? 0) > 0);
+    }
+
 
 
 
@@ -1937,6 +2278,22 @@ export class Match {
 
     if (this.matchType === "dojo" && Number(actor._dojoTrailRoundRegen ?? 0) > 0) {
       actor.restore_hp?.(Number(actor._dojoTrailRoundRegen ?? 0));
+    }
+
+    if (this.matchType === "dojo" && Number(actor.dojo_invincible_rounds ?? 0) > 0) {
+      actor.dojo_invincible_rounds = Math.max(0, Number(actor.dojo_invincible_rounds ?? 0) - 1);
+      if (Number(actor.dojo_invincible_rounds ?? 0) <= 0) {
+        this.sendSystem(`🛡 ${actor.name} の無敵効果が終了しました`);
+      }
+    }
+
+    if (this.matchType === "dojo" && actor.dojo_attack_growth_active) {
+      const growth = Math.max(1, Number(actor.dojo_attack_growth_per_round ?? 2));
+      actor.base_attack = Number(actor.base_attack ?? actor.attack ?? 0) + growth;
+      actor.attack = Number(actor.attack ?? actor.base_attack ?? 0) + growth;
+      this.sendBattle(`成長の戦薬：${actor.name} の攻撃力が ${growth} 上がった！`);
+      this.sendStatusInfo(actorWS, actor);
+      this.sendSimpleStatusBoth();
     }
 
     const healed = actor.hp - beforeHp;
@@ -2037,6 +2394,36 @@ export class Match {
       this.sendStatusInfo(actorWS, actor);
       this.sendSimpleStatusBoth();
     }
+
+    this.scheduleCpuTurn(450);
+  }
+
+  scheduleCpuTurn(delayMs = 450) {
+    if (this.ended || !this.current?.isBot) return;
+    if (this._cpuTurnTimer) return;
+
+    this._cpuTurnTimer = setTimeout(() => {
+      this._cpuTurnTimer = null;
+      if (this.ended || !this.current?.isBot) return;
+
+      const recoverCpuTurn = (err, label = "turn failed") => {
+        if (err) console.error(`[CPU] ${label}`, err);
+        this._cpuThinking = false;
+        this._cpuThinkingAt = 0;
+
+        if (this.ended || !this.current?.isBot) return;
+        cpuConsumeTurnAction(this, this.current).catch(fallbackErr => {
+          console.error("[CPU] fallback action failed", fallbackErr);
+        });
+      };
+
+      Promise.resolve(maybeCpuTurn(this))
+        .then(() => {
+          if (this.ended || !this.current?.isBot || this._cpuThinking) return;
+          return cpuConsumeTurnAction(this, this.current);
+        })
+        .catch(err => recoverCpuTurn(err));
+    }, Math.max(0, Number(delayMs) || 0));
   }
 
 
@@ -2103,12 +2490,7 @@ export class Match {
         if (r < 70) {
           const keys = Object.keys(ARROW_DATA);
           const k = keys[Math.floor(Math.random() * keys.length)];
-          entry = {
-            ...ARROW_DATA[k],
-            is_equip: true,
-            is_arrow: true,
-            equip_type: "arrow"
-          };
+          entry = createArrowItem(ARROW_DATA[k], ARROW_SHOP_SET_COUNT);
         } else {
           entry = (Math.random() < 0.5)
             ? generateEquipmentForLevel(level)
@@ -2276,9 +2658,10 @@ export class Match {
     // ==============================
     // ★ 正しい分類処理（購入時）
     // ==============================
-    if (item.is_arrow || item.equip_type === "arrow") {
+    let purchasedItem = item;
+    if (isArrowItem(item)) {
         // 矢
-        P.arrow_inventory.push(item);
+        purchasedItem = addArrowToPlayerStack(P, item, { includeEquipped: true }).item;
 
     } else if (
         item.is_doll_costume &&
@@ -2334,7 +2717,7 @@ export class Match {
 
     safeSend(wsPlayer, {
       type: "purchased_item",
-      item,
+      item: purchasedItem,
     });
 
     this.sendSystem(`🛒 ${P.name} は ${item.name} を購入した！`);
@@ -2461,7 +2844,11 @@ export class Match {
         P.special_inventory ??= [];
         P.arrow_inventory ??= [];
         P[destination] ??= [];
-        P[destination].push(item);
+        if (destination === "arrow_inventory" && isArrowItem(item)) {
+          addArrowToPlayerStack(P, item, { includeEquipped: false });
+        } else {
+          P[destination].push(item);
+        }
         if (P.recalc_mage_passives) P.recalc_mage_passives();
         if (P.recalc_stats) P.recalc_stats();
         this.sendBattle(`${item.name ?? "装備"} を外した！`);
@@ -2576,6 +2963,16 @@ export class Match {
     pickup(P.special_inventory, "special_inventory");
     pickup(P.arrow_inventory, "arrow_inventory");
 
+    if (!item && action === "arrow") {
+      if (P.arrow && String(P.arrow.uid ?? "") === String(uid ?? "")) {
+        item = P.arrow;
+        source = "equipped_arrow";
+      } else if (P.arrow2 && String(P.arrow2.uid ?? "") === String(uid ?? "")) {
+        item = P.arrow2;
+        source = "equipped_arrow2";
+      }
+    }
+
     if (!item) {
       // ★ 使用回数が尽きた/既に消費済み等
       this.sendPopup("アイテムの使用回数がなくなりました", wsPlayer, 2500);
@@ -2588,55 +2985,61 @@ export class Match {
     // ============================
     // 0) 矢装備（slot 指定対応・即時UI更新）
     // ============================
-    if (action === "arrow" && (item.is_arrow || item.equip_type === "arrow")) {
-
-        // ★ slot 正規化（"2" → 2）
-        const equipSlot = Number(slot || 1);
-
-        let prevEquipped = null;
-
-        // ---- slot2 指定 ----
-        if (equipSlot === 2) {
-
-            if (P.arrow_slots < 2) {
-                this.sendError("❌ 矢スロット2は解放されていません。", wsPlayer);
-                return;
-            }
-
-            prevEquipped = P.arrow2;
-
-            if (P.arrow2) {
-                P.arrow_inventory.push(P.arrow2);
-            }
-
-            P.arrow2 = item;
-        }
-        // ---- slot1 指定 ----
-        else if (equipSlot === 1) {
-
-            prevEquipped = P.arrow;
-
-            if (P.arrow) {
-                P.arrow_inventory.push(P.arrow);
-            }
-
-            P.arrow = item;
-        }
-        // ---- 不正 slot ----
-        else {
+    if (action === "arrow" && isArrowItem(item)) {
+        const targetSlot = getPlayerArrowSlotKey(slot);
+        if (!targetSlot) {
             this.sendError("❌ 不正な矢スロット指定です。", wsPlayer);
             return;
         }
+        if (targetSlot === "arrow2" && P.arrow_slots < 2) {
+            this.sendError("❌ 矢スロット2は解放されていません。", wsPlayer);
+            return;
+        }
 
-        // インベントリから削除
-        P[source] = P[source].filter(x => x.uid !== uid);
+        const sourceSlot =
+            source === "equipped_arrow" ? "arrow" :
+            source === "equipped_arrow2" ? "arrow2" :
+            "";
+        let prevEquipped = P[targetSlot] ?? null;
+        let equippedItem = item;
+        let splitEquipped = false;
 
-        if (prevEquipped) {
-            this.sendBattle(`${prevEquipped.name} と ${item.name} を付け替えた！`);
-            this.sendPopup(`${prevEquipped.name} と ${item.name} を付け替えた！`, wsPlayer, 2000);
+        if (sourceSlot) {
+            if (sourceSlot === targetSlot) {
+                this.sendPopup(`${item.name} はすでにそのスロットに装備中です`, wsPlayer, 1600);
+                this.sendItemList(wsPlayer, P);
+                return;
+            }
+
+            if (!prevEquipped && getArrowAmmoCount(item) > 1) {
+                const splitCount = Math.max(1, Math.floor(getArrowAmmoCount(item) / 2));
+                setArrowAmmoCount(item, getArrowAmmoCount(item) - splitCount);
+                equippedItem = cloneArrowStack(item, splitCount);
+                P[targetSlot] = equippedItem;
+                splitEquipped = true;
+            } else {
+                P[targetSlot] = item;
+                P[sourceSlot] = prevEquipped;
+            }
         } else {
-            this.sendBattle(`${item.name} を装備した！`);
-            this.sendPopup(`${item.name} を装備した！`, wsPlayer, 2000);
+            if (prevEquipped) {
+                addArrowToPlayerStack(P, prevEquipped, { includeEquipped: false });
+            }
+            P[targetSlot] = item;
+            P[source] = P[source].filter(x => x.uid !== uid);
+        }
+
+        normalizePlayerArrowInventory(P);
+
+        if (splitEquipped) {
+            this.sendBattle(`${item.name} を別スロットに分けて装備した！`);
+            this.sendPopup(`${item.name} を別スロットに分けて装備した！`, wsPlayer, 2000);
+        } else if (prevEquipped) {
+            this.sendBattle(`${prevEquipped.name} と ${equippedItem.name} を付け替えた！`);
+            this.sendPopup(`${prevEquipped.name} と ${equippedItem.name} を付け替えた！`, wsPlayer, 2000);
+        } else {
+            this.sendBattle(`${equippedItem.name} を装備した！`);
+            this.sendPopup(`${equippedItem.name} を装備した！`, wsPlayer, 2000);
         }
 
         this.sendItemList(wsPlayer, P);
@@ -3060,8 +3463,8 @@ export class Match {
           return;
         }
 
-        // 達人への道：アイテム効果が2回発動（ID 80 ノード効果）
-        if (Array.isArray(P.dojoTrailNodes) && P.dojoTrailNodes.includes(80)) {
+        // 達人への道：万能の秘薬でアイテム効果が2回発動。
+        if (P.dojoItemDoubleEffect === true) {
           this.sendBattle(`万能の秘薬の効果で、${item.name} が再度発動する...`);
           P.apply_item(item);
         }
@@ -3135,8 +3538,12 @@ export class Match {
         return;
       }
 
-      this.sendBattle(`${item.name} を使用した！`);
-      this.sendPopup(`${item.name} を使用した！`, wsPlayer, 2000);
+      const itemUseMessage = P.last_item_message
+        ? `${item.name} を使用した！ ${P.last_item_message}`
+        : `${item.name} を使用した！`;
+      P.last_item_message = "";
+      this.sendBattle(itemUseMessage);
+      this.sendPopup(itemUseMessage, wsPlayer, 2000);
 
       // インベントリから削除
       P[source] = P[source].filter(x => x.uid !== uid);
@@ -3176,6 +3583,7 @@ export class Match {
     // 所持アイテム一覧を送信（共通）
     // ===============================
     sendItemList(wsPlayer, P) {
+      normalizePlayerArrowInventory(P);
       const equippedSpecialItems = [];
       const specialEquip = buildSpecialEquip(P);
       for (const slot of specialEquip?.slots ?? []) {
@@ -3290,6 +3698,7 @@ export class Match {
       overheal_max_hp: P.job === "僧侶" ? 400 : P.max_hp,
       attack: P.doll ? (P.doll.is_broken ? 0 : P.getDollAttack()) : P.get_total_attack(),
       defense: P.doll ? (P.doll.is_broken ? 0 : P.getDollDefense()) : P.get_total_defense(),
+      special_defense: Math.max(0, Number(P.get_special_defense?.() ?? 0)),
       coins: P.coins,
       blessing_count: Number(P.blessing_count ?? 0),
       level: P.level,
@@ -3391,6 +3800,7 @@ export class Match {
         overheal_max_hp: self.job === "僧侶" ? 400 : self.max_hp,
         attack: self.doll ? (self.doll.is_broken ? 0 : self.getDollAttack()) : self.get_total_attack(),
         defense: self.doll ? (self.doll.is_broken ? 0 : self.getDollDefense()) : self.get_total_defense(),
+        special_defense: Math.max(0, Number(self.get_special_defense?.() ?? 0)),
         coins: self.coins,
         blessing_count: Number(self.blessing_count ?? 0),
         level: self.level,
@@ -3413,9 +3823,11 @@ export class Match {
         arrow_slots: self.arrow_slots ?? 1,
         equip_slots: self.dojoEquipSlots ?? { equipment: 1, special: 1 },
         damage_taken_last_round: self.damage_taken_last_round ?? 0,
-        damage_taken_last_turn: self.damage_taken_last_turn ?? 0,
-        archer_buff: self.archer_buff ?? null,
-        archer_pierce_rounds: self.archer_pierce_rounds ?? (self.archer_next_pierce ? 1 : 0),
+      damage_taken_last_turn: self.damage_taken_last_turn ?? 0,
+      archer_buff: self.archer_buff ?? null,
+      archer_no_consume_rounds: self.archer_no_consume_rounds ?? 0,
+      archer_no_consume_permanent: !!self.archer_no_consume_permanent,
+      archer_pierce_rounds: self.archer_pierce_rounds ?? (self.archer_next_pierce ? 1 : 0),
 
         // ★ 必ず配列に正規化
         equipment: [
@@ -3464,6 +3876,7 @@ export class Match {
         overheal_max_hp: enemy.job === "僧侶" ? 400 : enemy.max_hp,
         attack: enemy.doll ? (enemy.doll.is_broken ? 0 : enemy.getDollAttack()) : enemy.get_total_attack(),
         defense: enemy.doll ? (enemy.doll.is_broken ? 0 : enemy.getDollDefense()) : enemy.get_total_defense(),
+        special_defense: Math.max(0, Number(enemy.get_special_defense?.() ?? 0)),
         coins: enemy.coins,
         blessing_count: Number(enemy.blessing_count ?? 0),
         level: enemy.level,
@@ -3484,9 +3897,11 @@ export class Match {
         arrow_slots: enemy.arrow_slots ?? 1,
         equip_slots: enemy.dojoEquipSlots ?? { equipment: 1, special: 1 },
         damage_taken_last_round: enemy.damage_taken_last_round ?? 0,
-        damage_taken_last_turn: enemy.damage_taken_last_turn ?? 0,
-        archer_buff: enemy.archer_buff ?? null,
-        archer_pierce_rounds: enemy.archer_pierce_rounds ?? (enemy.archer_next_pierce ? 1 : 0),
+      damage_taken_last_turn: enemy.damage_taken_last_turn ?? 0,
+      archer_buff: enemy.archer_buff ?? null,
+      archer_no_consume_rounds: enemy.archer_no_consume_rounds ?? 0,
+      archer_no_consume_permanent: !!enemy.archer_no_consume_permanent,
+      archer_pierce_rounds: enemy.archer_pierce_rounds ?? (enemy.archer_next_pierce ? 1 : 0),
 
         // ★ 必ず配列に正規化
         equipment: [
@@ -3564,6 +3979,7 @@ export class Match {
     let total = 0;
     for (let i = 0; i < hits && target.hp > 0; i += 1) {
       const raw = Math.max(1, Math.floor(Number(actor.getActualAttack?.() ?? actor.get_total_attack()) * multiplier));
+      const targetType = this.getDamageTargetType(target);
       let dealt;
       if (ignoreDefense > 0) {
         const saved = target.get_total_defense;
@@ -3575,7 +3991,11 @@ export class Match {
         dealt = target.take_damage(raw, false, actor);
       }
       total += Math.max(0, dealt);
-      if (dealt > 0) this.sendDamageEvent(target, dealt, kind, "body");
+      this.sendDamageEvent(target, dealt, kind, targetType, {
+        show_zero: true,
+        sequence_index: i,
+        sequence_total: hits,
+      });
       if (actor.dojoEnemyId === "ashura" && actor.dojoAwakened) {
         actor.base_attack = Number(actor.base_attack ?? actor.attack ?? 0) + 1;
         actor.attack = Number(actor.attack ?? actor.base_attack ?? 0) + 1;
@@ -3643,7 +4063,17 @@ export class Match {
     } else if (actor.dojoEnemyId === "goblin") {
       if (action === "a") { title = "めった斬り"; desc = "2連続攻撃。"; logs = this.dojoEnemyStrike(actor, target, { label: title, multiplier: 0.72, hits: 2 }); }
       else if (action === "b") { title = "悪知恵"; desc = "攻撃力を上げる。"; dojoAddBuff(actor, "攻撃力", 3, 3, title); logs = [`${actor.name} の攻撃力が上がった！`]; this.sendBuffVisualEvent(actor, "powerup"); }
-      else if (action === "c") { title = "こそ泥"; desc = "通常アイテム・通常装備だけを盗む。"; const stolen = stealDojoGoblinItem(target); logs = [stolen ? `${actor.name} は ${stolen.name ?? "持ち物"} を盗んだ！` : `${actor.name} は盗みを試みたが、盗める物がなかった！`]; }
+      else if (action === "c") {
+        title = "こそ泥";
+        const stolen = stealDojoGoblinItem(target);
+        if (stolen) {
+          desc = `${stolen.sourceName ?? target.name ?? "相手"} から${stolen.itemKind ?? "持ち物"}「${stolen.itemName ?? "持ち物"}」を盗んだ！`;
+          logs = [`${actor.name} は ${desc}`];
+        } else {
+          desc = "盗める物がなかった！";
+          logs = [`${actor.name} は盗みを試みたが、盗める物がなかった！`];
+        }
+      }
       else { logs = this.dojoEnemyStrike(actor, target); }
     } else if (actor.dojoEnemyId === "wolf") {
       if (action === "a") { title = "高速連撃"; desc = "3回の軽い攻撃。"; logs = this.dojoEnemyStrike(actor, target, { label: title, multiplier: 0.55, hits: 3 }); }
@@ -3720,77 +4150,40 @@ export class Match {
     // ★ バフラウンド処理（正しい位置）
     if (actor.process_buffs) actor.process_buffs();
 
+    if (action === "矢なしターン終了") {
+      if (actor.job !== "弓兵") {
+        this.sendError("❌ この行動は弓兵のみ使用できます。", wsPlayer);
+        return;
+      }
+      if (actor.has_usable_arrow?.()) {
+        this.sendError("❌ 矢が装備されています。攻撃またはスキルを選択してください。", wsPlayer);
+        return;
+      }
+      this.sendBattle(`🏹 ${actor.name} は矢がないため行動を見送った。`);
+      this.sendPopup("矢が装備されていないためターンを終了しました。", wsPlayer, 2200);
+      this.sendItemList(wsPlayer, actor);
+      this.sendSimpleStatusBoth();
+      this.endRound();
+      return;
+    }
+
     /* ---------- 攻撃 ---------- */
     if (action === "攻撃") {
 
       // ★ 弓兵は矢攻撃を使用
       if (actor.job === "弓兵") {
-
-        const results = actor.trigger_arrow_attack(target) ?? [];
-        for (const r of results) {
-          this.sendBattle(
-            `🏹 ${actor.name} の追撃（${r.name}）！ ${r.dealt}ダメージ`
-          );
-
-          // ============================
-          // ★ UI用：弓兵追撃ダメージ演出
-          // ============================
-          if (r.dealt > 0) {
-            const targetType =
-              target.job === "人形使い" &&
-              target.doll &&
-              !target.doll.is_broken
-                ? "doll"
-                : "body";
-
-            // pursuit 色（黄色）を使う
-            this.sendDamageEvent(target, r.dealt, "pursuit", targetType);
-          }
-
-        }
-
-        // ★ 矢防御貫通のラウンド消費
-        if (Number(actor.archer_pierce_rounds ?? 0) > 0) {
-          actor.archer_pierce_rounds -= 1;
-          actor.archer_next_pierce = actor.archer_pierce_rounds > 0;
-          if (actor.archer_pierce_rounds <= 0) {
-            actor.archer_pierce_rounds = 0;
-            actor.archer_next_pierce = false;
-            this.sendSystem("🏹 矢の防御貫通効果が終了しました");
-          }
-        } else if (actor.archer_next_pierce) {
-          actor.archer_next_pierce = false;
-        }
-
-
-
-
-
-        // ★ 追撃バフのラウンド消費
-        if (actor.archer_buff && actor.archer_buff.rounds > 0) {
-          actor.archer_buff.rounds -= 1;
-          if (actor.archer_buff.rounds <= 0) {
-            actor.archer_buff = null;
-            this.sendSystem("🏹 追撃効果が終了しました");
-          }
-        }
+        if (!this.resolveArcherArrowAttack(actor, target, wsPlayer)) return;
 
       } else {
         const dmg = actor.getActualAttack();
+        const targetType = this.getDamageTargetType(target);
         const dealt = target.take_damage(dmg, false, actor);
         
       // ============================
       // ★ UI用：ダメージ演出送信
       // ============================
+        this.sendDamageEvent(target, dealt, "normal", targetType, { show_zero: true });
         if (dealt > 0) {
-          const targetType =
-            target.job === "人形使い" &&
-            target.doll &&
-            !target.doll.is_broken
-              ? "doll"
-              : "body";
-
-          this.sendDamageEvent(target, dealt, "normal", targetType);
           this.sendSfxEvent("attack");
         }
 
@@ -3819,16 +4212,13 @@ export class Match {
 
           for (let i = 0; i < extraAttackCount && target.hp > 0; i += 1) {
             const extraDamage = actor.getActualAttack();
+            const extraTargetType = this.getDamageTargetType(target);
             const extraDealt = target.take_damage(extraDamage, ignoreExtraDef, actor, true);
-            if (extraDealt > 0) {
-              const targetType =
-                target.job === "人形使い" &&
-                target.doll &&
-                !target.doll.is_broken
-                  ? "doll"
-                  : "body";
-              this.sendDamageEvent(target, extraDealt, "pursuit", targetType);
-            }
+            this.sendDamageEvent(target, extraDealt, "pursuit", extraTargetType, {
+              show_zero: true,
+              sequence_index: i,
+              sequence_total: extraAttackCount,
+            });
             this.sendBattle(`🪆 人形の追加攻撃！ ${extraDealt}ダメージ！`);
           }
         }
@@ -3841,22 +4231,17 @@ export class Match {
       // ★ 烏天狗の追撃（内部トリガー基準）
       if (actor.karasu_tengu_triggers > 0) {
         const logs = actor.trigger_karasu_tengu(target) ?? [];
-        logs.forEach(dmg2 => {
+        logs.forEach((dmg2, index) => {
           this.sendSkill(`🐦 烏天狗の追撃！ ${dmg2}ダメージ！`);
 
           // ============================
           // ★ UI用：烏天狗追撃ダメージ演出
           // ============================
-          if (dmg2 > 0) {
-            const targetType =
-              target.job === "人形使い" &&
-              target.doll &&
-              !target.doll.is_broken
-                ? "doll"
-                : "body";
-
-            this.sendDamageEvent(target, dmg2, "pursuit", targetType);
-          }
+          this.sendDamageEvent(target, dmg2, "pursuit", this.getDamageTargetType(target), {
+            show_zero: true,
+            sequence_index: index,
+            sequence_total: logs.length,
+          });
 
         });
 
@@ -3880,7 +4265,7 @@ export class Match {
 
     /* ---------- スキル（失敗ならラウンド消費しない） ---------- */
     if (
-      (action === "スキル1" || action === "スキル2" || action === "スキル3") &&
+      /^スキル[1-5]$/.test(String(action)) &&
       actor.job !== 9 &&
       Number(actor.job) !== 9
     ) {
@@ -3981,6 +4366,7 @@ export class Match {
     }[job];
 
     const stype = `${prefix}_${num}`;
+    const skillDef = (JOB_SKILLS?.[actor.job] ?? [])[num - 1] ?? null;
 
     // ★ 魔導士：魔力不足は中央ポップアップで通知（最低必要魔力付き）
     if (actor.job === "魔導士") {
@@ -3996,8 +4382,21 @@ export class Match {
     this.sendSkill(`✨ ${actor.name} のスキル発動：${stype}`);
 
     // -------- 1) レベルチェック（最優先） --------
-    if (actor.level < num) {
-      this.sendError(`❌ スキル${num} は Lv${num} で解放されます！`, wsPlayer);
+    const requiredLevel = Number(skillDef?.min_level ?? num);
+    if (actor.level < requiredLevel) {
+      this.sendError(`❌ スキル${num} は Lv${requiredLevel} で解放されます！`, wsPlayer);
+      this.skill_lock = false;
+      return false;
+    }
+
+    const trailNodes = new Set((actor.dojoTrailNodes || []).map(Number));
+    if (actor.job === "戦士" && stype === "warrior_4" && !trailNodes.has(55)) {
+      this.sendError("❌ スキル4は右端の5個目の大軌跡で解放されます！", wsPlayer);
+      this.skill_lock = false;
+      return false;
+    }
+    if (actor.job === "戦士" && stype === "warrior_5" && !trailNodes.has(60)) {
+      this.sendError("❌ スキル5は右端の10個目の大軌跡で解放されます！", wsPlayer);
       this.skill_lock = false;
       return false;
     }
@@ -4015,6 +4414,17 @@ export class Match {
     // -------- 3) スキル封印中 --------
     if (actor.skill_sealed) {
       this.sendError("❌ スキルは封印されている…！", wsPlayer);
+      this.skill_lock = false;
+      return false;
+    }
+
+    if (
+      actor.job === "弓兵" &&
+      (stype === "archer_1" || stype === "archer_2") &&
+      !actor.has_usable_arrow?.()
+    ) {
+      this.sendPopup("矢が装備されていないため攻撃できません。", wsPlayer, 2200);
+      this.sendError("❌ 矢が装備されていないため攻撃できません。", wsPlayer);
       this.skill_lock = false;
       return false;
     }
@@ -4045,10 +4455,49 @@ export class Match {
         ? (target.doll.durability ?? 0)
         : null;
 
+    // Dojo special weapon: every skill hit pierces normal defense.
+    const forcePierceSkill = !!actor.has_dojo_pierce_weapon?.();
+    const originalTargetTakeDamage = target?.take_damage
+      ? target.take_damage.bind(target)
+      : null;
+    const skillDamageRecords = [];
+    if (originalTargetTakeDamage) {
+      target.take_damage = (raw, ignoreDef = false, attacker = null, isExtraAttack = false) => {
+        const targetType =
+          target.job === "人形使い" &&
+          target.doll &&
+          !target.doll.is_broken
+            ? "doll"
+            : "body";
+        const dealt = originalTargetTakeDamage(
+          raw,
+          forcePierceSkill ? true : ignoreDef,
+          attacker ?? actor,
+          isExtraAttack
+        );
+        const dealtAmount = Math.max(0, Number(dealt ?? 0));
+        if (Number.isFinite(dealtAmount)) {
+          skillDamageRecords.push({
+            dealt: dealtAmount,
+            targetType,
+            statusPatch: this.buildLiveStatusPatch(target),
+          });
+        }
+        return dealt;
+      };
+    }
+
     // ★ async / sync 両対応：Promise なら await する
-    let ok = fn.call(actor, stype, target);
-    if (ok && typeof ok.then === "function") {
-      ok = await ok;
+    let ok;
+    try {
+      ok = fn.call(actor, stype, target);
+      if (ok && typeof ok.then === "function") {
+        ok = await ok;
+      }
+    } finally {
+      if (originalTargetTakeDamage) {
+        target.take_damage = originalTargetTakeDamage;
+      }
     }
 
     if (!ok) {
@@ -4070,11 +4519,22 @@ export class Match {
       actorDefBuffIncreased ||
       afterTargetDefBuff > beforeTargetDefBuff;
     const hasSkillDamage =
+      skillDamageRecords.length > 0 ||
       beforeHpActor > actor.hp ||
       beforeHpTarget > target.hp ||
       (beforeDollTarget != null &&
         target.doll &&
         Number(beforeDollTarget) > Number(target.doll.durability ?? 0));
+    const dojoSkillDamageBonus =
+      this.matchType === "dojo" &&
+      actor.job === "戦士" &&
+      String(stype).startsWith("warrior_")
+        ? Math.max(0, Number(actor.get_dojo_skill_damage_bonus?.() ?? 0))
+        : 0;
+    if (hasSkillDamage && dojoSkillDamageBonus > 0) {
+      this.sendSkill(`軌跡効果：戦士スキルダメージ +${dojoSkillDamageBonus}`);
+      this.sendBattle(`軌跡効果で ${actor.name} の戦士スキルダメージ +${dojoSkillDamageBonus} が適用された。`);
+    }
     const hasSelfBuffWithDamage = hasSkillDamage && (actorAttackBuffIncreased || actorDefBuffIncreased);
     const skillEffectEvents = this.getSkillEffectEvents(actor, target, stype, beforeHpActor);
     const selfSkillEffectEvents = skillEffectEvents.filter(event => event.player === actor);
@@ -4107,16 +4567,24 @@ export class Match {
     }
 
     const damagedTarget = beforeHpTarget - target.hp;
-    if (damagedTarget > 0) {
-      this.sendDamageEvent(target, damagedTarget, "normal", "body");
-    }
-
-    if (damagedTarget > 0) {
-      if (stype === "mage_2" || stype === "mage_3") {
-        this.sendSfxEvent("boom");
-      } else {
-        this.sendSfxEvent("attack");
+    if (skillDamageRecords.length > 0) {
+      for (let index = 0; index < skillDamageRecords.length; index += 1) {
+        const record = skillDamageRecords[index];
+        this.sendDamageEvent(
+          target,
+          record.dealt,
+          skillDamageRecords.length > 1 ? "pursuit" : "normal",
+          record.targetType,
+          {
+            show_zero: true,
+            sequence_index: index,
+            sequence_total: skillDamageRecords.length,
+            status_patch: record.statusPatch,
+          }
+        );
       }
+    } else if (damagedTarget > 0) {
+      this.sendDamageEvent(target, damagedTarget, "normal", "body");
     }
 
     // 人形へのダメージ（HPが減らないケース）
@@ -4124,7 +4592,26 @@ export class Match {
       const afterDollTarget = target.doll.durability ?? 0;
       const damagedDoll = beforeDollTarget - afterDollTarget;
       if (damagedDoll > 0) {
-        this.sendDamageEvent(target, damagedDoll, "normal", "doll");
+        const alreadySentRecordedDamage = skillDamageRecords.length > 0;
+        const dollRecords = skillDamageRecords.filter(record => record.targetType === "doll");
+        if (!alreadySentRecordedDamage && dollRecords.length > 0) {
+          for (let index = 0; index < dollRecords.length; index += 1) {
+            const record = dollRecords[index];
+            this.sendDamageEvent(
+              target,
+              record.dealt,
+              dollRecords.length > 1 ? "pursuit" : "normal",
+              "doll",
+              {
+                sequence_index: index,
+                sequence_total: dollRecords.length,
+                status_patch: record.statusPatch,
+              }
+            );
+          }
+        } else if (!alreadySentRecordedDamage) {
+          this.sendDamageEvent(target, damagedDoll, "normal", "doll");
+        }
       }
     }
 
@@ -4170,8 +4657,22 @@ export class Match {
       });
     }
 
-    this.sendItemList(wsPlayer, actor);
+    if (prefix === "thief") {
+      this.sendThiefStealPopup(actor);
+    }
 
+    this.sendItemList(wsPlayer, actor);
+    const targetWsForItems = target === this.P1 ? this.p1 : target === this.P2 ? this.p2 : null;
+    if (prefix === "thief" && targetWsForItems) {
+      this.sendItemList(targetWsForItems, target);
+    }
+
+    if (actor.job === "弓兵" && (stype === "archer_1" || stype === "archer_2")) {
+      if (!this.resolveArcherArrowAttack(actor, target, wsPlayer, { label: "通常攻撃" })) {
+        this.skill_lock = false;
+        return false;
+      }
+    }
 
     // 弓兵・陰陽師の追加処理（成功時のみ）
 
@@ -4191,6 +4692,74 @@ export class Match {
     this.skill_lock = false;
     this.endRound(); // ★ 成功した時だけラウンド消費
     return true;
+  }
+
+  resolveArcherArrowAttack(actor, target, wsPlayer, { label = "攻撃" } = {}) {
+    const arrowAttack = actor.trigger_arrow_attack(target, { consume: true });
+    if (!arrowAttack?.ok) {
+      this.sendPopup("矢が装備されていないため攻撃できません。", wsPlayer, 2200);
+      this.sendError("❌ 矢が装備されていないため攻撃できません。", wsPlayer);
+      const actorWs = actor === this.P1 ? this.p1 : actor === this.P2 ? this.p2 : wsPlayer;
+      if (actorWs) this.sendItemList(actorWs, actor);
+      this.sendSimpleStatusBoth();
+      return false;
+    }
+
+    const results = arrowAttack.results ?? [];
+    for (let index = 0; index < results.length; index += 1) {
+      const r = results[index];
+      const remainText = r.consumed
+        ? `（残り${r.remaining}本）`
+        : (r.noConsume ? "（矢消費なし）" : "");
+      const actionLabel = r.extraAttack ? "追撃" : label;
+
+      this.sendBattle(
+        `🏹 ${actor.name} の${actionLabel}（${r.name}）！ ${r.dealt}ダメージ${remainText}`,
+        { action_source: "arrow", sequence_index: index, sequence_total: results.length }
+      );
+
+      this.sendDamageEvent(
+        target,
+        r.dealt,
+        r.extraAttack ? "pursuit" : "normal",
+        r.targetType ?? "body",
+        {
+          show_zero: true,
+          action_source: "arrow",
+          sequence_index: index,
+          sequence_total: results.length,
+          status_patch: this.buildLiveStatusPatch(target, r.statusSnapshot ?? {}),
+        }
+      );
+    }
+
+    this.decrementArcherAttackBuffs(actor);
+
+    const actorWs = actor === this.P1 ? this.p1 : actor === this.P2 ? this.p2 : wsPlayer;
+    if (actorWs) this.sendItemList(actorWs, actor);
+    this.sendSimpleStatusBoth();
+    return true;
+  }
+
+  decrementArcherAttackBuffs(actor) {
+    if (Number(actor.archer_no_consume_rounds ?? 0) > 0) {
+      actor.archer_no_consume_rounds -= 1;
+      if (actor.archer_no_consume_rounds <= 0) {
+        actor.archer_no_consume_rounds = 0;
+        this.sendSystem("🏹 無尽射撃の効果が終了しました");
+      }
+    }
+
+    actor.archer_pierce_rounds = 0;
+    actor.archer_next_pierce = false;
+
+    if (actor.archer_buff && actor.archer_buff.rounds > 0) {
+      actor.archer_buff.rounds -= 1;
+      if (actor.archer_buff.rounds <= 0) {
+        actor.archer_buff = null;
+        this.sendSystem("🏹 追撃効果が終了しました");
+      }
+    }
   }
 
 
@@ -4698,10 +5267,7 @@ export class Match {
 
     // ★ sendRoundInfo は startRound() の末尾で送っているため、ここでは二重送信しない
 
-  // ★ 次がCPUのラウンドなら行動させる
-  if (this.current.isBot) {
-    maybeCpuTurn(this);
-  }
+  this.scheduleCpuTurn(350);
     
   }
 
@@ -4927,9 +5493,19 @@ const DOJO_TRAIL_EQUIP_SLOT_MAJOR_2_ICON = "Assets/dojo/trail-icons/equipment-sl
 const DOJO_TRAIL_ITEM_SLOT_SMALL_ICON = "Assets/dojo/trail-icons/item-slot-small.png";
 const DOJO_TRAIL_ITEM_ATTACK_MAJOR_ICON = "Assets/dojo/trail-icons/item-attack-major.png";
 const DOJO_TRAIL_ITEM_DOUBLE_MAJOR_ICON = "Assets/dojo/trail-icons/item-double-major.png";
+const DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON = "Assets/dojo/trail-icons/skill-damage-small.png";
+const DOJO_TRAIL_SKILL_4_MAJOR_ICON = "Assets/dojo/trail-icons/skill-4-major.png";
+const DOJO_TRAIL_SKILL_5_MAJOR_ICON = "Assets/dojo/trail-icons/skill-5-major.png";
 const DOJO_TRAIL_COIN_GAIN_SMALL_ICON = "Assets/dojo/trail-icons/coin-gain-small.png";
 const DOJO_TRAIL_COIN_SHOP_ATTACK_MAJOR_ICON = "Assets/dojo/trail-icons/coin-shop-attack-major.png";
 const DOJO_TRAIL_COIN_SPENT_ATTACK_MAJOR_ICON = "Assets/dojo/trail-icons/coin-spent-attack-major.png";
+const DOJO_TRAIL_DROP_RATE_SMALL_ICON = "Assets/dojo/trail-icons/drop-rate-small.png";
+const DOJO_TRAIL_DROP_GUARANTEED_MAJOR_ICON = "Assets/dojo/trail-icons/drop-guaranteed-major.png";
+const DOJO_TRAIL_DROP_RARE_MAJOR_ICON = "Assets/dojo/trail-icons/drop-rare-major.png";
+const DOJO_SPECIAL_INVINCIBLE_ICON = "Assets/item_icons/dojo_invincible_potion.png";
+const DOJO_SPECIAL_GROWTH_ELIXIR_ICON = "Assets/item_icons/dojo_growth_elixir.png";
+const DOJO_SPECIAL_DEFENSE_ICON = "Assets/item_icons/dojo_special_defense_shield.png";
+const DOJO_SPECIAL_PIERCE_WEAPON_ICON = "Assets/item_icons/dojo_pierce_weapon.png";
 const DOJO_TRAIL_MAJOR_05_ICON = "Assets/dojo/trail-icons/trail-major-05.png";
 const DOJO_TRAIL_MAJOR_15_ICON = "Assets/dojo/trail-icons/trail-major-15.png";
 const DOJO_TRAIL_MAJOR_25_ICON = "Assets/dojo/trail-icons/trail-major-25.png";
@@ -4988,16 +5564,29 @@ const DOJO_TRAIL_THIRD_COLUMN_EFFECTS = {
 };
 
 const DOJO_TRAIL_FOURTH_COLUMN_EFFECTS = {
-  31: { name: "コイン獲得量 +5%", effect_text: "達人への道のコイン獲得量が5%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
-  32: { name: "コイン獲得量 +5%", effect_text: "達人への道のコイン獲得量が5%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
-  33: { name: "コイン獲得量 +5%", effect_text: "達人への道のコイン獲得量が5%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
-  34: { name: "コイン獲得量 +5%", effect_text: "達人への道のコイン獲得量が5%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
-  35: { name: "鍛冶屋の大軌跡", effect_text: "ショップでコインを消費して購入すると、攻撃力装備★1が追加で手に入る。", icon: DOJO_TRAIL_COIN_SHOP_ATTACK_MAJOR_ICON },
+  31: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
+  32: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
+  33: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
+  34: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
+  35: { name: "商才の大軌跡", effect_text: "ショップでアイテムを購入すると攻撃力装備★1も入手する。", icon: DOJO_TRAIL_COIN_SHOP_ATTACK_MAJOR_ICON },
   36: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
   37: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
   38: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
   39: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
-  40: { name: "投資の大軌跡", effect_text: "この挑戦中に消費したコインの1/10だけ基礎攻撃力が上がる。", icon: DOJO_TRAIL_COIN_SPENT_ATTACK_MAJOR_ICON }
+  40: { name: "蓄財の大軌跡", effect_text: "達人への道で消費したコイン50枚につき攻撃力が1上昇する。", icon: DOJO_TRAIL_COIN_SPENT_ATTACK_MAJOR_ICON }
+};
+
+const DOJO_TRAIL_DROP_COLUMN_EFFECTS = {
+  41: { name: "ドロップ率 +10%", effect_text: "達人への道のアイテム・装備ドロップ率が10%上がる。", icon: DOJO_TRAIL_DROP_RATE_SMALL_ICON },
+  42: { name: "ドロップ率 +10%", effect_text: "達人への道のアイテム・装備ドロップ率が10%上がる。", icon: DOJO_TRAIL_DROP_RATE_SMALL_ICON },
+  43: { name: "ドロップ率 +10%", effect_text: "達人への道のアイテム・装備ドロップ率が10%上がる。", icon: DOJO_TRAIL_DROP_RATE_SMALL_ICON },
+  44: { name: "ドロップ率 +10%", effect_text: "達人への道のアイテム・装備ドロップ率が10%上がる。", icon: DOJO_TRAIL_DROP_RATE_SMALL_ICON },
+  45: { name: "宝箱の大軌跡", effect_text: "勝利時、アイテムまたは装備が必ず1つドロップする。", icon: DOJO_TRAIL_DROP_GUARANTEED_MAJOR_ICON },
+  46: { name: "上級ドロップ率アップ", effect_text: "★2・★3のアイテム/装備が出やすくなる。", icon: DOJO_TRAIL_DROP_RATE_SMALL_ICON },
+  47: { name: "上級ドロップ率アップ", effect_text: "★2・★3のアイテム/装備が出やすくなる。", icon: DOJO_TRAIL_DROP_RATE_SMALL_ICON },
+  48: { name: "上級ドロップ率アップ", effect_text: "★2・★3のアイテム/装備が出やすくなる。", icon: DOJO_TRAIL_DROP_RATE_SMALL_ICON },
+  49: { name: "上級ドロップ率アップ", effect_text: "★2・★3のアイテム/装備が出やすくなる。", icon: DOJO_TRAIL_DROP_RATE_SMALL_ICON },
+  50: { name: "秘宝の大軌跡", effect_text: "勝利時、アイテム1種と装備1種が必ずドロップ。さらに特殊アイテム5%、特殊装備5%の抽選が発生する。", icon: DOJO_TRAIL_DROP_RARE_MAJOR_ICON }
 };
 
 const DOJO_TRAIL_SEVENTH_COLUMN_EFFECTS = {
@@ -5011,6 +5600,19 @@ const DOJO_TRAIL_SEVENTH_COLUMN_EFFECTS = {
   68: { name: "装備枠 +1", effect_text: "装備できる装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
   69: { name: "特殊装備持ち込み枠 +1", effect_text: "持ち込める特殊装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
   70: { name: "特殊装備枠 +3", effect_text: "装備できる特殊装備枠が3増える。", icon: DOJO_TRAIL_EQUIP_SLOT_MAJOR_2_ICON }
+};
+
+const DOJO_TRAIL_SKILL_COLUMN_EFFECTS = {
+  51: { name: "全スキルダメージ +5", effect_text: "戦士の全スキルダメージが5上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
+  52: { name: "全スキルダメージ +5", effect_text: "戦士の全スキルダメージが5上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
+  53: { name: "全スキルダメージ +5", effect_text: "戦士の全スキルダメージが5上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
+  54: { name: "全スキルダメージ +5", effect_text: "戦士の全スキルダメージが5上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
+  55: { name: "剛勇覚醒の大軌跡", effect_text: "戦士スキル4「剛勇覚醒」を解放する。レベル3で使用可能。5R攻撃力+20後、通常攻撃を行う。", icon: DOJO_TRAIL_SKILL_4_MAJOR_ICON },
+  56: { name: "全スキルダメージ +10", effect_text: "戦士の全スキルダメージが10上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
+  57: { name: "全スキルダメージ +10", effect_text: "戦士の全スキルダメージが10上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
+  58: { name: "全スキルダメージ +10", effect_text: "戦士の全スキルダメージが10上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
+  59: { name: "全スキルダメージ +10", effect_text: "戦士の全スキルダメージが10上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
+  60: { name: "覇断一閃の大軌跡", effect_text: "戦士スキル5「覇断一閃」を解放する。レベル3で使用可能。防御無視の通常攻撃を行い、攻撃力アップバフ1種類につき威力が10上昇する。", icon: DOJO_TRAIL_SKILL_5_MAJOR_ICON }
 };
 
 const DOJO_TRAIL_ITEM_COLUMN_EFFECTS = {
@@ -5033,10 +5635,10 @@ const DOJO_TRAIL_MAJOR_ICON_OVERRIDES = {
   30: DOJO_TRAIL_MAJOR_30_ICON,
   35: DOJO_TRAIL_COIN_SHOP_ATTACK_MAJOR_ICON,
   40: DOJO_TRAIL_COIN_SPENT_ATTACK_MAJOR_ICON,
-  45: DOJO_TRAIL_MAJOR_45_ICON,
-  50: DOJO_TRAIL_MAJOR_50_ICON,
-  55: DOJO_TRAIL_MAJOR_55_ICON,
-  60: DOJO_TRAIL_MAJOR_60_ICON
+  45: DOJO_TRAIL_DROP_GUARANTEED_MAJOR_ICON,
+  50: DOJO_TRAIL_DROP_RARE_MAJOR_ICON,
+  55: DOJO_TRAIL_SKILL_4_MAJOR_ICON,
+  60: DOJO_TRAIL_SKILL_5_MAJOR_ICON
 };
 
 function createDojoExcalibur() {
@@ -5082,6 +5684,75 @@ function createDojoAttackEquipStar1() {
   };
 }
 
+function createDojoInvinciblePotion() {
+  return {
+    uid: crypto.randomUUID(),
+    name: "無敵の霊薬",
+    star: 3,
+    is_equip: false,
+    is_dojo_special_item: true,
+    dojo_special_item_effect: "invincible",
+    effect_type: "DOJO_INVINCIBLE",
+    rounds: 2,
+    price: 0,
+    icon_src: DOJO_SPECIAL_INVINCIBLE_ICON,
+    effect_text: "2Rの間、受けるダメージを0にする。"
+  };
+}
+
+function createDojoGrowthElixir() {
+  return {
+    uid: crypto.randomUUID(),
+    name: "成長の戦薬",
+    star: 3,
+    is_equip: false,
+    is_dojo_special_item: true,
+    dojo_special_item_effect: "attack_growth",
+    effect_type: "DOJO_ATTACK_GROWTH",
+    power: 2,
+    price: 0,
+    icon_src: DOJO_SPECIAL_GROWTH_ELIXIR_ICON,
+    effect_text: "使用後、ステージクリアまで毎ラウンド攻撃力+2。"
+  };
+}
+
+function createDojoSpecialDefenseEquip() {
+  return {
+    uid: crypto.randomUUID(),
+    name: "不穿の守護盾",
+    star: 3,
+    is_equip: true,
+    equip_type: "dojo_special",
+    dojo_special_effect: "special_defense",
+    special_defense: 10,
+    price: 0,
+    icon_src: DOJO_SPECIAL_DEFENSE_ICON,
+    effect_text: "特殊防御+10。防御貫通でも貫通されない防御を得る。"
+  };
+}
+
+function createDojoPierceWeapon() {
+  return {
+    uid: crypto.randomUUID(),
+    name: "穿界の魔剣",
+    star: 3,
+    is_equip: true,
+    equip_type: "dojo_special",
+    dojo_special_effect: "pierce_weapon",
+    price: 0,
+    icon_src: DOJO_SPECIAL_PIERCE_WEAPON_ICON,
+    effect_text: "装備中、通常攻撃とスキルがすべて防御貫通になる。"
+  };
+}
+
+function createRandomDojoSpecialItem() {
+  return Math.random() < 0.5 ? createDojoInvinciblePotion() : createDojoGrowthElixir();
+}
+
+function createRandomDojoSpecialEquip() {
+  return Math.random() < 0.5 ? createDojoSpecialDefenseEquip() : createDojoPierceWeapon();
+}
+
 function createDojoTrailNode(id) {
   const branchSize = 10;
   const rawBranch = Math.floor((id - 1) / branchSize);
@@ -5093,7 +5764,7 @@ function createDojoTrailNode(id) {
   const distanceByLane = [0, 9.5, 14, 18.5, 24, 32, 41.5, 47, 52, 58, 64.5];
   const angle = (-138 + branch * (96 / 7)) * Math.PI / 180;
   const distance = distanceByLane[lane] ?? (10 + lane * 6);
-  const effect = DOJO_TRAIL_LEFT_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SECOND_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_THIRD_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_FOURTH_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SEVENTH_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_ITEM_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SMALL_EFFECTS[(id - 1) % DOJO_TRAIL_SMALL_EFFECTS.length];
+  const effect = DOJO_TRAIL_LEFT_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SECOND_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_THIRD_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_FOURTH_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_DROP_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SEVENTH_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SKILL_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_ITEM_COLUMN_EFFECTS[id] ?? DOJO_TRAIL_SMALL_EFFECTS[(id - 1) % DOJO_TRAIL_SMALL_EFFECTS.length];
   const majorIconOverride = DOJO_TRAIL_MAJOR_ICON_OVERRIDES[id];
   return {
     id,
@@ -5125,6 +5796,12 @@ function buildDojoTrailView(wsOrAccountId, jobName = "戦士") {
     unlockedNodes: [...unlocked].sort((a, b) => a - b),
     unlockedCount: unlocked.size,
     trailAttackGrowth: Number(state?.trailAttackGrowth ?? 0),
+    skillDamageBonus: getDojoTrailSkillDamageBonus(state),
+    coinGainPercent: getDojoTrailCoinGainPercent(state),
+    dropRateBonusPercent: getDojoTrailDropRateBonusPercent(state),
+    rareDropBonusCount: getDojoTrailRareDropBonusCount(state),
+    guaranteedDrop: hasDojoTrailGuaranteedDrop(state),
+    doubleGuaranteedDrop: hasDojoTrailDoubleGuaranteedDrop(state),
     total: DOJO_TRAIL_NODE_COUNT,
     nodes: DOJO_TRAIL_NODES.map(node => ({ ...node, unlocked: unlocked.has(node.id) }))
   };
@@ -5135,23 +5812,64 @@ function getDojoTrailAttackBonus(state) {
   let bonus = Number(state?.trailAttackGrowth ?? 0) + Number(state?.trailItemAttackGrowth ?? 0);
   for (const id of [1, 2, 3, 4]) if (unlocked.has(id)) bonus += 1;
   for (const id of [6, 7, 8, 9]) if (unlocked.has(id)) bonus += 2;
-  if (unlocked.has(40)) bonus += Math.floor(Number(state?.trailCoinSpent ?? 0) / 10);
+  if (unlocked.has(40)) {
+    bonus += Math.max(0, Math.floor(Number(state?.trailCoinSpent ?? 0) / 50));
+  }
   return bonus;
 }
 
 function getDojoTrailCoinGainPercent(state) {
   const unlocked = new Set((state?.trailNodes || []).map(Number));
   let percent = 0;
-  for (const id of [31, 32, 33, 34]) if (unlocked.has(id)) percent += 5;
-  for (const id of [36, 37, 38, 39]) if (unlocked.has(id)) percent += 10;
+  for (const id of [31, 32, 33, 34, 36, 37, 38, 39]) if (unlocked.has(id)) percent += 10;
   return percent;
 }
 
-function applyDojoTrailCoinGainBonus(run, amount) {
+function getDojoTrailDropRateBonusPercent(state) {
+  const unlocked = new Set((state?.trailNodes || []).map(Number));
+  let percent = 0;
+  for (const id of [41, 42, 43, 44]) if (unlocked.has(id)) percent += 10;
+  return percent;
+}
+
+function getDojoTrailRareDropBonusCount(state) {
+  const unlocked = new Set((state?.trailNodes || []).map(Number));
+  let count = 0;
+  for (const id of [46, 47, 48, 49]) if (unlocked.has(id)) count += 1;
+  return count;
+}
+
+function hasDojoTrailGuaranteedDrop(state) {
+  const unlocked = new Set((state?.trailNodes || []).map(Number));
+  return unlocked.has(45) || unlocked.has(50);
+}
+
+function hasDojoTrailDoubleGuaranteedDrop(state) {
+  const unlocked = new Set((state?.trailNodes || []).map(Number));
+  return unlocked.has(50);
+}
+
+function getDojoTrailSkillDamageBonus(state) {
+  const source = state instanceof Set ? [...state] : (state?.trailNodes || []);
+  const unlocked = new Set(source.map(Number));
+  let bonus = 0;
+  for (const id of [51, 52, 53, 54]) if (unlocked.has(id)) bonus += 5;
+  for (const id of [56, 57, 58, 59]) if (unlocked.has(id)) bonus += 10;
+  return bonus;
+}
+
+function getDojoTrailCoinGainDetail(run, amount) {
   const base = Math.max(0, Math.floor(Number(amount ?? 0)));
   const percent = getDojoTrailCoinGainPercent(ensureDojoRunTrailState(run));
-  if (percent <= 0 || base <= 0) return base;
-  return Math.max(base, Math.floor(base * (100 + percent) / 100));
+  if (percent <= 0 || base <= 0) {
+    return { amount: base, base, bonus: 0, percent };
+  }
+  const bonus = Math.max(1, Math.floor(base * percent / 100));
+  return { amount: base + bonus, base, bonus, percent };
+}
+
+function applyDojoTrailCoinGainBonus(run, amount) {
+  return getDojoTrailCoinGainDetail(run, amount).amount;
 }
 
 function recordDojoCoinSpent(ws, amount) {
@@ -5292,11 +6010,16 @@ function applyDojoTrailBonusesToPlayer(ws) {
   const defenseBonus = getDojoTrailDefenseBonus(state);
   const maxHpBonus = getDojoTrailMaxHpBonus(state);
   const coinGainPercent = getDojoTrailCoinGainPercent(state);
+  const dropRateBonusPercent = getDojoTrailDropRateBonusPercent(state);
+  const rareDropBonusCount = getDojoTrailRareDropBonusCount(state);
   player._dojoTrailAttackBonusApplied = attackBonus;
   player._dojoTrailDefenseBonusApplied = defenseBonus;
   player._dojoTrailMaxHpBonusApplied = maxHpBonus;
   player._dojoTrailRoundRegen = hasDojoTrailRoundRegen(state) ? 2 : 0;
   player._dojoTrailCoinGainPercent = coinGainPercent;
+  player._dojoTrailCoinSpent = Math.max(0, Number(state?.trailCoinSpent ?? 0));
+  player._dojoTrailDropRateBonusPercent = dropRateBonusPercent;
+  player._dojoTrailRareDropBonusCount = rareDropBonusCount;
   player.base_attack = Number(player.base_attack ?? player.attack ?? 0) + attackBonus;
   player.attack = Number(player.attack ?? player.base_attack ?? 0) + attackBonus;
   player.base_defense = Number(player.base_defense ?? player.defense ?? 0) + defenseBonus;
@@ -5398,7 +6121,12 @@ function stealDojoGoblinItem(target) {
   if (!candidates.length) return null;
   const pick = pickRandom(candidates);
   target[pick.key].splice(pick.index, 1);
-  return pick.item;
+  return {
+    item: pick.item,
+    sourceName: target?.name ?? "相手",
+    itemName: pick.item?.name ?? "持ち物",
+    itemKind: pick.key === "equipment_inventory" ? "装備" : "アイテム"
+  };
 }
 
 function pickDojoEnemyAction(enemy) {
@@ -5428,6 +6156,15 @@ function resetDojoBattleState(player) {
   player.active_buffs = [];
   player.dot_effects = [];
   player.freeze_debuffs = [];
+  player.defense_debuffs = [];
+  player.archer_buff = null;
+  player.archer_no_consume_rounds = 0;
+  player.archer_no_consume_permanent = false;
+  player.archer_pierce_rounds = 0;
+  player.archer_next_pierce = false;
+  player.dojo_invincible_rounds = 0;
+  player.dojo_attack_growth_active = false;
+  player.dojo_attack_growth_per_round = 0;
   player.shikigami_effects = [];
   player.skill_sealed = false;
   player.barrier = 0;
@@ -5480,26 +6217,34 @@ function dojoStorageKey(category) {
 }
 
 function addUniqueDojoStorage(player, category, item) {
-  if (!item) return;
+  if (!item) return null;
   ensureDojoInventoryState(player);
   const key = dojoStorageKey(category);
-  if (!key) return;
+  if (!key) return null;
   if (!item.uid) item.uid = crypto.randomUUID();
   const list = player.dojoStorage[key];
+  if (key === "special" && isArrowItem(item)) {
+    const existing = list.find(x =>
+      isArrowItem(x) &&
+      getArrowStackKey(x) === getArrowStackKey(item) &&
+      String(x?.uid ?? "") !== String(item.uid ?? "")
+    );
+    if (existing) return mergeArrowAmmo(existing, item);
+  }
   if (!list.some(x => String(x?.uid) === String(item.uid))) {
     list.push(item);
   }
+  return item;
 }
 
 function addItemToDojoStorage(player, item) {
-  if (!item) return;
+  if (!item) return null;
   if (item.is_arrow || item.equip_type === "arrow" || item.equip_type === "mage_equip" || item.equip_type === "alchemist_unique" || item.equip_type === "dojo_special" || item.is_doll_costume) {
-    addUniqueDojoStorage(player, "special", item);
+    return addUniqueDojoStorage(player, "special", item);
   } else if (item.is_equip) {
-    addUniqueDojoStorage(player, "equipment", item);
-  } else {
-    addUniqueDojoStorage(player, "items", item);
+    return addUniqueDojoStorage(player, "equipment", item);
   }
+  return addUniqueDojoStorage(player, "items", item);
 }
 
 function combineDojoStorageEquips(ws, uid1, uid2) {
@@ -5549,6 +6294,64 @@ function combineDojoStorageEquips(ws, uid1, uid2) {
   return true;
 }
 
+function findDojoStorageEquipCombinePair(equipment = []) {
+  const seen = new Map();
+  for (const item of equipment ?? []) {
+    if (!item?.is_equip || item.equip_type !== "normal") continue;
+    const key = `${Number(item.star ?? 1)}::${String(item.equip_category ?? item.effect_type ?? "")}`;
+    const prev = seen.get(key);
+    if (prev) return [prev, item];
+    seen.set(key, item);
+  }
+  return null;
+}
+
+function autoCombineDojoStorageEquips(ws, { notifyEmpty = false } = {}) {
+  if (!ws?.player) return 0;
+  const P = ws.player;
+  ensureDojoInventoryState(P);
+  let count = 0;
+  let lastEquip = null;
+
+  for (let guard = 0; guard < 100; guard++) {
+    const storage = Array.isArray(P.dojoStorage?.equipment) ? P.dojoStorage.equipment : [];
+    const pair = findDojoStorageEquipCombinePair(storage);
+    if (!pair) break;
+
+    const [eq1, eq2] = pair;
+    const id1 = String(eq1?.uid ?? "");
+    const id2 = String(eq2?.uid ?? "");
+    if (!id1 || !id2 || id1 === id2) break;
+
+    const nextEquip = upgradeEquipStar({
+      ...eq1,
+      uid: crypto.randomUUID(),
+    });
+
+    P.dojoStorage.equipment = storage.filter(it => String(it?.uid) !== id1 && String(it?.uid) !== id2);
+    P.dojoStorage.equipment.push(nextEquip);
+    P.dojoLoadout.equipment = (P.dojoLoadout.equipment ?? [])
+      .map(String)
+      .filter(uid => uid !== id1 && uid !== id2);
+    count += 1;
+    lastEquip = nextEquip;
+  }
+
+  if (count > 0) {
+    safeSend(ws, {
+      type: "popup",
+      msg: count === 1
+        ? `${lastEquip?.name ?? "装備"} を自動合成しました`
+        : `${count}回、自動合成しました`,
+      ms: 2200
+    });
+  } else if (notifyEmpty) {
+    safeSend(ws, { type: "popup", msg: "合成できる装備はありません。", ms: 1800 });
+  }
+
+  return count;
+}
+
 function returnDojoBattleItemsToStorage(player) {
   ensureDojoInventoryState(player);
   for (const it of player.items ?? []) addUniqueDojoStorage(player, "items", it);
@@ -5581,6 +6384,19 @@ function returnDojoBattleItemsToStorage(player) {
     for (const key of Object.keys(player.mage_equips)) player.mage_equips[key] = null;
   }
   player.alchemist_equip = null;
+
+  if (previousLoadout && typeof previousLoadout === "object") {
+    for (const key of ["items", "equipment", "special"]) {
+      const available = new Set((player.dojoStorage[key] ?? []).map(it => String(it?.uid)));
+      const limit = Math.max(1, Number(player.dojoCarrySlots?.[key] ?? 1));
+      player.dojoLoadout[key] = (previousLoadout[key] ?? [])
+        .map(String)
+        .filter(uid => available.has(uid))
+        .slice(0, limit);
+    }
+  }
+  pruneDojoLoadout(player);
+  delete player._dojoSelectedLoadoutBeforeBattle;
 }
 
 function takeSelectedDojoStorage(player, key) {
@@ -5636,6 +6452,7 @@ function buildDojoRunView(run, player, wsOrAccountId = null) {
     max_hp: Number(player?.max_hp ?? 0),
     attack: player?.doll ? (player.doll.is_broken ? 0 : player.getDollAttack()) : Number(player?.get_total_attack?.() ?? player?.attack ?? 0),
     defense: player?.doll ? (player.doll.is_broken ? 0 : player.getDollDefense()) : Number(player?.get_total_defense?.() ?? player?.defense ?? 0),
+    specialDefense: Math.max(0, Number(player?.get_special_defense?.() ?? 0)),
     trailBuffs,
     level: Number(player?.level ?? 1),
     exp: currentExp,
@@ -5655,12 +6472,72 @@ function buildDojoRunView(run, player, wsOrAccountId = null) {
   };
 }
 
+function getDojoRewardGenerationLevel(baseLevel, rareBonusCount = 0) {
+  const base = Math.max(1, Math.min(3, Number(baseLevel ?? 1)));
+  const bonus = Math.max(0, Number(rareBonusCount ?? 0));
+  let level = base;
+  if (bonus > 0 && Math.random() < Math.min(0.48, bonus * 0.12)) {
+    level = Math.max(level, 2);
+  }
+  if (bonus > 0 && Math.random() < Math.min(0.24, bonus * 0.06)) {
+    level = 3;
+  }
+  return level;
+}
+
+function createDojoRewardItem(level) {
+  const item = generateOneShopItem(level);
+  item.uid = crypto.randomUUID();
+  return item;
+}
+
+function createDojoRewardEquip(level) {
+  for (let i = 0; i < 12; i++) {
+    const candidate = generateEquipmentForLevel(level);
+    if (!isCoinEquipment(candidate)) {
+      candidate.uid = crypto.randomUUID();
+      return candidate;
+    }
+  }
+  const fallback = generateEquipmentForLevel(level);
+  fallback.uid = crypto.randomUUID();
+  return fallback;
+}
+
+function pushDojoItemDrop(drops, level) {
+  const item = createDojoRewardItem(level);
+  drops.push({ type: "item", name: item.name, item });
+  return item;
+}
+
+function pushDojoEquipDrop(drops, level) {
+  const eq = createDojoRewardEquip(level);
+  drops.push({ type: "equip", name: eq.name, item: eq });
+  return eq;
+}
+
+function pushDojoRandomItemOrEquipDrop(drops, level) {
+  return Math.random() < 0.55
+    ? pushDojoEquipDrop(drops, level)
+    : pushDojoItemDrop(drops, level);
+}
+
 function generateDojoDrops(run, player) {
   const stage = Number(run?.stage ?? 1);
   const kind = getDojoStageKind(stage);
   if (kind === "final_boss") return [];
+  const baseCoinAmount = randInt(5, 20);
+  const coinGain = getDojoTrailCoinGainDetail(run, baseCoinAmount);
+  const coinDrop = {
+    type: "coin",
+    name: "コイン",
+    amount: coinGain.amount,
+    base_amount: coinGain.base,
+    trail_bonus_amount: coinGain.bonus,
+    trail_bonus_percent: coinGain.percent
+  };
   const drops = [
-    { type: "coin", name: "コイン", amount: applyDojoTrailCoinGainBonus(run, randInt(5, 20)) },
+    coinDrop,
     { type: "exp", name: "EXP", amount: 5 },
   ];
   if (kind === "boss") {
@@ -5673,32 +6550,37 @@ function generateDojoDrops(run, player) {
     drops.push({ type: "prestige", name: "軌跡ポイント", amount: randInt(2, 5) });
   }
 
+  const trailState = ensureDojoRunTrailState(run);
   const isBoss = kind === "boss" || kind === "mid_boss";
-  const dropRate = isBoss ? 0.55 : 0.28;
+  const baseDropRate = isBoss ? 0.55 : 0.28;
+  const dropRateBonus = getDojoTrailDropRateBonusPercent(trailState);
+  const rareBonusCount = getDojoTrailRareDropBonusCount(trailState);
+  const dropRate = Math.min(1, baseDropRate + (dropRateBonus / 100));
+  const baseLevel = isBoss ? 3 : 1;
+
+  const rollLevel = () => getDojoRewardGenerationLevel(baseLevel, rareBonusCount);
+  let itemEquipDropCount = 0;
+
   if (Math.random() < dropRate) {
-    const level = isBoss ? 3 : 1;
-    if (Math.random() < 0.55) {
-      let eq = null;
-      for (let i = 0; i < 12; i++) {
-        const candidate = generateEquipmentForLevel(level);
-        if (!isCoinEquipment(candidate)) {
-          eq = candidate;
-          break;
-        }
-      }
-      if (eq) {
-        eq.uid = crypto.randomUUID();
-        drops.push({ type: "equip", name: eq.name, item: eq });
-      } else {
-        const item = generateOneShopItem(level);
-        item.uid = crypto.randomUUID();
-        drops.push({ type: "item", name: item.name, item });
-      }
-    } else {
-      const item = generateOneShopItem(level);
-      item.uid = crypto.randomUUID();
-      drops.push({ type: "item", name: item.name, item });
+    pushDojoRandomItemOrEquipDrop(drops, rollLevel());
+    itemEquipDropCount += 1;
+  }
+
+  if (hasDojoTrailDoubleGuaranteedDrop(trailState)) {
+    pushDojoItemDrop(drops, rollLevel());
+    pushDojoEquipDrop(drops, rollLevel());
+    itemEquipDropCount += 2;
+
+    const specialRoll = Math.random();
+    if (specialRoll < 0.05) {
+      const specialItem = createRandomDojoSpecialItem();
+      drops.push({ type: "item", name: specialItem.name, item: specialItem });
+    } else if (specialRoll < 0.10) {
+      const specialEquip = createRandomDojoSpecialEquip();
+      drops.push({ type: "special", name: specialEquip.name, item: specialEquip });
     }
+  } else if (hasDojoTrailGuaranteedDrop(trailState) && itemEquipDropCount <= 0) {
+    pushDojoRandomItemOrEquipDrop(drops, rollLevel());
   }
   return drops;
 }
@@ -5724,11 +6606,11 @@ function addShopItemToPlayerInventory(P, item) {
   P.equipment_inventory = Array.isArray(P.equipment_inventory) ? P.equipment_inventory : [];
   P.special_inventory = Array.isArray(P.special_inventory) ? P.special_inventory : [];
   P.arrow_inventory = Array.isArray(P.arrow_inventory) ? P.arrow_inventory : [];
-  if (item.is_arrow || item.equip_type === "arrow") {
-    P.arrow_inventory.push(item);
+  if (isArrowItem(item)) {
+    addArrowToPlayerStack(P, item, { includeEquipped: true });
   } else if (item.is_doll_costume && P.job === "人形使い") {
     P.special_inventory.push(item);
-  } else if (item.equip_type === "mage_equip" || item.equip_type === "alchemist_unique") {
+  } else if (item.equip_type === "mage_equip" || item.equip_type === "alchemist_unique" || item.equip_type === "dojo_special") {
     P.special_inventory.push(item);
   } else if (item.is_mad_special_item) {
     P.items.push(item);
@@ -5754,6 +6636,7 @@ function serializeDojoPlayer(player) {
     attack: Number(player?.attack ?? 0) - Number(player?._dojoTrailAttackBonusApplied ?? 0),
     base_defense: Number(player?.base_defense ?? player?.defense ?? 0) - Number(player?._dojoTrailDefenseBonusApplied ?? 0),
     defense: Number(player?.defense ?? 0) - Number(player?._dojoTrailDefenseBonusApplied ?? 0),
+    special_defense: Math.max(0, Number(player?.get_special_defense?.() ?? player?.special_defense ?? 0)),
     coins: Number(player?.coins ?? 0),
     items: player?.items ?? [],
     dojoStorage: player?.dojoStorage ?? { items: [], equipment: [], special: [] },
@@ -6000,9 +6883,10 @@ async function handleDojoSocketMessage(ws, m) {
   }
 
   if (m.type === "dojo_end_run") {
-    const endMode = m.mode === "abandon" ? "abandon" : "save";
+    const endMode = m.mode === "clear" ? "clear" : m.mode === "abandon" ? "abandon" : "save";
     if (ws.dojoRun && ws.accountId) {
-      if (endMode === "save") {
+      const cleared = endMode === "clear" || !!ws.dojoRun.cleared;
+      if (endMode === "save" && !cleared) {
         saveCurrentDojoRun(ws);
       } else {
         clearSavedDojoRun({ accountId: ws.accountId, job: ws.dojoRun.jobName ?? "戦士" });
@@ -6011,7 +6895,7 @@ async function handleDojoSocketMessage(ws, m) {
         accountId: ws.accountId,
         job: ws.dojoRun.jobName,
         stage: Number(ws.dojoRun.stage ?? 1),
-        cleared: false
+        cleared
       });
     }
     ws.dojoRun = null;
@@ -6159,7 +7043,7 @@ async function handleDojoSocketMessage(ws, m) {
       return;
     }
     P.coins = Number(P.coins ?? 0) - price;
-    addItemToDojoStorage(P, item);
+    const storedItem = addItemToDojoStorage(P, item) || item;
     const trailState = ensureDojoRunTrailState(ws.dojoRun);
     const extraAttackEquip = (trailState?.trailNodes || []).map(Number).includes(35)
       ? createDojoAttackEquipStar1()
@@ -6173,7 +7057,7 @@ async function handleDojoSocketMessage(ws, m) {
       shop_sold_out: true
     };
     saveCurrentDojoRun(ws);
-    safeSend(ws, { type: "dojo_purchased_item", item });
+    safeSend(ws, { type: "dojo_purchased_item", item: storedItem });
     safeSend(ws, { type: "popup", msg: extraAttackEquip ? `${item.name} を購入しました（攻撃力装備★1も入手）` : `${item.name} を購入しました`, ms: 2200 });
     sendDojoPrepShop(ws);
     sendDojoWaiting(ws);
@@ -6208,6 +7092,16 @@ async function handleDojoSocketMessage(ws, m) {
   if (m.type === "dojo_combine_equips") {
     if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
     if (combineDojoStorageEquips(ws, m.uid1, m.uid2)) {
+      saveCurrentDojoRun(ws);
+    }
+    sendDojoWaiting(ws);
+    return;
+  }
+
+  if (m.type === "dojo_auto_combine_equips") {
+    if (!ws.dojoRun || !ws.player || ws.dojoRun.waiting !== true) return;
+    const count = autoCombineDojoStorageEquips(ws, { notifyEmpty: !!m.notify_empty });
+    if (count > 0) {
       saveCurrentDojoRun(ws);
     }
     sendDojoWaiting(ws);
@@ -6263,6 +7157,8 @@ async function handleDojoSocketMessage(ws, m) {
   if (m.type === "skill1") await match.useSkill(ws, P, P.opponent, 1);
   if (m.type === "skill2") await match.useSkill(ws, P, P.opponent, 2);
   if (m.type === "skill3") await match.useSkill(ws, P, P.opponent, 3);
+  if (m.type === "skill4") await match.useSkill(ws, P, P.opponent, 4);
+  if (m.type === "skill5") await match.useSkill(ws, P, P.opponent, 5);
 }
 
 function startCpuMatch(humanWS) {
@@ -6472,8 +7368,7 @@ function startCpuMatch(humanWS) {
   safeSend(humanWS, buildMatchStartPayload(humanWS.player, botWS.player));
   match.sendInitialStatusSnapshot();
 
-  // ★ CPUが後攻なら即思考開始
-  setTimeout(() => maybeCpuTurn(match), 1000);
+  match.scheduleCpuTurn(900);
 }
 
 // =========================================================
@@ -6492,6 +7387,46 @@ function isBetterEquip(newItem, currentItem) {
 
   // シンプルな合計評価
   return (newAtk + newDef) > (curAtk + curDef);
+}
+
+function isNormalEquipmentItem(item) {
+  return !!item?.is_equip && item.equip_type === "normal";
+}
+
+function getCpuNormalEquipMaxSlots(P, match = null) {
+  if (match?.matchType !== "dojo") return 1;
+  return Math.max(1, Number(P?.dojoEquipSlots?.equipment ?? 1));
+}
+
+function getCpuNormalEquipCount(P) {
+  let count = 0;
+  if (P?.equipment) count += 1;
+  if (Array.isArray(P?.extra_equipments)) {
+    count += P.extra_equipments.filter(Boolean).length;
+  }
+  return count;
+}
+
+function getCpuEquipScore(item) {
+  const atk = Number(item?.power ?? item?.atk ?? item?.equip_power ?? 0);
+  const def = Number(item?.def ?? 0);
+  const star = Number(item?.star ?? 0);
+  return atk + def + star * 0.01;
+}
+
+function pickCpuNormalEquipCandidate(P, match = null) {
+  const candidates = (P?.equipment_inventory ?? []).filter(isNormalEquipmentItem);
+  if (candidates.length === 0) return null;
+
+  const maxSlots = getCpuNormalEquipMaxSlots(P, match);
+  const equippedCount = getCpuNormalEquipCount(P);
+  if (equippedCount < maxSlots) {
+    return candidates.reduce((best, item) =>
+      !best || getCpuEquipScore(item) > getCpuEquipScore(best) ? item : best
+    , null);
+  }
+
+  return candidates.find(it => isBetterEquip(it, P.equipment)) ?? null;
 }
 
 function getOwnedMageEquipSlots(P) {
@@ -6517,8 +7452,8 @@ function getArrowPriority(it) {
   if (!it) return 0;
 
   // 名前ベース（ARROW_DATA の name に依存）
-  if (it.name?.includes("会心")) return 5;
-  if (it.name?.includes("毒")) return 4;
+  if (it.name?.includes("毒")) return 5;
+  if (it.name?.includes("防御低下")) return 4;
   if (it.name?.includes("氷結")) return 3;
   if (it.name?.includes("反撃")) return 2;
 
@@ -6584,6 +7519,10 @@ function canUseCpuSkill(P, id) {
     if (id === 3 && P.mana < 60) return false;
   }
 
+  if (P.job === "弓兵" && (id === 1 || id === 2) && !P.has_usable_arrow?.()) {
+    return false;
+  }
+
   return true;
 }
 
@@ -6606,6 +7545,15 @@ function analyzeCpuState(match, ws) {
       P.equipment.equip_type !== "alchemist_unique"
     ) {
       alchemistEquipCount++;
+    }
+
+    for (const eq of P.extra_equipments ?? []) {
+      if (
+        eq.equip_type !== "mage_equip" &&
+        eq.equip_type !== "alchemist_unique"
+      ) {
+        alchemistEquipCount++;
+      }
     }
 
     for (const eq of P.equipment_inventory ?? []) {
@@ -6641,10 +7589,9 @@ function analyzeCpuState(match, ws) {
   // =========================
   // ★ CPU用：装備候補選定（returnの前）
   // =========================
-  const equipCandidate =
-    (P.equipment_inventory ?? []).find(it =>
-      isBetterEquip(it, P.equipment)
-    ) ?? null;
+  const normalEquipMaxSlots = getCpuNormalEquipMaxSlots(P, match);
+  const normalEquipCount = getCpuNormalEquipCount(P);
+  const equipCandidate = pickCpuNormalEquipCandidate(P, match);
 
   // =========================
   // ★ CPU用：特殊装備候補（性能が上がる場合のみ）
@@ -6757,6 +7704,7 @@ function analyzeCpuState(match, ws) {
     enemyHpRate: E.hp / E.max_hp,
 
     coins: P.coins,
+    job: P.job,
     
     alchemistEquipCount,   // ★ これを追加
 
@@ -6765,8 +7713,10 @@ function analyzeCpuState(match, ws) {
 
 
     // ★ ここが重要
-    hasEquip: !!P.equipment,
+    hasEquip: normalEquipCount >= normalEquipMaxSlots,
     equipItem: equipCandidate,
+    normalEquipCount,
+    normalEquipMaxSlots,
 
     hasSpecialEquip: !!specialCandidate,
     specialEquip: specialCandidate,
@@ -6873,6 +7823,16 @@ function decideCpuAction(state) {
   return { type: "attack" };
 }
 
+async function cpuConsumeTurnAction(match, ws) {
+  const P = ws?.player;
+  if (P?.job === "弓兵" && !P.has_usable_arrow?.()) {
+    await match.handleAction(ws, "矢なしターン終了");
+    return;
+  }
+
+  await match.handleAction(ws, "攻撃");
+}
+
 // =========================================================
 // ★ 開発用：CPU行動を1手だけ実行（UIなし）
 // =========================================================
@@ -6914,7 +7874,7 @@ async function cpuStep(match, ws) {
     if (P.job === "人形使い" && action.id === 2) {
       const cost = decideCpuDollSkill2Cost(P);
       if (!cost) {
-        await match.handleAction(ws, "攻撃");
+        await cpuConsumeTurnAction(match, ws);
         return true;
       }
       P.pending_hp_cost = cost;
@@ -6924,7 +7884,7 @@ async function cpuStep(match, ws) {
     return true;
   }
 
-  await match.handleAction(ws, "攻撃");
+  await cpuConsumeTurnAction(match, ws);
   return true;
 }
 
@@ -6934,7 +7894,8 @@ async function autoPlayerTurn(match, ws) {
 
   match._playerAutoThinking = true;
   try {
-    for (let i = 0; i < 4; i++) {
+    const prepLimit = Math.max(4, getCpuNormalEquipMaxSlots(ws.player, match) + 4);
+    for (let i = 0; i < prepLimit; i++) {
       if (match.ended || match.current !== ws) return;
       const consumedTurn = await cpuStep(match, ws);
       if (consumedTurn || match.ended || match.current !== ws) return;
@@ -6942,7 +7903,7 @@ async function autoPlayerTurn(match, ws) {
     }
 
     if (!match.ended && match.current === ws) {
-      await match.handleAction(ws, "攻撃");
+      await cpuConsumeTurnAction(match, ws);
     }
   } finally {
     match._playerAutoThinking = false;
@@ -6986,8 +7947,14 @@ export async function maybeCpuTurn(match) {
   if (match.ended) return;
   if (!match.current?.isBot) return;
 
-  if (match._cpuThinking) return;
+  const now = Date.now();
+  if (match._cpuThinking) {
+    if (now - Number(match._cpuThinkingAt ?? 0) < 12000) return;
+    console.warn("[CPU] stale thinking lock reset");
+    match._cpuThinking = false;
+  }
   match._cpuThinking = true;
+  match._cpuThinkingAt = now;
 
   const botWS = match.current;
   const P = botWS.player; // ★ これが必要
@@ -7000,6 +7967,7 @@ export async function maybeCpuTurn(match) {
       return;
     } finally {
       match._cpuThinking = false;
+      match._cpuThinkingAt = 0;
     }
   }
 
@@ -7075,7 +8043,7 @@ export async function maybeCpuTurn(match) {
           // ============================
           if (P.job === "人形使い" && (!P.doll || P.doll.is_broken)) {
             // 無効な準備行動を避けるため、必ず消費行動にフォールバック
-            await match.handleAction(botWS, "攻撃");
+            await cpuConsumeTurnAction(match, botWS);
             return;
           }
 
@@ -7290,7 +8258,7 @@ export async function maybeCpuTurn(match) {
     // ============================
     if (!didSomething) {
       if (!(await waitCpuThink(match, botWS, "攻撃を考え中", CPU_ATTACK_ONLY_MIN_MS, CPU_ATTACK_ONLY_MAX_MS))) return;
-      await match.handleAction(botWS, "攻撃");
+      await cpuConsumeTurnAction(match, botWS);
       return;
     }
 
@@ -7316,7 +8284,7 @@ export async function maybeCpuTurn(match) {
 
       // ★ スキル封印・使用不可なら即攻撃に切り替える
       if (P.skill_sealed || !canUseCpuSkill(P, finalAction.id)) {
-        await match.handleAction(botWS, "攻撃");
+        await cpuConsumeTurnAction(match, botWS);
         return;
       }
 
@@ -7327,14 +8295,14 @@ export async function maybeCpuTurn(match) {
       if (P.job === "人形使い" && finalAction.id === 2) {
         const cost = decideCpuDollSkill2Cost(P);
         if (!cost) {
-          await match.handleAction(botWS, "攻撃");
+          await cpuConsumeTurnAction(match, botWS);
           return;
         }
         P.pending_hp_cost = cost; // ★ ここが核心
       }
 
       if (!canUseCpuSkill(P, finalAction.id)) {
-        await match.handleAction(botWS, "攻撃");
+        await cpuConsumeTurnAction(match, botWS);
         return;
       }
 
@@ -7349,11 +8317,12 @@ export async function maybeCpuTurn(match) {
 
 
     // デフォルトは攻撃
-    await match.handleAction(botWS, "攻撃");
+    await cpuConsumeTurnAction(match, botWS);
     return;
 
   } finally {
     match._cpuThinking = false;
+    match._cpuThinkingAt = 0;
   }
 }
 
