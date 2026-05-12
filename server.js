@@ -5224,6 +5224,21 @@ export class Match {
   handleDisconnect(disconnectedWs) {
     if (this.ended) return;
 
+    if (this.matchType === "dojo") {
+      this.ended = true;
+      const humanWs = this.p1?.isBot ? this.p2 : this.p1;
+      if (disconnectedWs === humanWs) {
+        // 達人への道は戦闘開始直前の待機画面をチェックポイントとして残す。
+        // 通信切断だけでは挑戦失敗扱いにせず、再接続時に保存データから復帰させる。
+        return;
+      }
+      safeSend(humanWs, {
+        type: "dojo_error",
+        msg: "達人への道の戦闘が中断されました。保存データから再開できます。"
+      });
+      return;
+    }
+
     const winnerWs = (disconnectedWs === this.p1) ? this.p2 : this.p1;
 
     // 残った側へ通知
@@ -6739,6 +6754,11 @@ function saveCurrentDojoRun(ws) {
   });
 }
 
+function saveDojoWaitingCheckpoint(ws) {
+  if (!ws?.dojoRun || ws.dojoRun.waiting !== true) return;
+  saveCurrentDojoRun(ws);
+}
+
 function isCoinEquipment(item) {
   return !!item?.is_equip && (
     item.effect_type === "coin_per_turn" ||
@@ -6796,6 +6816,8 @@ function sendDojoPrepShop(ws) {
 function startDojoStage(humanWS) {
   const run = humanWS.dojoRun;
   if (!run || !humanWS.player) return;
+  run.waiting = true;
+  saveCurrentDojoRun(humanWS);
   run.waiting = false;
   applyDojoTrailBonusesToPlayer(humanWS);
   applyDojoTrailSlotBonusesToPlayer(humanWS);
@@ -6894,6 +6916,7 @@ function sendDojoWaiting(ws) {
   ensureDojoPrepShop(ws);
   applyDojoTrailBonusesToPlayer(ws);
   applyDojoTrailSlotBonusesToPlayer(ws);
+  saveDojoWaitingCheckpoint(ws);
   safeSend(ws, { type: "dojo_waiting", run: buildDojoRunView(ws.dojoRun, ws.player, ws) });
 }
 
