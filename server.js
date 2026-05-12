@@ -8390,6 +8390,10 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if (ws.matchType === "cpu") {
+      return;
+    }
+
     if (msg.type === "join_cpu") {
       
       console.log("[CPU MATCH] join_cpu received");
