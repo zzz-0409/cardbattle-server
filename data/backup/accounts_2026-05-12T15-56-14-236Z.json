@@ -737,6 +737,14 @@
       "lastNameChangeAt": 0,
       "jobs": {},
       "dojoProgress": {}
+    },
+    "cpu-debug-1778593140431": {
+      "id": "cpu-debug-1778593140431",
+      "name": "",
+      "createdAt": 1778593140439,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
     }
   }
 }

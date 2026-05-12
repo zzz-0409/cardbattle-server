@@ -2083,8 +2083,13 @@ export class Match {
   }
 
     // ★ 先攻1ラウンド目用：ショップを事前生成
-    this.P1.shop_items = this.generateShopList(this.P1);
-    this.P2.shop_items = this.generateShopList(this.P2);
+    if (this.matchType === "tutorial") {
+      this.P1.shop_items = createTutorialShopList();
+      this.P2.shop_items = [];
+    } else {
+      this.P1.shop_items = this.generateShopList(this.P1);
+      this.P2.shop_items = this.generateShopList(this.P2);
+    }
 
     // ★ 初期コイン送信
     safeSend(this.p1, { type: "coin_info", coins: this.P1.coins });
@@ -2586,6 +2591,21 @@ export class Match {
       if (wsPlayer !== this.current || this.action_resolving) {
         this.sendPopup("相手が考え中です。", wsPlayer, 1400);
         this.sendError("❌ 今は行動できません。", wsPlayer);
+        return;
+      }
+
+      if (this.matchType === "tutorial") {
+        if (
+          !Array.isArray(P.shop_items) ||
+          P.shop_items.length < SHOP_SLOT_COUNT ||
+          !P.shop_items.every(item => item?.tutorial_item === true)
+        ) {
+          P.shop_items = createTutorialShopList();
+        }
+        safeSend(wsPlayer, {
+          type: "shop_list",
+          items: P.shop_items
+        });
         return;
       }
 
@@ -7377,6 +7397,189 @@ function startCpuMatch(humanWS) {
   match.scheduleCpuTurn(900);
 }
 
+function createTutorialShopList() {
+  return [
+    {
+      uid: crypto.randomUUID(),
+      name: "訓練用回復薬",
+      star: 1,
+      effect_type: "HP",
+      power: 30,
+      duration: 0,
+      price: 5,
+      effect_text: "HP +30",
+      is_equip: false,
+      tutorial_item: true
+    },
+    {
+      uid: crypto.randomUUID(),
+      name: "訓練用攻撃装備",
+      star: 1,
+      is_equip: true,
+      equip_type: "normal",
+      equip_category: "攻撃力",
+      effect_type: "攻撃力",
+      power: 3,
+      price: 5,
+      effect_text: "攻撃力 +3",
+      tutorial_item: true,
+      tutorial_no_equip_prompt: true
+    },
+    {
+      uid: crypto.randomUUID(),
+      name: "訓練用攻撃装備",
+      star: 1,
+      is_equip: true,
+      equip_type: "normal",
+      equip_category: "攻撃力",
+      effect_type: "攻撃力",
+      power: 3,
+      price: 5,
+      effect_text: "攻撃力 +3",
+      tutorial_item: true,
+      tutorial_no_equip_prompt: true
+    },
+    {
+      uid: crypto.randomUUID(),
+      name: "訓練用防御装備",
+      star: 1,
+      is_equip: true,
+      equip_type: "normal",
+      equip_category: "防御力",
+      effect_type: "防御力",
+      power: 2,
+      price: 5,
+      effect_text: "防御力 +2",
+      tutorial_item: true,
+      tutorial_no_equip_prompt: true
+    },
+    {
+      uid: crypto.randomUUID(),
+      name: "訓練用攻撃薬",
+      star: 1,
+      effect_type: "攻撃力",
+      power: 3,
+      duration: 2,
+      price: 5,
+      effect_text: "攻撃力 +3 / 2R",
+      is_equip: false,
+      tutorial_item: true
+    }
+  ];
+}
+
+function startTutorialMatch(humanWS) {
+  const botWS = createBotSocket();
+  const human = humanWS.player;
+  human.turn_order = "first";
+  human.coins = Math.max(Number(human.coins ?? 0), 80);
+  human.exp = 0;
+  human.shop_items = createTutorialShopList();
+
+  const enemy = new Player("訓練用スライム", 1);
+  enemy.job = "訓練用スライム";
+  enemy.max_hp = 120;
+  enemy.hp = 120;
+  enemy.base_attack = 16;
+  enemy.base_defense = 4;
+  enemy.coins = 0;
+  enemy.isDojoEnemy = true;
+  enemy.dojoEnemyId = "slime";
+  enemy.dojoEnemyImage = "Assets/dojo/enemies/slime.png";
+  enemy.dojoEnemyScale = 1.0;
+  botWS.player = enemy;
+
+  const match = new Match(humanWS, botWS);
+  match.matchType = "tutorial";
+  humanWS.currentMatch = match;
+  botWS.currentMatch = match;
+  human.shop_items = createTutorialShopList();
+  match.sendItemList(humanWS, human);
+  safeSend(humanWS, { type: "coin_info", coins: human.coins });
+
+  const handleTutorialMessage = async (raw2) => {
+    const m = JSON.parse(raw2.toString());
+    const sock = humanWS;
+    const P = match.P1;
+    if (match.ended) return;
+
+    if (m.type === "action") {
+      await match.handleAction(sock, m.action);
+      return;
+    }
+    if (m.type === "request_status_detail") {
+      match.sendStatusDetail(sock, match.P1, match.P2, m.target === "enemy" ? "enemy" : "self");
+      return;
+    }
+    if (m.type === "use_item") {
+      match.useItem(sock, m.item_id, m.action, m.slot);
+      return;
+    }
+    if (m.type === "combine_equips") {
+      match.combineNormalEquips(sock, m.uid1, m.uid2);
+      return;
+    }
+    if (m.type === "open_shop") {
+      match.openShop(sock);
+      return;
+    }
+    if (m.type === "buy_item") {
+      match.buyItem(sock, m.index);
+      return;
+    }
+    if (m.type === "shop_reroll") {
+      if (!Array.isArray(P.shop_items) || !P.shop_items.every(item => item?.tutorial_item === true)) {
+        P.shop_items = createTutorialShopList();
+      }
+      safeSend(sock, { type: "shop_list", items: P.shop_items });
+      return;
+    }
+    if (m.type === "level_up_request") {
+      const req = LEVEL_REQUIREMENTS[P.level];
+      if (!req) {
+        safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false, isMax: true });
+        return;
+      }
+      const need = req - P.exp;
+      if (need <= 0) {
+        safeSend(sock, { type: "level_up_check", canExp: true, canCoins: false });
+      } else if (P.coins >= need) {
+        safeSend(sock, { type: "level_up_check", canExp: false, canCoins: true, needCoins: need });
+      } else {
+        safeSend(sock, { type: "level_up_check", canExp: false, canCoins: false });
+      }
+      return;
+    }
+    if (m.type === "level_up_exp") {
+      const res = P.try_level_up_auto?.();
+      if (!res?.auto) return;
+      safeSend(sock, { type: "level_info", level: P.level, canLevelUp: P.can_level_up() });
+      safeSend(sock, { type: "exp_info", exp: P.exp });
+      match.sendSimpleStatusBoth();
+      return;
+    }
+    if (m.type === "level_up_coins") {
+      const res = P.try_level_up_with_coins?.();
+      if (!res?.success) return;
+      safeSend(sock, { type: "level_info", level: P.level, canLevelUp: P.can_level_up() });
+      safeSend(sock, { type: "exp_info", exp: P.exp });
+      safeSend(sock, { type: "coin_info", coins: P.coins });
+      match.sendSimpleStatusBoth();
+      return;
+    }
+  };
+
+  humanWS.on("message", handleTutorialMessage);
+
+  safeSend(humanWS, buildMatchStartPayload(humanWS.player, botWS.player, {
+    mode: "tutorial",
+    tutorial: true,
+    enemy_job: "訓練用スライム"
+  }));
+  match.sendInitialStatusSnapshot();
+  match.scheduleCpuTurn(900);
+}
+
 // =========================================================
 // ★ CPU用：装備比較（true = 付け替える価値あり）
 // =========================================================
@@ -8390,7 +8593,26 @@ wss.on("connection", (ws) => {
       return;
     }
 
-    if (ws.matchType === "cpu") {
+    if (msg.type === "join_tutorial") {
+      const accountId = msg.account_id ? String(msg.account_id) : null;
+      ws.accountId = accountId;
+      ws.matchType = "tutorial";
+      ws.cpuKind = "tutorial";
+
+      let name = msg.name;
+      if (accountId) {
+        const acc = getOrCreateAccount(accountId);
+        if (acc?.name) name = acc.name;
+      }
+
+      const player = attachPlayerProfile(new Player(name || "Player", 1), msg.profile);
+      player.turn_order = "first";
+      ws.player = player;
+      startTutorialMatch(ws);
+      return;
+    }
+
+    if (ws.matchType === "cpu" || ws.matchType === "tutorial") {
       return;
     }
 
