@@ -4379,6 +4379,12 @@ export class Match {
       }
     }
 
+    if (actor.job === "戦士" && (stype === "warrior_4" || stype === "warrior_5") && this.matchType !== "dojo") {
+      this.sendError("❌ スキル4・5は達人への道限定です。", wsPlayer);
+      this.skill_lock = false;
+      return false;
+    }
+
     this.sendSkill(`✨ ${actor.name} のスキル発動：${stype}`);
 
     // -------- 1) レベルチェック（最優先） --------
