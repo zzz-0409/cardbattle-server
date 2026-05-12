@@ -387,10 +387,202 @@
           "highestStage": 1,
           "clearCount": 0,
           "cleared": false,
-          "updatedAt": 1778567718444,
+          "updatedAt": 1778567718495,
           "prestigePoints": 0,
           "trailAttackGrowth": 0,
-          "trailNodes": []
+          "trailNodes": [],
+          "savedRun": {
+            "run": {
+              "mode": "dojo",
+              "jobName": "戦士",
+              "stage": 2,
+              "highestStage": 1,
+              "startedAt": 1778567705289,
+              "lastDrops": [
+                {
+                  "type": "coin",
+                  "name": "コイン",
+                  "amount": 19,
+                  "base_amount": 19,
+                  "trail_bonus_amount": 0,
+                  "trail_bonus_percent": 0
+                },
+                {
+                  "type": "exp",
+                  "name": "EXP",
+                  "amount": 5
+                },
+                {
+                  "type": "prestige",
+                  "name": "軌跡ポイント",
+                  "amount": 5
+                },
+                {
+                  "type": "equip",
+                  "name": "★2 攻撃力装備",
+                  "item": {
+                    "name": "★2 攻撃力装備",
+                    "star": 2,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "power": 3,
+                    "price": 20,
+                    "effect_text": "攻撃力+3",
+                    "is_arrow": false,
+                    "uid": "8c9e8336-a702-4dd9-98a7-8275529a553b"
+                  }
+                }
+              ],
+              "midBossPool": [
+                "anubis",
+                "kali",
+                "athena"
+              ],
+              "bigBossPool": [
+                "thor",
+                "zeus",
+                "ashura"
+              ],
+              "dojoTrail": {
+                "prestigePoints": 5,
+                "trailNodes": [],
+                "trailAttackGrowth": 0,
+                "trailItemAttackGrowth": 0,
+                "trailCoinSpent": 0
+              },
+              "trailUpgrades": {},
+              "waiting": true,
+              "cleared": false
+            },
+            "player": {
+              "name": "Player",
+              "profile": {
+                "iconJobId": "1",
+                "titleJobId": "1",
+                "titleText": "見習い戦士",
+                "iconSrc": "Assets/shokugyousenntaku/sennsi1_facefix_transparent.png",
+                "frameId": "none",
+                "frameSrc": ""
+              },
+              "job": "戦士",
+              "level": 1,
+              "exp": 5,
+              "hp": 200,
+              "max_hp": 200,
+              "dojoTrailBonusesStripped": true,
+              "base_attack": 23,
+              "attack": 23,
+              "base_defense": 10,
+              "defense": 10,
+              "special_defense": 0,
+              "coins": 19,
+              "items": [],
+              "dojoStorage": {
+                "items": [],
+                "equipment": [
+                  {
+                    "name": "★2 攻撃力装備",
+                    "star": 2,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "power": 3,
+                    "price": 20,
+                    "effect_text": "攻撃力+3",
+                    "is_arrow": false,
+                    "uid": "8c9e8336-a702-4dd9-98a7-8275529a553b"
+                  }
+                ],
+                "special": []
+              },
+              "dojoLoadout": {
+                "items": [],
+                "equipment": [],
+                "special": []
+              },
+              "dojoCarrySlots": {
+                "items": 1,
+                "equipment": 1,
+                "special": 1
+              },
+              "dojoEquipSlots": {
+                "equipment": 1,
+                "special": 1
+              },
+              "equipment": null,
+              "extra_equipments": [],
+              "equipment_inventory": [],
+              "special_equipment": null,
+              "extra_special_equipments": [],
+              "special_inventory": [],
+              "arrow": null,
+              "arrow2": null,
+              "arrow_inventory": [],
+              "arrow_slots": 1,
+              "shop_items": [
+                {
+                  "name": "★1 防御力装備",
+                  "star": 1,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "防御力",
+                  "effect_type": "防御力",
+                  "power": 2,
+                  "price": 10,
+                  "effect_text": "防御力+2",
+                  "is_arrow": false
+                },
+                {
+                  "name": "★1 防御力装備",
+                  "star": 1,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "防御力",
+                  "effect_type": "防御力",
+                  "power": 2,
+                  "price": 10,
+                  "effect_text": "防御力+2",
+                  "is_arrow": false
+                },
+                {
+                  "name": "★1 攻撃力装備",
+                  "star": 1,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "攻撃力",
+                  "effect_type": "攻撃力",
+                  "power": 2,
+                  "price": 10,
+                  "effect_text": "攻撃力+2",
+                  "is_arrow": false
+                },
+                {
+                  "name": "★2 防御力UP (1R)",
+                  "star": 2,
+                  "effect_type": "防御力",
+                  "power": 9,
+                  "duration": 1,
+                  "price": 12,
+                  "effect_text": "防御力 +9 / 1R",
+                  "is_equip": false
+                },
+                {
+                  "name": "★1 HP回復",
+                  "star": 1,
+                  "effect_type": "HP",
+                  "power": 10,
+                  "duration": 0,
+                  "price": 15,
+                  "effect_text": "HP +10 (即時)",
+                  "is_equip": false
+                }
+              ]
+            },
+            "savedAt": 1778567718495
+          }
         }
       }
     },
