@@ -57,7 +57,7 @@ export const JOB_SKILLS = {
   "戦士": [
     {
       type: "warrior_1",
-      name: "ブレイクヒット",
+      name: "パワースラッシュ",
       min_level: 1,
       power: 20,
       effect: "防御無視",
@@ -65,7 +65,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "warrior_2",
-      name: "バーストアップ",
+      name: "ブレイブチャージ",
       min_level: 2,
       power: 30,
       effect: "攻撃力+3（3T）",
@@ -73,7 +73,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "warrior_3",
-      name: "バーサーカースマッシュ",
+      name: "ラストブレード",
       min_level: 3,
       power: "20 + 現在攻撃力",
       effect: "防御無視",
@@ -100,7 +100,7 @@ export const JOB_SKILLS = {
   "騎士": [
     {
       type: "knight_1",
-      name: "ガードストライク",
+      name: "シールドブレイク",
       min_level: 1,
       power: 20,
       effect: "自身に防御力+2（4T）",
@@ -108,7 +108,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "knight_2",
-      name: "フォートレスブレイク",
+      name: "アイアンチャージ",
       min_level: 2,
       power: "15 + 自身の防御力",
       effect: "防御力+4（3T）",
@@ -116,7 +116,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "knight_3",
-      name: "パラディンスマッシュ",
+      name: "ジャスティスブレード",
       min_level: 3,
       power: "25 + 自身の防御力",
       effect: null,
@@ -155,7 +155,7 @@ export const JOB_SKILLS = {
   "盗賊": [
     {
       type: "thief_1",
-      name: "スティールアタック",
+      name: "スラッシュ＆スティール",
       min_level: 1,
       power: 25,
       effect: "アイテム/装備を1つ奪う",
@@ -163,7 +163,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "thief_2",
-      name: "グリードブロー",
+      name: "ダガーレイド",
       min_level: 2,
       power: "25 + 所持アイテム×2",
       effect: "奪う",
@@ -171,7 +171,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "thief_3",
-      name: "ダークアルケミー",
+      name: "シャドウバースト",
       min_level: 3,
       power: null,
       effect: "所持アイテム全発動（消費なし）＋通常攻撃",
@@ -217,7 +217,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "onmyoji_2",
-      name: "式神召喚・中級",
+      name: "式神召喚・上級",
       min_level: 2,
       effect: "ランダム式神（全種）",
       power: null,
@@ -225,7 +225,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "onmyoji_3",
-      name: "式神召喚・極",
+      name: "二重召喚",
       min_level: 3,
       effect: "式神2体同時召喚",
       power: null,
@@ -236,7 +236,7 @@ export const JOB_SKILLS = {
   "錬金術師": [
     {
       type: "alchemist_1",
-      name: "錬成（ランダム装備2つ生成）",
+      name: "錬成",
       min_level: 1,
       effect: "装備2つ生成",
       power: null,
@@ -244,7 +244,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "alchemist_2",
-      name: "精錬（全装備の星+1）",
+      name: "精錬",
       min_level: 2,
       effect: "全装備の星+1",
       power: null,
@@ -263,7 +263,7 @@ export const JOB_SKILLS = {
   "弓兵": [
     {
       type: "archer_1",
-      name: "追撃構え",
+      name: "集中射撃",
       min_level: 1,
       power: null,
       effect: "追撃+1（3T）＋通常攻撃",
@@ -271,7 +271,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "archer_2",
-      name: "矢筒拡張",
+      name: "狙い撃ち＋矢拡張",
       min_level: 2,
       power: null,
       effect: "矢スロット+1＆追撃+1（3T）＋通常攻撃",
@@ -306,7 +306,7 @@ export const JOB_SKILLS = {
     },
     {
       type: "doll_3",
-      name: "暴走",
+      name: "人形暴走",
       min_level: 3,
       power: null,
       effect: "人形暴走",

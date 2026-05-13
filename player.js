@@ -2039,7 +2039,7 @@ if (type === "arrow") {
             if (opponent && opponent.hp > 0) {
                 const damage = this.getActualAttack ? this.getActualAttack() : this.get_total_attack();
                 const dealt = opponent.take_damage(damage, false, this);
-                log(`🗡 ダークアルケミーの追撃！ 通常攻撃で ${dealt} ダメージ！`);
+                log(`🗡 シャドウバーストの追撃！ 通常攻撃で ${dealt} ダメージ！`);
             }
 
             this.used_skill_set.add(stype);
@@ -2244,14 +2244,14 @@ if (type === "arrow") {
 
     if (stype === "onmyoji_1") {
         const chosen = pool_lv1[Math.floor(Math.random() * pool_lv1.length)];
-        log("📜 式神召喚（Lv1）");
+        log("📜 式神召喚・初級！");
         this._summon_shikigami(chosen, opponent);
         this.last_summoned_shikigami.push(chosen);
     }
 
     else if (stype === "onmyoji_2") {
         const chosen = pool_all[Math.floor(Math.random() * pool_all.length)];
-        log("📜 式神召喚（Lv2）");
+        log("📜 式神召喚・上級！");
         this._summon_shikigami(chosen, opponent);
         this.last_summoned_shikigami.push(chosen);
     }
@@ -2281,14 +2281,18 @@ if (type === "arrow") {
             this.shikigami_effects = [];
         }
 
-        // ===== 鬼火（各ターン終了時 5 ダメ × 5T）=====
+        const targetName = opponent?.name ?? "相手";
+        const selfName = this.name ?? "自分";
+
+        // ===== 鬼火（各ターン終了時 5 ダメ × 3T）=====
         if (name === "鬼火") {
-            log("🕯 鬼火召喚！各ターン終了時に相手を焼き続ける！（5T × 5ダメージ）");
+            log(`🕯 式神「鬼火」を召喚！ ${targetName}に鬼火を付与：お互いのターン終了時に5ダメージ（3T）`);
 
             opponent.dot_effects.push({
                 name: "鬼火",
                 power: 5,
-                turns: 5,   // ★ 新ターン制
+                turns: 3,
+                rounds: 3,
                 source: this.name,
             });
 
@@ -2297,14 +2301,17 @@ if (type === "arrow") {
         }
 
 
-        // ===== 猫又（スキル封印 2T）=====
+        // ===== 猫又（スキル封印 3T）=====
         if (name === "猫又") {
-            log("🐈‍⬛ 猫又召喚！相手の術を封じる！(2T)");
+            log(`🐈‍⬛ 式神「猫又」を召喚！ ${targetName}にスキル封印を付与（3T）`);
 
             opponent.active_buffs.push({
                 type: "スキル封印",
                 power: 0,
-                duration: 2,   // ★ duration を使う
+                duration: 3,
+                rounds: 3,
+                source: "猫又",
+                is_debuff: true,
             });
 
             opponent.skill_sealed = true;
@@ -2313,7 +2320,7 @@ if (type === "arrow") {
             // ★ UI 用：式神一覧に登録
             this.shikigami_effects.push({
                 name: "猫又",
-                rounds: 2+1
+                rounds: 3+1
             });
 
             return;
@@ -2326,7 +2333,7 @@ if (type === "arrow") {
 
         // ===== 玄武（防御+5 3T＋バリア1回）=====
         if (name === "玄武") {
-            log("🐢 玄武召喚！守護の力が宿る！");
+            log(`🐢 式神「玄武」を召喚！ ${selfName}に防御力+5（3T）と攻撃無効バリア1回を付与`);
             this.active_buffs.push({
                 type: "防御力",
                 power: 5,
@@ -2346,7 +2353,7 @@ if (type === "arrow") {
 
         // ===== 烏天狗（自ターン攻撃/スキル時に追撃 ×3回）=====
         if (name === "烏天狗") {
-            log("🐦 烏天狗召喚！素早い追撃！");
+            log(`🐦 式神「烏天狗」を召喚！ ${selfName}に追撃効果を付与：攻撃/スキル時に追加攻撃（残り3回）`);
 
             // ★ UI 表示用（rounds を3 に統一）
             this.shikigami_effects.push({
@@ -2363,7 +2370,7 @@ if (type === "arrow") {
 
         // ===== 九尾（30防御無視 + 現在装備破壊 + バフ全消し）=====
         if (name === "九尾") {
-            log("🦊 九尾召喚！灼熱の炎が全てを焼き尽くす！");
+            log(`🦊 式神「九尾」を召喚！ ${targetName}に防御無視30ダメージ、装備破壊、バフ解除を発動`);
 
             opponent.take_damage(30, true);
 
@@ -2395,8 +2402,8 @@ if (type === "arrow") {
             const before = this.hp;
             const healed = this.restore_hp(heal);
             log(healed > 0
-                ? `🐉 白龍召喚！癒しの風が吹く！ HP ${before}→${this.hp}`
-                : "🐉 白龍召喚！ しかし回復できない！");
+                ? `🐉 式神「白龍」を召喚！ ${selfName}のHPを${healed}回復（30＋防御力） HP ${before}→${this.hp}`
+                : `🐉 式神「白龍」を召喚！ ${selfName}は回復できなかった`);
             return;
         }
 
@@ -2600,13 +2607,13 @@ if (type === "arrow") {
         // ---------- スキル1：追撃 +1（3ターン） ----------
         if (stype === "archer_1") {
             this.archer_buff = { rounds: 3, extra: 1 }; // 3Tの間 追撃+1
-            log("⚡ 3Tの間、追撃が +1 回になる。");
+            log("⚡ 集中射撃！ 3Tの間、追撃が +1 回になる。");
             this.used_skill_set.add(stype);
             return true;
         }
 
 
-        // ---------- スキル2：矢筒拡張 ----------
+        // ---------- スキル2：狙い撃ち＋矢拡張 ----------
         if (stype === "archer_2") {
 
             // ▼ 矢スロットを恒久的に +1
@@ -2617,7 +2624,7 @@ if (type === "arrow") {
             // ▼ 追撃バフ（3T）
             this.archer_buff = { rounds: 3, extra: 1 };
 
-            log("🏹 矢筒拡張！ 矢スロット+1 ＆ 追撃+1（3T）");
+            log("🏹 狙い撃ち＋矢拡張！ 矢スロット+1 ＆ 追撃+1（3T）");
 
             this.used_skill_set.add(stype);
             return true;
@@ -2723,6 +2730,7 @@ if (type === "arrow") {
                     opponent.dot_effects.push({
                         name: "毒",
                         power: 3,
+                        turns: 2,
                         rounds: 2,
                         source: this.name,
                     });

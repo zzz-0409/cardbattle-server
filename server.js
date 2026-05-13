@@ -1691,6 +1691,7 @@ export class Match {
     if (!Array.isArray(names) || names.length === 0) return;
 
     const isP1 = player === this.P1;
+    const targetPlayer = isP1 ? this.P2 : this.P1;
     const eventForP1 = {
       type: "shikigami_summon",
       target: isP1 ? "self" : "enemy",
@@ -1706,6 +1707,36 @@ export class Match {
 
     safeSend(this.p1, eventForP1);
     safeSend(this.p2, eventForP2);
+
+    for (const name of names) {
+      const detail = this.getShikigamiEffectLog(player, targetPlayer, name);
+      if (detail) this.sendSkill(detail);
+    }
+  }
+
+  getShikigamiEffectLog(player, targetPlayer, name) {
+    const actorName = player?.name ?? "陰陽師";
+    const targetName = targetPlayer?.name ?? "相手";
+    const selfName = player?.name ?? "自分";
+
+    if (name === "鬼火") {
+      return `🕯 ${actorName} は式神「鬼火」を召喚。${targetName}に鬼火を付与：お互いのターン終了時に5ダメージ（3T）`;
+    }
+    if (name === "猫又") {
+      return `🐈‍⬛ ${actorName} は式神「猫又」を召喚。${targetName}にスキル封印を付与（3T）`;
+    }
+    if (name === "玄武") {
+      return `🐢 ${actorName} は式神「玄武」を召喚。${selfName}に防御力+5（3T）と攻撃無効バリア1回を付与`;
+    }
+    if (name === "烏天狗") {
+      return `🐦 ${actorName} は式神「烏天狗」を召喚。${selfName}に追撃効果を付与：攻撃/スキル時に追加攻撃（残り3回）`;
+    }
+    if (name === "九尾") {
+      return `🦊 ${actorName} は式神「九尾」を召喚。${targetName}に防御無視30ダメージ、装備破壊、バフ解除を発動`;
+    }
+    if (name === "白龍") {
+      return `🐉 ${actorName} は式神「白龍」を召喚。${selfName}のHPを30＋防御力分回復`;
+    }
   }
 
   sendShikigamiSpecialEvent(player, payload = {}) {
@@ -4197,7 +4228,7 @@ export class Match {
       else if (action === "c") { title = "魂吸収"; desc = "攻撃してHPを吸収する。"; const before = target.hp; logs = this.dojoEnemyStrike(actor, target, { label: title, multiplier: 0.9, ignoreDefense: 8 }); logs.push(healSelf(Math.floor(Math.max(0, before - target.hp) / 2), title)); }
       else { logs = this.dojoEnemyStrike(actor, target); }
     } else if (actor.dojoEnemyId === "mushroom") {
-      if (action === "a") { title = "毒胞子"; desc = "毒で継続ダメージを与える。"; dojoAddPoison(target, 4 + Math.floor(Number(actor.dojoStage ?? 1) / 8), 3, "毒"); logs = [`${target.name} は毒を受けた！`]; }
+      if (action === "a") { title = "毒胞子"; desc = "毒で継続ダメージを与える。"; const poisonPower = 4 + Math.floor(Number(actor.dojoStage ?? 1) / 8); dojoAddPoison(target, poisonPower, 3, "毒"); logs = [`${target.name} は毒胞子を受けた！ お互いのターン終了時に${poisonPower}ダメージ（3T）`]; }
       else if (action === "b") { title = "菌糸再生"; desc = "HPを回復する。"; logs = [healSelf(12 + Math.floor(actor.max_hp / 14), title)]; }
       else if (action === "c") { title = "弱化胞子"; desc = "防御力を下げる。"; dojoAddBuff(target, "防御力低下", 4, 2, title); logs = [`${target.name} の防御力が下がった！`]; }
       else { logs = this.dojoEnemyStrike(actor, target); }
