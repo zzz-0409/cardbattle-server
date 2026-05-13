@@ -352,18 +352,17 @@ export class Player {
         if (this.alchemist_equip) {
             total += this.alchemist_equip.atk ?? 0;
         }
-        if (this.special_equipment?.dojo_special_effect === "excalibur") {
-            total += Number(this.special_equipment.attack_bonus ?? 5);
-        }
-        for (const eq of this.extra_special_equipments ?? []) {
-            if (eq?.dojo_special_effect === "excalibur") {
-                total += Number(eq.attack_bonus ?? 5);
-            } else if (eq?.dojo_special_effect === "aegis") {
+        const dojoSpecialEquips = [
+            this.special_equipment,
+            ...(Array.isArray(this.extra_special_equipments) ? this.extra_special_equipments : []),
+        ];
+        for (const eq of dojoSpecialEquips) {
+            if (!eq) continue;
+            if (eq.dojo_special_effect === "excalibur" || eq.dojo_special_effect === "muramasa") {
+                total += Number(eq.attack_bonus ?? (eq.dojo_special_effect === "muramasa" ? 10 : 5));
+            } else if (eq.dojo_special_effect === "aegis") {
                 total += Math.max(0, Number(this.get_def_buff_total?.() ?? 0));
             }
-        }
-        if (this.special_equipment?.dojo_special_effect === "aegis") {
-            total += Math.max(0, Number(this.get_def_buff_total?.() ?? 0));
         }
         
         // ============================
@@ -448,11 +447,11 @@ export class Player {
         if (this.alchemist_equip) {
             total += this.alchemist_equip.def ?? 0;
         }
-        if (this.special_equipment?.dojo_special_effect === "aegis") {
+        if (this.special_equipment?.dojo_special_effect === "aegis" || this.special_equipment?.dojo_special_effect === "durandal") {
             total += Number(this.special_equipment.defense_bonus ?? 5);
         }
         for (const eq of this.extra_special_equipments ?? []) {
-            if (eq?.dojo_special_effect === "aegis") {
+            if (eq?.dojo_special_effect === "aegis" || eq?.dojo_special_effect === "durandal") {
                 total += Number(eq.defense_bonus ?? 5);
             }
         }
@@ -1318,6 +1317,32 @@ if (type === "arrow") {
         if (item.effect_type === "DEF") item.effect_type = "防御力";
         if (item.effect_type === "HP_RECOVER") item.effect_type = "HP";
         const et = item.effect_type;
+
+        const dojoNormalItemEffectBonus = Math.max(0, Number(this.dojoNormalItemEffectBonus ?? 0));
+        const isDojoNormalItem =
+            dojoNormalItemEffectBonus > 0 &&
+            (et === "攻撃力" || et === "防御力" || et === "HP") &&
+            !item.is_equip &&
+            !item.is_arrow &&
+            !item.equip_type &&
+            !item.is_mage_item &&
+            !item.is_onmyoji_item &&
+            !item.is_doll_item &&
+            !item.is_doll_costume &&
+            !item.is_mad_special_item &&
+            !item.is_priest_item &&
+            !item.is_dojo_special_item;
+        if (isDojoNormalItem) {
+            const basePower = Number(item._dojo_base_power ?? item.power ?? 0);
+            if (Number.isFinite(basePower)) {
+                item = {
+                    ...item,
+                    power: basePower + dojoNormalItemEffectBonus,
+                    _dojo_base_power: basePower,
+                    dojo_item_effect_bonus: dojoNormalItemEffectBonus,
+                };
+            }
+        }
 
         if (item.is_onmyoji_item) {
             if (this.job !== "陰陽師" || !this.opponent) {

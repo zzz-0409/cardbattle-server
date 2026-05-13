@@ -72,7 +72,7 @@
           "highestStage": 20,
           "clearCount": 0,
           "cleared": false,
-          "updatedAt": 1778671544142,
+          "updatedAt": 1778693800690,
           "savedRun": {
             "run": {
               "mode": "dojo",
@@ -111,8 +111,23 @@
                 "ashura"
               ],
               "dojoTrail": {
-                "prestigePoints": 20,
-                "trailNodes": [],
+                "prestigePoints": 2,
+                "trailNodes": [
+                  61,
+                  62,
+                  63,
+                  64,
+                  65,
+                  66,
+                  67,
+                  68,
+                  69,
+                  71,
+                  72,
+                  73,
+                  74,
+                  75
+                ],
                 "trailAttackGrowth": 0,
                 "trailItemAttackGrowth": 0,
                 "trailCoinSpent": 0
@@ -169,13 +184,13 @@
                 "special": []
               },
               "dojoCarrySlots": {
-                "items": 1,
-                "equipment": 1,
-                "special": 1
+                "items": 5,
+                "equipment": 5,
+                "special": 5
               },
               "dojoEquipSlots": {
-                "equipment": 1,
-                "special": 1
+                "equipment": 6,
+                "special": 6
               },
               "equipment": null,
               "extra_equipments": [],
@@ -242,7 +257,7 @@
                 }
               ]
             },
-            "savedAt": 1778671544142
+            "savedAt": 1778693775647
           },
           "prestigePoints": 18,
           "trailNodes": [

@@ -631,6 +631,7 @@ function buildDojoTrailBuffUIEntries(player) {
   const dropRateBonus = Math.max(0, Number(player._dojoTrailDropRateBonusPercent ?? 0));
   const rareDropBonusCount = Math.max(0, Number(player._dojoTrailRareDropBonusCount ?? 0));
   const itemAttackGrowth = Math.max(0, Number(player.dojoItemAttackBuff ?? 0));
+  const normalItemEffectBonus = getDojoNormalItemEffectBonusFromNodes(nodes);
   const skillDamageBonus =
     [51, 52, 53, 54].reduce((sum, id) => sum + (nodes.has(id) ? 5 : 0), 0) +
     [56, 57, 58, 59].reduce((sum, id) => sum + (nodes.has(id) ? 10 : 0), 0);
@@ -801,6 +802,17 @@ function buildDojoTrailBuffUIEntries(player) {
       passive: true,
     });
   }
+  if (normalItemEffectBonus > 0) {
+    out.push({
+      kind: "other",
+      power: normalItemEffectBonus,
+      remain: null,
+      source: "通常アイテム効果の軌跡",
+      text: `軌跡：攻撃力・防御力・HPの通常アイテム効果 +${normalItemEffectBonus}`,
+      unremovable: true,
+      passive: true,
+    });
+  }
   if (nodes.has(80)) {
     out.push({
       kind: "other",
@@ -931,6 +943,9 @@ function cpuUseItemDirect(match, ws, item) {
   if (item.equip_type === "mage_equip" || item.equip_type === "alchemist_unique") return false;
   if (item.is_doll_costume) return false;
 
+  if (P.item_use_count == null) P.item_use_count = 0;
+  if (Number(P.item_use_count) >= 2) return false;
+
   // 2) HPが満タンなら HP回復アイテムは使わない（無駄撃ち防止）
   if (item.effect_type === "HP" && (P.hp >= P.max_hp)) return false;
 
@@ -943,7 +958,13 @@ function cpuUseItemDirect(match, ws, item) {
   // 適用前ログ用
   const beforeHp = P.hp;
 
-  P.apply_item(item);
+  const applyResult = P.apply_item(item);
+  if (applyResult === false) {
+    match.sendItemList(ws, P);
+    return false;
+  }
+  P.item_use_count += 1;
+  applyDojoTrailItemUseBonuses(ws, match, item);
 
   const healed = P.hp - beforeHp;
   if (healed > 0) {
@@ -956,19 +977,21 @@ function cpuUseItemDirect(match, ws, item) {
   }
 
 
+  const displayItem = applyDojoNormalItemEffectBonusForPlayer(P, item);
+
   // 4) ログ（item.js の仕様に合わせる）
-  if (item.is_onmyoji_item) {
+  if (displayItem.is_onmyoji_item) {
     match.sendSystem(
-      `🧪 ${P.name} が ${item.name} を使用（${item.shikigami_name}を召喚）`
+      `🧪 ${P.name} が ${displayItem.name} を使用（${displayItem.shikigami_name}を召喚）`
     );
-  } else if (item.effect_type === "HP") {
+  } else if (displayItem.effect_type === "HP") {
     match.sendSystem(
-      `🧪 ${P.name} が ${item.name} を使用（HP ${beforeHp} → ${P.hp}）`
+      `🧪 ${P.name} が ${displayItem.name} を使用（HP ${beforeHp} → ${P.hp}）`
     );
   } else {
-    const dur = item.duration ?? 0;
+    const dur = displayItem.duration ?? 0;
     match.sendSystem(
-      `🧪 ${P.name} が ${item.name} を使用（${item.effect_type}+${item.power}${dur > 0 ? ` / ${dur}T` : ""}）`
+      `🧪 ${P.name} が ${displayItem.name} を使用（${displayItem.effect_type}+${displayItem.power}${dur > 0 ? ` / ${dur}T` : ""}）`
     );
   }
 
@@ -1567,6 +1590,47 @@ export class Match {
 
   getDamageTargetType(player) {
     return player?.doll && !player.doll.is_broken ? "doll" : "body";
+  }
+
+  hasEquippedDojoSpecialEffect(player, effect) {
+    const equips = [
+      player?.special_equipment,
+      ...(Array.isArray(player?.extra_special_equipments) ? player.extra_special_equipments : [])
+    ];
+    return equips.some(eq => eq?.dojo_special_effect === effect);
+  }
+
+  applyDojoMuramasaDrain(actor, amount) {
+    const damage = Math.max(0, Number(amount ?? 0));
+    if (damage <= 0 || !this.hasEquippedDojoSpecialEffect(actor, "muramasa")) return 0;
+    const healAmount = Math.floor(damage / 10);
+    if (healAmount <= 0) return 0;
+    const healed = actor?.restore_hp?.(healAmount) ?? 0;
+    if (healed > 0) {
+      this.sendHealEvent(actor, healed);
+      this.sendBattle(`ムラサメ：${actor.name} は ${healed} 回復した。`);
+    }
+    return healed;
+  }
+
+  applyDojoDurandalCounter(defender, attacker, receivedAmount) {
+    const damageTaken = Math.max(0, Number(receivedAmount ?? 0));
+    if (damageTaken <= 0 || !defender || !attacker) return 0;
+    if (defender === attacker || Number(defender.hp ?? 0) <= 0) return 0;
+    if (!this.hasEquippedDojoSpecialEffect(defender, "durandal")) return 0;
+
+    const attack = Math.max(0, Number(defender.get_total_attack?.() ?? defender.attack ?? 0));
+    const defense = Math.max(0, Number(defender.get_total_defense?.() ?? defender.defense ?? 0));
+    const counterDamage = Math.max(1, Math.floor((attack + defense) / 2));
+    const targetType = this.getDamageTargetType(attacker);
+    const dealt = attacker.take_damage(counterDamage, true, defender);
+    this.sendBattle(`デュランダル：${defender.name} の反撃！ ${dealt}ダメージ！`);
+    this.sendDamageEvent(attacker, dealt, "pursuit", targetType, {
+      show_zero: true,
+      action_source: "durandal_counter",
+    });
+    this.applyDojoMuramasaDrain(defender, dealt);
+    return dealt;
   }
 
   sendSkillEffectEvent(targetPlayer, effect, targetType = "body") {
@@ -2863,7 +2927,7 @@ export class Match {
     // ★ 購入後もショップを開いたまま更新できるよう、最新リストを返す
     safeSend(wsPlayer, {
       type: "shop_list",
-      items: P.shop_items
+      items: P.shop_items.map(it => applyDojoNormalItemEffectBonusForPlayer(P, it))
     });
 
 
@@ -2978,7 +3042,7 @@ export class Match {
     // ショップUI更新
     safeSend(wsPlayer, { 
       type: "shop_list", 
-      items: actor.shop_items
+      items: actor.shop_items.map(it => applyDojoNormalItemEffectBonusForPlayer(actor, it))
     });
 
     // ★★★ これが本命 ★★★
@@ -3747,11 +3811,14 @@ export class Match {
             category: "equip",
             is_equipped_normal: true
           })),
-          ...P.items.map(it => ({
-            uid: it.uid,
-            ...it,
-            category: "item"
-          })),
+          ...P.items.map(it => {
+            const displayItem = applyDojoNormalItemEffectBonusForPlayer(P, it);
+            return {
+              uid: displayItem.uid,
+              ...displayItem,
+              category: "item"
+            };
+          }),
           ...P.equipment_inventory.map(it => ({
             uid: it.uid,
             ...it,
@@ -4114,7 +4181,7 @@ export class Match {
   dojoEnemyStrike(actor, target, { label = "通常攻撃", multiplier = 1, ignoreDefense = 0, hits = 1, kind = "normal" } = {}) {
     const logs = [];
     let total = 0;
-    for (let i = 0; i < hits && target.hp > 0; i += 1) {
+    for (let i = 0; i < hits && target.hp > 0 && actor.hp > 0; i += 1) {
       const raw = Math.max(1, Math.floor(Number(actor.getActualAttack?.() ?? actor.get_total_attack()) * multiplier));
       const targetType = this.getDamageTargetType(target);
       let dealt;
@@ -4133,6 +4200,7 @@ export class Match {
         sequence_index: i,
         sequence_total: hits,
       });
+      this.applyDojoDurandalCounter(target, actor, dealt);
       if (actor.dojoEnemyId === "ashura" && actor.dojoAwakened) {
         actor.base_attack = Number(actor.base_attack ?? actor.attack ?? 0) + 1;
         actor.attack = Number(actor.attack ?? actor.base_attack ?? 0) + 1;
@@ -4244,6 +4312,11 @@ export class Match {
     for (const line of logs) this.sendBattle(`👹 ${line}`);
     this.updateHP();
     this.sendSimpleStatusBoth();
+    if (actor.hp <= 0) {
+      const winnerKey = actor === this.P1 ? "p2" : "p1";
+      this.finishBattle(winnerKey);
+      return true;
+    }
     if (target.hp <= 0) {
       const winnerKey = actor === this.P1 ? "p1" : "p2";
       this.finishBattle(winnerKey);
@@ -4323,6 +4396,8 @@ export class Match {
         if (dealt > 0) {
           this.sendSfxEvent("attack");
         }
+        this.applyDojoMuramasaDrain(actor, dealt);
+        this.applyDojoDurandalCounter(target, actor, dealt);
 
 
         this.sendBattle(
@@ -4347,7 +4422,7 @@ export class Match {
           );
           actor.doll.extra_attacks_this_turn = 0;
 
-          for (let i = 0; i < extraAttackCount && target.hp > 0; i += 1) {
+          for (let i = 0; i < extraAttackCount && target.hp > 0 && actor.hp > 0; i += 1) {
             const extraDamage = actor.getActualAttack();
             const extraTargetType = this.getDamageTargetType(target);
             const extraDealt = target.take_damage(extraDamage, ignoreExtraDef, actor, true);
@@ -4356,6 +4431,8 @@ export class Match {
               sequence_index: i,
               sequence_total: extraAttackCount,
             });
+            this.applyDojoMuramasaDrain(actor, extraDealt);
+            this.applyDojoDurandalCounter(target, actor, extraDealt);
             this.sendBattle(`🪆 人形の追加攻撃！ ${extraDealt}ダメージ！`);
           }
         }
@@ -4366,9 +4443,10 @@ export class Match {
 
 
       // ★ 烏天狗の追撃（内部トリガー基準）
-      if (actor.karasu_tengu_triggers > 0) {
+      if (actor.hp > 0 && actor.karasu_tengu_triggers > 0) {
         const logs = actor.trigger_karasu_tengu(target) ?? [];
         logs.forEach((dmg2, index) => {
+          if (actor.hp <= 0 || target.hp <= 0) return;
           this.sendSkill(`🐦 烏天狗の追撃！ ${dmg2}ダメージ！`);
 
           // ============================
@@ -4379,6 +4457,8 @@ export class Match {
             sequence_index: index,
             sequence_total: logs.length,
           });
+          this.applyDojoMuramasaDrain(actor, dmg2);
+          this.applyDojoDurandalCounter(target, actor, dmg2);
 
         });
 
@@ -4390,6 +4470,11 @@ export class Match {
       this.updateHP();
 
       // 勝敗チェック
+      if (actor.hp <= 0) {
+        const winnerKey = actor === this.P1 ? "p2" : "p1";
+        this.finishBattle(winnerKey);
+        return;
+      }
       if (target.hp <= 0) {
         const winnerKey = actor === this.P1 ? "p1" : "p2";
         this.finishBattle(winnerKey);
@@ -4772,6 +4857,16 @@ export class Match {
       this.sendHealEvent(target, healedTarget);
     }
 
+    if (skillDamageRecords.length > 0) {
+      for (const record of skillDamageRecords) {
+        this.applyDojoMuramasaDrain(actor, record?.dealt);
+        this.applyDojoDurandalCounter(target, actor, record?.dealt);
+      }
+    } else {
+      this.applyDojoMuramasaDrain(actor, damagedTarget);
+      this.applyDojoDurandalCounter(target, actor, damagedTarget);
+    }
+
     this.sendSkillResultSummary(actor, target, {
       skillDamageRecords,
       damagedActor,
@@ -4838,6 +4933,13 @@ export class Match {
 
     this.updateHP();
 
+    if (actor.hp <= 0) {
+      const winner = actor === this.P1 ? "p2" : "p1";
+      this.finishBattle(winner);
+      this.skill_lock = false;
+      return true;
+    }
+
     if (target.hp <= 0) {
       const winner = actor === this.P1 ? "p1" : "p2";
       this.finishBattle(winner);
@@ -4862,7 +4964,7 @@ export class Match {
     }
 
     const results = arrowAttack.results ?? [];
-    for (let index = 0; index < results.length; index += 1) {
+    for (let index = 0; index < results.length && actor.hp > 0; index += 1) {
       const r = results[index];
       const remainText = r.consumed
         ? `（残り${r.remaining}本）`
@@ -4887,6 +4989,8 @@ export class Match {
           status_patch: this.buildLiveStatusPatch(target, r.statusSnapshot ?? {}),
         }
       );
+      this.applyDojoMuramasaDrain(actor, r.dealt);
+      this.applyDojoDurandalCounter(target, actor, r.dealt);
     }
 
     this.decrementArcherAttackBuffs(actor);
@@ -5520,7 +5624,7 @@ export class Match {
 
     safeSend(wsPlayer, {
       type: "shop_list",
-      items: P.shop_items
+      items: P.shop_items.map(it => applyDojoNormalItemEffectBonusForPlayer(P, it))
     });
   }
 
@@ -5718,6 +5822,8 @@ const DOJO_TRAIL_ATTACK_ICON = "Assets/dojo/trail-icons/attack-up.png";
 const DOJO_TRAIL_DEFENSE_ICON = "Assets/dojo/trail-icons/defense-up.png";
 const DOJO_TRAIL_EXCALIBUR_ICON = "Assets/dojo/trail-icons/excalibur.png";
 const DOJO_TRAIL_AEGIS_ICON = "Assets/dojo/trail-icons/aegis.png";
+const DOJO_TRAIL_DURANDAL_ICON = "Assets/dojo/trail-icons/durandal-special.png";
+const DOJO_TRAIL_MURAMASA_ICON = "Assets/dojo/trail-icons/muramasa-special.png";
 const DOJO_TRAIL_HP_ICON = "Assets/dojo/trail-icons/hp-up.png";
 const DOJO_TRAIL_SLOT_ICON = "Assets/dojo/trail-icons/aegis.png";
 const DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON = "Assets/dojo/trail-icons/equipment-slot-small.png";
@@ -5823,16 +5929,16 @@ const DOJO_TRAIL_DROP_COLUMN_EFFECTS = {
 };
 
 const DOJO_TRAIL_SEVENTH_COLUMN_EFFECTS = {
-  61: { name: "装備持ち込み枠 +1", effect_text: "達人への道の装備持ち込み枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
-  62: { name: "装備持ち込み枠 +1", effect_text: "達人への道の装備持ち込み枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
-  63: { name: "装備持ち込み枠 +1", effect_text: "達人への道の装備持ち込み枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
-  64: { name: "装備持ち込み枠 +1", effect_text: "達人への道の装備持ち込み枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
-  65: { name: "装備拡張の大軌跡", effect_text: "装備できる装備枠と特殊装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_MAJOR_1_ICON },
-  66: { name: "装備枠 +1", effect_text: "装備できる装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
-  67: { name: "特殊装備持ち込み枠 +1", effect_text: "持ち込める特殊装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
-  68: { name: "装備枠 +1", effect_text: "装備できる装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
-  69: { name: "特殊装備持ち込み枠 +1", effect_text: "持ち込める特殊装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
-  70: { name: "特殊装備枠 +3", effect_text: "装備できる特殊装備枠が3増える。", icon: DOJO_TRAIL_EQUIP_SLOT_MAJOR_2_ICON }
+  61: { name: "装備・特殊装備持ち込み枠 +1", effect_text: "達人への道の装備持ち込み枠と特殊装備持ち込み枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
+  62: { name: "装備・特殊装備持ち込み枠 +1", effect_text: "達人への道の装備持ち込み枠と特殊装備持ち込み枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
+  63: { name: "装備・特殊装備持ち込み枠 +1", effect_text: "達人への道の装備持ち込み枠と特殊装備持ち込み枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
+  64: { name: "装備・特殊装備持ち込み枠 +1", effect_text: "達人への道の装備持ち込み枠と特殊装備持ち込み枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
+  65: { name: "聖剣デュランダルの大軌跡", effect_text: "特殊装備デュランダルを入手する。基礎防御力+5。装備中にダメージを受けると、自身の攻撃力と防御力の合計の半分だけ防御貫通の反撃ダメージを与える。", icon: DOJO_TRAIL_DURANDAL_ICON },
+  66: { name: "装備・特殊装備枠 +1", effect_text: "装備できる装備枠と特殊装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
+  67: { name: "装備・特殊装備枠 +1", effect_text: "装備できる装備枠と特殊装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
+  68: { name: "装備・特殊装備枠 +1", effect_text: "装備できる装備枠と特殊装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
+  69: { name: "装備・特殊装備枠 +1", effect_text: "装備できる装備枠と特殊装備枠が1増える。", icon: DOJO_TRAIL_EQUIP_SLOT_SMALL_ICON },
+  70: { name: "妖刀ムラサメの大軌跡", effect_text: "特殊装備ムラサメを入手する。基礎攻撃力+10。装備中、相手にダメージを与えた時、そのダメージの1/10だけHPを回復する。", icon: DOJO_TRAIL_MURAMASA_ICON }
 };
 
 const DOJO_TRAIL_SKILL_COLUMN_EFFECTS = {
@@ -5854,10 +5960,10 @@ const DOJO_TRAIL_ITEM_COLUMN_EFFECTS = {
   73: { name: "アイテム持ち込み枠 +1", effect_text: "達人への道のアイテム持ち込み枠が1増える。", icon: DOJO_TRAIL_ITEM_SLOT_SMALL_ICON },
   74: { name: "アイテム持ち込み枠 +1", effect_text: "達人への道のアイテム持ち込み枠が1増える。", icon: DOJO_TRAIL_ITEM_SLOT_SMALL_ICON },
   75: { name: "闘志の秘薬", effect_text: "アイテム使用時に基礎攻撃力が上昇する（達人への道挑戦中は永続、挑戦終了時のみリセット）。", icon: DOJO_TRAIL_ITEM_ATTACK_MAJOR_ICON },
-  76: { name: "アイテム持ち込み枠 +1", effect_text: "達人への道のアイテム持ち込み枠が1増える。", icon: DOJO_TRAIL_ITEM_SLOT_SMALL_ICON },
-  77: { name: "アイテム持ち込み枠 +1", effect_text: "達人への道のアイテム持ち込み枠が1増える。", icon: DOJO_TRAIL_ITEM_SLOT_SMALL_ICON },
-  78: { name: "アイテム持ち込み枠 +1", effect_text: "達人への道のアイテム持ち込み枠が1増える。", icon: DOJO_TRAIL_ITEM_SLOT_SMALL_ICON },
-  79: { name: "アイテム持ち込み枠 +1", effect_text: "達人への道のアイテム持ち込み枠が1増える。", icon: DOJO_TRAIL_ITEM_SLOT_SMALL_ICON },
+  76: { name: "通常アイテム効果 +1", effect_text: "攻撃力・防御力・HPの通常アイテムの効果量が1上昇する。", icon: DOJO_TRAIL_ITEM_ATTACK_MAJOR_ICON },
+  77: { name: "通常アイテム効果 +1", effect_text: "攻撃力・防御力・HPの通常アイテムの効果量が1上昇する。", icon: DOJO_TRAIL_ITEM_ATTACK_MAJOR_ICON },
+  78: { name: "通常アイテム効果 +1", effect_text: "攻撃力・防御力・HPの通常アイテムの効果量が1上昇する。", icon: DOJO_TRAIL_ITEM_ATTACK_MAJOR_ICON },
+  79: { name: "通常アイテム効果 +1", effect_text: "攻撃力・防御力・HPの通常アイテムの効果量が1上昇する。", icon: DOJO_TRAIL_ITEM_ATTACK_MAJOR_ICON },
   80: { name: "万能の秘薬", effect_text: "アイテム使用時に効果が2回発動する。", icon: DOJO_TRAIL_ITEM_DOUBLE_MAJOR_ICON }
 };
 
@@ -5871,7 +5977,9 @@ const DOJO_TRAIL_MAJOR_ICON_OVERRIDES = {
   45: DOJO_TRAIL_DROP_GUARANTEED_MAJOR_ICON,
   50: DOJO_TRAIL_DROP_RARE_MAJOR_ICON,
   55: DOJO_TRAIL_SKILL_4_MAJOR_ICON,
-  60: DOJO_TRAIL_SKILL_5_MAJOR_ICON
+  60: DOJO_TRAIL_SKILL_5_MAJOR_ICON,
+  65: DOJO_TRAIL_DURANDAL_ICON,
+  70: DOJO_TRAIL_MURAMASA_ICON
 };
 
 function createDojoExcalibur() {
@@ -5897,6 +6005,32 @@ function createDojoAegis() {
     defense_bonus: 5,
     icon_src: DOJO_TRAIL_AEGIS_ICON,
     effect_text: "基礎防御力+5。防御力アップバフを受けている間、その数値分だけ攻撃力も上昇する。"
+  };
+}
+
+function createDojoDurandal() {
+  return {
+    uid: crypto.randomUUID(),
+    name: "デュランダル",
+    is_equip: true,
+    equip_type: "dojo_special",
+    dojo_special_effect: "durandal",
+    defense_bonus: 5,
+    icon_src: DOJO_TRAIL_DURANDAL_ICON,
+    effect_text: "基礎防御力+5。装備中にダメージを受けると、自身の攻撃力と防御力の合計の半分だけ防御貫通の反撃ダメージを与える。"
+  };
+}
+
+function createDojoMuramasa() {
+  return {
+    uid: crypto.randomUUID(),
+    name: "ムラサメ",
+    is_equip: true,
+    equip_type: "dojo_special",
+    dojo_special_effect: "muramasa",
+    attack_bonus: 10,
+    icon_src: DOJO_TRAIL_MURAMASA_ICON,
+    effect_text: "基礎攻撃力+10。装備中、相手にダメージを与えた時、そのダメージの1/10だけHPを回復する。"
   };
 }
 
@@ -6153,15 +6287,17 @@ function getDojoTrailSlotBonuses(state) {
   let specialCarry = 0;
   let equipmentEquip = 1;
   let specialEquip = 1;
-  for (const id of [71, 72, 73, 74, 76, 77, 78, 79]) if (unlocked.has(id)) itemCarry += 1;
-  for (const id of [61, 62, 63, 64]) if (unlocked.has(id)) equipmentCarry += 1;
-  for (const id of [67, 69]) if (unlocked.has(id)) specialCarry += 1;
-  if (unlocked.has(65)) {
+  for (const id of [71, 72, 73, 74]) if (unlocked.has(id)) itemCarry += 1;
+  for (const id of [61, 62, 63, 64]) {
+    if (!unlocked.has(id)) continue;
+    equipmentCarry += 1;
+    specialCarry += 1;
+  }
+  for (const id of [66, 67, 68, 69]) {
+    if (!unlocked.has(id)) continue;
     equipmentEquip += 1;
     specialEquip += 1;
   }
-  for (const id of [66, 68]) if (unlocked.has(id)) equipmentEquip += 1;
-  if (unlocked.has(70)) specialEquip += 3;
   return {
     carrySlots: {
       items: 1 + itemCarry,
@@ -6173,6 +6309,64 @@ function getDojoTrailSlotBonuses(state) {
       special: specialEquip
     }
   };
+}
+
+const DOJO_NORMAL_ITEM_EFFECT_BONUS_NODES = [76, 77, 78, 79];
+const DOJO_NORMAL_ITEM_EFFECT_TYPES = new Set(["攻撃力", "防御力", "HP"]);
+
+function getDojoNormalItemEffectBonusFromNodes(nodes = []) {
+  const nodeList = Array.isArray(nodes)
+    ? nodes
+    : (nodes instanceof Set || (nodes && typeof nodes[Symbol.iterator] === "function" && typeof nodes !== "string"))
+      ? Array.from(nodes)
+      : [];
+  const unlocked = new Set(nodeList.map(Number));
+  return DOJO_NORMAL_ITEM_EFFECT_BONUS_NODES.reduce(
+    (sum, id) => sum + (unlocked.has(id) ? 1 : 0),
+    0
+  );
+}
+
+function getDojoNormalItemEffectBonusForPlayer(player) {
+  return getDojoNormalItemEffectBonusFromNodes(player?.dojoTrailNodes ?? []);
+}
+
+function isDojoNormalConsumableItem(item) {
+  if (!item || typeof item !== "object") return false;
+  if (item.is_equip || item.is_arrow || item.is_doll_costume) return false;
+  if (item.equip_type) return false;
+  if (item.is_mage_item || item.effect_type === "MANA") return false;
+  if (item.is_onmyoji_item || item.is_doll_item || item.is_mad_special_item) return false;
+  if (item.is_priest_item || item.is_dojo_special_item) return false;
+  return DOJO_NORMAL_ITEM_EFFECT_TYPES.has(item.effect_type);
+}
+
+function formatDojoNormalItemEffectText(item, power) {
+  const effectType = item?.effect_type;
+  const duration = Number(item?.duration ?? 0);
+  if (effectType === "HP") return `HP +${power} (即時)`;
+  if (effectType === "攻撃力") return `攻撃力 +${power}${duration > 0 ? ` / ${duration}T` : ""}`;
+  if (effectType === "防御力") return `防御力 +${power}${duration > 0 ? ` / ${duration}T` : ""}`;
+  return item?.effect_text ?? "";
+}
+
+function applyDojoNormalItemEffectBonus(item, bonus = 0) {
+  const boost = Math.max(0, Number(bonus ?? 0));
+  if (boost <= 0 || !isDojoNormalConsumableItem(item)) return item;
+  const basePower = Number(item._dojo_base_power ?? item.power ?? 0);
+  if (!Number.isFinite(basePower)) return item;
+  const power = basePower + boost;
+  return {
+    ...item,
+    power,
+    _dojo_base_power: basePower,
+    dojo_item_effect_bonus: boost,
+    effect_text: formatDojoNormalItemEffectText(item, power),
+  };
+}
+
+function applyDojoNormalItemEffectBonusForPlayer(player, item) {
+  return applyDojoNormalItemEffectBonus(item, getDojoNormalItemEffectBonusForPlayer(player));
 }
 
 function applyDojoTrailSlotBonusesToPlayer(ws) {
@@ -6202,6 +6396,26 @@ function hasDojoAegis(player) {
   return lists.some(list => (list || []).some(it => it?.dojo_special_effect === "aegis" || it?.name === "アイギス"));
 }
 
+function hasDojoDurandal(player) {
+  const lists = [
+    player?.dojoStorage?.special,
+    player?.special_inventory,
+    player?.special_equipment ? [player.special_equipment] : [],
+    player?.extra_special_equipments
+  ];
+  return lists.some(list => (list || []).some(it => it?.dojo_special_effect === "durandal" || it?.name === "デュランダル"));
+}
+
+function hasDojoMuramasa(player) {
+  const lists = [
+    player?.dojoStorage?.special,
+    player?.special_inventory,
+    player?.special_equipment ? [player.special_equipment] : [],
+    player?.extra_special_equipments
+  ];
+  return lists.some(list => (list || []).some(it => it?.dojo_special_effect === "muramasa" || it?.name === "ムラサメ"));
+}
+
 function addDojoExcaliburToStorage(player) {
   if (!player || hasDojoExcalibur(player)) return false;
   addUniqueDojoStorage(player, "special", createDojoExcalibur());
@@ -6211,6 +6425,18 @@ function addDojoExcaliburToStorage(player) {
 function addDojoAegisToStorage(player) {
   if (!player || hasDojoAegis(player)) return false;
   addUniqueDojoStorage(player, "special", createDojoAegis());
+  return true;
+}
+
+function addDojoDurandalToStorage(player) {
+  if (!player || hasDojoDurandal(player)) return false;
+  addUniqueDojoStorage(player, "special", createDojoDurandal());
+  return true;
+}
+
+function addDojoMuramasaToStorage(player) {
+  if (!player || hasDojoMuramasa(player)) return false;
+  addUniqueDojoStorage(player, "special", createDojoMuramasa());
   return true;
 }
 
@@ -6264,11 +6490,14 @@ function applyDojoTrailBonusesToPlayer(ws) {
   delete player._dojoRestoredFromSave;
   if ((state?.trailNodes || []).map(Number).includes(10)) addDojoExcaliburToStorage(player);
   if ((state?.trailNodes || []).map(Number).includes(20)) addDojoAegisToStorage(player);
+  if ((state?.trailNodes || []).map(Number).includes(65)) addDojoDurandalToStorage(player);
+  if ((state?.trailNodes || []).map(Number).includes(70)) addDojoMuramasaToStorage(player);
   
 
   // 達人への道：アイテム関連のノード情報を初期化
   player.dojoTrailNodes = (state?.trailNodes || []).map(Number);
   player.dojoItemAttackBuff = Number(state?.trailItemAttackGrowth ?? 0);
+  player.dojoNormalItemEffectBonus = getDojoNormalItemEffectBonusFromNodes(player.dojoTrailNodes);
   player.dojoItemDoubleEffect = player.dojoTrailNodes.includes(80);
   player.dojoTrailBuffs = buildDojoTrailBuffUIEntries(player);
 }
@@ -6673,6 +6902,11 @@ function buildDojoRunView(run, player, wsOrAccountId = null) {
   const trailBuffs = Array.isArray(player.dojoTrailBuffs)
     ? player.dojoTrailBuffs
     : buildDojoTrailBuffUIEntries(player);
+  const displayItems = (player.dojoStorage.items ?? []).map(it => applyDojoNormalItemEffectBonusForPlayer(player, it));
+  const displayLoadout = {
+    ...(player.dojoLoadout ?? { items: [], equipment: [], special: [] }),
+    items: (player.dojoLoadout?.items ?? []).map(it => applyDojoNormalItemEffectBonusForPlayer(player, it)),
+  };
   return {
     stage: Number(run?.stage ?? 1),
     maxStage: 30,
@@ -6688,10 +6922,10 @@ function buildDojoRunView(run, player, wsOrAccountId = null) {
     next_level_exp: nextExp,
     next_level_remaining: nextExp == null ? 0 : Math.max(0, Number(nextExp) - currentExp),
     coins: Number(player?.coins ?? 0),
-    items: player.dojoStorage.items,
+    items: displayItems,
     equipment: player.dojoStorage.equipment,
     special: player.dojoStorage.special,
-    loadout: player.dojoLoadout,
+    loadout: displayLoadout,
     carrySlots: player.dojoCarrySlots,
     equipSlots: player.dojoEquipSlots ?? { equipment: 1, special: 1 },
     trail: buildDojoTrailView(wsOrAccountId, run?.jobName ?? player?.job ?? "戦士"),
@@ -6975,9 +7209,10 @@ function ensureDojoPrepShop(ws) {
 }
 
 function sendDojoPrepShop(ws) {
+  const items = ensureDojoPrepShop(ws).map(it => applyDojoNormalItemEffectBonusForPlayer(ws?.player, it));
   safeSend(ws, {
     type: "dojo_shop_list",
-    items: ensureDojoPrepShop(ws)
+    items
   });
 }
 
@@ -7146,7 +7381,12 @@ async function handleDojoSocketMessage(ws, m) {
       safeSend(ws, { type: "popup", msg: result.reason === "not enough points" ? "軌跡ポイントが足りません。" : "この軌跡は解放できません。", ms: 2400 });
     } else {
       const unlockedIds = new Set((result.unlockedNodes || [nodeId]).map(Number));
-      if ((unlockedIds.has(10) && addDojoExcaliburToStorage(ws.player)) || (unlockedIds.has(20) && addDojoAegisToStorage(ws.player))) {
+      if (
+        (unlockedIds.has(10) && addDojoExcaliburToStorage(ws.player)) ||
+        (unlockedIds.has(20) && addDojoAegisToStorage(ws.player)) ||
+        (unlockedIds.has(65) && addDojoDurandalToStorage(ws.player)) ||
+        (unlockedIds.has(70) && addDojoMuramasaToStorage(ws.player))
+      ) {
         saveCurrentDojoRun(ws);
       }
       applyDojoTrailBonusesToPlayer(ws);
@@ -7274,7 +7514,7 @@ async function handleDojoSocketMessage(ws, m) {
       shop_sold_out: true
     };
     saveCurrentDojoRun(ws);
-    safeSend(ws, { type: "dojo_purchased_item", item: storedItem });
+    safeSend(ws, { type: "dojo_purchased_item", item: applyDojoNormalItemEffectBonusForPlayer(P, storedItem) });
     safeSend(ws, { type: "popup", msg: extraAttackEquip ? `${item.name} を購入しました（攻撃力装備★1も入手）` : `${item.name} を購入しました`, ms: 2200 });
     sendDojoPrepShop(ws);
     sendDojoWaiting(ws);
@@ -7879,8 +8119,10 @@ function decideCpuDollSkill2Cost(P) {
 // =========================================================
 // ★ CPU用：スキル使用可否を完全判定（使用済み・条件不足防止）
 // =========================================================
-function canUseCpuSkill(P, id) {
+function canUseCpuSkill(P, id, match = null) {
   let key;
+  const skillDef = (JOB_SKILLS?.[P.job] ?? [])[id - 1] ?? null;
+  if (!skillDef) return false;
 
   // ★ CPU：人形使いスキル2はHP条件を満たす時のみ使用可
   if (P.job === "人形使い" && id === 2) {
@@ -7904,14 +8146,24 @@ function canUseCpuSkill(P, id) {
     }[P.job];
 
     if (!prefix) return false; // 念のため
-    key = `${prefix}_${id}`;
+    key = skillDef.type || `${prefix}_${id}`;
+  }
+
+  if (P.skill_sealed) return false;
+
+  if (P.job === "戦士" && (key === "warrior_4" || key === "warrior_5")) {
+    if (match && match.matchType !== "dojo") return false;
+    const trailNodes = new Set((P.dojoTrailNodes || []).map(Number));
+    if (key === "warrior_4" && !trailNodes.has(55)) return false;
+    if (key === "warrior_5" && !trailNodes.has(60)) return false;
   }
 
   // 使用済み
-  if (P.used_skill_set?.has(key)) return false;
+  if (!(P.job === "魔導士" && (key === "mage_2" || key === "mage_3")) && P.used_skill_set?.has(key)) return false;
 
   // レベル不足
-  if (P.level < id) return false;
+  const requiredLevel = Number(skillDef.min_level ?? id);
+  if (P.level < requiredLevel) return false;
 
   // 魔導士マナ
   if (P.job === "魔導士") {
@@ -7968,8 +8220,9 @@ function analyzeCpuState(match, ws) {
 
   // ★ item.js の仕様に合わせる：effect_type は "攻撃力"/"防御力"/"HP"
   //    category/effect は見ない（付いていない）
+  const canUseConsumableThisTurn = Number(P.item_use_count ?? 0) < 2;
   const usableItem =
-    (P.items ?? []).find(it => {
+    canUseConsumableThisTurn ? (P.items ?? []).find(it => {
       if (!it) return false;
 
       // 装備系は除外（P.items に混ざってても弾く）
@@ -7983,7 +8236,7 @@ function analyzeCpuState(match, ws) {
 
       // 上記以外は「使える」とみなす
       return true;
-    }) ?? null;
+    }) ?? null : null;
 
 
   // =========================
@@ -8130,9 +8383,11 @@ function analyzeCpuState(match, ws) {
       Array.isArray(P.shop_items) &&
       P.shop_items.length > 0,
 
-    canSkill1: canUseCpuSkill(P, 1),
-    canSkill2: canUseCpuSkill(P, 2),
-    canSkill3: canUseCpuSkill(P, 3),
+    canSkill1: canUseCpuSkill(P, 1, match),
+    canSkill2: canUseCpuSkill(P, 2, match),
+    canSkill3: canUseCpuSkill(P, 3, match),
+    canSkill4: canUseCpuSkill(P, 4, match),
+    canSkill5: canUseCpuSkill(P, 5, match),
 
   };
 
@@ -8193,6 +8448,9 @@ function decideCpuAction(state) {
   // =========================
   // 2) 消費行動（ターン消費）
   // =========================
+  if (state.canSkill4) return { type: "skill", id: 4 };
+  if (state.canSkill5) return { type: "skill", id: 5 };
+
   // =========================
   // ★ 錬金術師：合成不能なら即攻撃（無限防止）
   // =========================
@@ -8683,7 +8941,7 @@ export async function maybeCpuTurn(match) {
       const P = botWS.player;
 
       // ★ スキル封印・使用不可なら即攻撃に切り替える
-      if (P.skill_sealed || !canUseCpuSkill(P, finalAction.id)) {
+      if (P.skill_sealed || !canUseCpuSkill(P, finalAction.id, match)) {
         await cpuConsumeTurnAction(match, botWS);
         return;
       }
@@ -8701,7 +8959,7 @@ export async function maybeCpuTurn(match) {
         P.pending_hp_cost = cost; // ★ ここが核心
       }
 
-      if (!canUseCpuSkill(P, finalAction.id)) {
+      if (!canUseCpuSkill(P, finalAction.id, match)) {
         await cpuConsumeTurnAction(match, botWS);
         return;
       }
