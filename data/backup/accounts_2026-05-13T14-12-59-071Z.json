@@ -72,20 +72,20 @@
           "highestStage": 20,
           "clearCount": 0,
           "cleared": false,
-          "updatedAt": 1778567295840,
+          "updatedAt": 1778671544142,
           "savedRun": {
             "run": {
               "mode": "dojo",
               "jobName": "戦士",
-              "stage": 3,
-              "highestStage": 2,
+              "stage": 7,
+              "highestStage": 6,
               "startedAt": 1778548549782,
               "lastDrops": [
                 {
                   "type": "coin",
                   "name": "コイン",
-                  "amount": 20,
-                  "base_amount": 20,
+                  "amount": 9,
+                  "base_amount": 9,
                   "trail_bonus_amount": 0,
                   "trail_bonus_percent": 0
                 },
@@ -97,7 +97,7 @@
                 {
                   "type": "prestige",
                   "name": "軌跡ポイント",
-                  "amount": 2
+                  "amount": 3
                 }
               ],
               "midBossPool": [
@@ -111,7 +111,7 @@
                 "ashura"
               ],
               "dojoTrail": {
-                "prestigePoints": 6,
+                "prestigePoints": 20,
                 "trailNodes": [],
                 "trailAttackGrowth": 0,
                 "trailItemAttackGrowth": 0,
@@ -133,8 +133,8 @@
               },
               "job": "戦士",
               "level": 1,
-              "exp": 10,
-              "hp": 194,
+              "exp": 30,
+              "hp": 133,
               "max_hp": 200,
               "dojoTrailBonusesStripped": true,
               "base_attack": 23,
@@ -142,11 +142,25 @@
               "base_defense": 10,
               "defense": 10,
               "special_defense": 0,
-              "coins": 34,
+              "coins": 85,
               "items": [],
               "dojoStorage": {
                 "items": [],
-                "equipment": [],
+                "equipment": [
+                  {
+                    "name": "★2 攻撃力装備",
+                    "star": 2,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "power": 3,
+                    "price": 20,
+                    "effect_text": "攻撃力+3",
+                    "is_arrow": false,
+                    "uid": "2220cddf-41d4-4322-9788-888d1a110421"
+                  }
+                ],
                 "special": []
               },
               "dojoLoadout": {
@@ -175,18 +189,6 @@
               "arrow_slots": 1,
               "shop_items": [
                 {
-                  "name": "★2 防御力装備",
-                  "star": 2,
-                  "is_equip": true,
-                  "equip_type": "normal",
-                  "equip_category": "防御力",
-                  "effect_type": "防御力",
-                  "power": 3,
-                  "price": 20,
-                  "effect_text": "防御力+3",
-                  "is_arrow": false
-                },
-                {
                   "name": "★1 攻撃力装備",
                   "star": 1,
                   "is_equip": true,
@@ -199,42 +201,48 @@
                   "is_arrow": false
                 },
                 {
-                  "name": "★1 HP回復",
-                  "star": 1,
-                  "effect_type": "HP",
-                  "power": 10,
-                  "duration": 0,
-                  "price": 15,
-                  "effect_text": "HP +10 (即時)",
+                  "name": "★2 防御力UP (3T)",
+                  "star": 2,
+                  "effect_type": "防御力",
+                  "power": 3,
+                  "duration": 3,
+                  "price": 12,
+                  "effect_text": "防御力 +3 / 3T",
                   "is_equip": false
                 },
                 {
-                  "name": "★1 攻撃力装備",
+                  "name": "★1 攻撃力UP (2T)",
                   "star": 1,
-                  "is_equip": true,
-                  "equip_type": "normal",
-                  "equip_category": "攻撃力",
-                  "effect_type": "攻撃力",
-                  "power": 2,
-                  "price": 10,
-                  "effect_text": "攻撃力+2",
-                  "is_arrow": false
-                },
-                {
-                  "name": "★2 攻撃力装備",
-                  "star": 2,
-                  "is_equip": true,
-                  "equip_type": "normal",
-                  "equip_category": "攻撃力",
                   "effect_type": "攻撃力",
                   "power": 3,
-                  "price": 20,
-                  "effect_text": "攻撃力+3",
-                  "is_arrow": false
+                  "duration": 2,
+                  "price": 8,
+                  "effect_text": "攻撃力 +3 / 2T",
+                  "is_equip": false
+                },
+                {
+                  "name": "★1 攻撃力UP (3T)",
+                  "star": 1,
+                  "effect_type": "攻撃力",
+                  "power": 2,
+                  "duration": 3,
+                  "price": 8,
+                  "effect_text": "攻撃力 +2 / 3T",
+                  "is_equip": false
+                },
+                {
+                  "name": "★1 防御力UP (3T)",
+                  "star": 1,
+                  "effect_type": "防御力",
+                  "power": 2,
+                  "duration": 3,
+                  "price": 8,
+                  "effect_text": "防御力 +2 / 3T",
+                  "is_equip": false
                 }
               ]
             },
-            "savedAt": 1778567295771
+            "savedAt": 1778671544142
           },
           "prestigePoints": 18,
           "trailNodes": [
@@ -743,6 +751,110 @@
       "name": "",
       "createdAt": 1778593140439,
       "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "dbdd9308-ad6f-40fc-9c43-9a40c6c5099e": {
+      "id": "dbdd9308-ad6f-40fc-9c43-9a40c6c5099e",
+      "name": "Player",
+      "createdAt": 1778661537871,
+      "lastNameChangeAt": 1778661537936,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "f0e7bb1a-6565-47bd-aa3e-8e77d40cf7a3": {
+      "id": "f0e7bb1a-6565-47bd-aa3e-8e77d40cf7a3",
+      "name": "Player",
+      "createdAt": 1778661602129,
+      "lastNameChangeAt": 1778661602177,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "60c12fd2-c52b-4203-b0d8-8ab22d28f9e9": {
+      "id": "60c12fd2-c52b-4203-b0d8-8ab22d28f9e9",
+      "name": "Player",
+      "createdAt": 1778661651006,
+      "lastNameChangeAt": 1778661651033,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "773a5da6-a687-44ff-9616-a2e3ea941594": {
+      "id": "773a5da6-a687-44ff-9616-a2e3ea941594",
+      "name": "Player",
+      "createdAt": 1778661826373,
+      "lastNameChangeAt": 1778661826403,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "598335a1-e530-46d4-b1b3-3c8a8245f7c2": {
+      "id": "598335a1-e530-46d4-b1b3-3c8a8245f7c2",
+      "name": "Player",
+      "createdAt": 1778661882467,
+      "lastNameChangeAt": 1778661882500,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "fea9d96c-c575-432a-a2a3-50936eff1c9a": {
+      "id": "fea9d96c-c575-432a-a2a3-50936eff1c9a",
+      "name": "Player",
+      "createdAt": 1778664230116,
+      "lastNameChangeAt": 1778664230166,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "00f17bf5-3a67-4f45-806a-ac5b2d89f6b3": {
+      "id": "00f17bf5-3a67-4f45-806a-ac5b2d89f6b3",
+      "name": "Player",
+      "createdAt": 1778664291677,
+      "lastNameChangeAt": 1778664291721,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "d1a5db9b-e59b-4a1a-a45f-8b87fc40c7a3": {
+      "id": "d1a5db9b-e59b-4a1a-a45f-8b87fc40c7a3",
+      "name": "Player",
+      "createdAt": 1778664505691,
+      "lastNameChangeAt": 1778664505745,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "2cb74f74-329d-4cf9-9c2c-91030ed413ca": {
+      "id": "2cb74f74-329d-4cf9-9c2c-91030ed413ca",
+      "name": "Player",
+      "createdAt": 1778664556722,
+      "lastNameChangeAt": 1778664556802,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "48a35671-9ea8-43a8-bf7b-166c572626b2": {
+      "id": "48a35671-9ea8-43a8-bf7b-166c572626b2",
+      "name": "Player",
+      "createdAt": 1778664703557,
+      "lastNameChangeAt": 1778664703619,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cb770edd-faef-4946-a81b-7a668a57f3f5": {
+      "id": "cb770edd-faef-4946-a81b-7a668a57f3f5",
+      "name": "Player",
+      "createdAt": 1778664755256,
+      "lastNameChangeAt": 1778664755288,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "c9c378e6-fae4-4a1e-b4c0-9f3241992661": {
+      "id": "c9c378e6-fae4-4a1e-b4c0-9f3241992661",
+      "name": "Player",
+      "createdAt": 1778665760945,
+      "lastNameChangeAt": 1778665761033,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "3e17fa71-1956-4a5b-aa34-4feaaa786f56": {
+      "id": "3e17fa71-1956-4a5b-aa34-4feaaa786f56",
+      "name": "Player",
+      "createdAt": 1778665907923,
+      "lastNameChangeAt": 1778665908022,
       "jobs": {},
       "dojoProgress": {}
     }

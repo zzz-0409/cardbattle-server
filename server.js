@@ -31,7 +31,9 @@ import {
   getSavedDojoRun,
   saveDojoRun,
   clearSavedDojoRun,
-  importJobRecordBackup
+  importJobRecordBackup,
+  importDojoProgressBackup,
+  exportDojoProgressBackup
 } from "./account_store.js";
 
 // =========================================================
@@ -394,7 +396,7 @@ function buildBuffUIData(player) {
       // ホバー説明（短く・わかりやすく）
       const text = b.permanent
         ? `${b.type ?? "効果"} ${sign}${Math.abs(power)}`
-        : `${b.type ?? "効果"} ${sign}${Math.abs(power)}（あと${remain}R）`;
+        : `${b.type ?? "効果"} ${sign}${Math.abs(power)}（あと${remain}T）`;
 
       out.push({
         kind,
@@ -416,7 +418,7 @@ function buildBuffUIData(player) {
         power: atkDown,
         remain,
         source: "凍結",
-        text: `凍結：攻撃 -${atkDown}（あと${remain}R）`,
+        text: `凍結：攻撃 -${atkDown}（あと${remain}T）`,
       });
     }
   }
@@ -430,7 +432,7 @@ function buildBuffUIData(player) {
         power: defDown,
         remain,
         source: "防御低下の矢",
-        text: `防御低下：防御力-${defDown}（あと${remain}R）`,
+        text: `防御低下：防御力-${defDown}（あと${remain}T）`,
       });
     }
   }
@@ -446,7 +448,7 @@ function buildBuffUIData(player) {
         power,
         remain,
         source: name,
-        text: `${name}：${power} ダメージ（あと${remain}R）`,
+        text: `${name}：${power} ダメージ（あと${remain}T）`,
       });
     }
   }
@@ -492,7 +494,7 @@ function buildBuffUIData(player) {
       power: rounds,
       remain: rounds,
       source: "無敵の霊薬",
-      text: `無敵：受けるダメージを0にする（あと${rounds}R）`,
+      text: `無敵：受けるダメージを0にする（あと${rounds}T）`,
     });
   }
 
@@ -515,7 +517,7 @@ function buildBuffUIData(player) {
       power: extra,
       remain: rounds,
       source: "追撃強化",
-      text: `追撃強化：追加攻撃 +${extra}（あと${rounds}R）`,
+      text: `追撃強化：追加攻撃 +${extra}（あと${rounds}T）`,
     });
   }
   if (
@@ -530,7 +532,7 @@ function buildBuffUIData(player) {
       source: "無尽射撃",
       text: player.archer_no_consume_permanent
         ? "無尽射撃：矢を消費しない（永続）"
-        : `無尽射撃：矢を消費しない（あと${rounds}R）`,
+        : `無尽射撃：矢を消費しない（あと${rounds}T）`,
     });
   }
 
@@ -558,10 +560,10 @@ function buildBuffUIData(player) {
       let text = "";
       if (extraAttackIgnoreDef) {
         text = extraAttackRounds > 0
-          ? `追加攻撃：防御無視が永続。あと${extraAttackRounds}R、毎回 ${Math.max(1, extraAttackCount)} 回追加攻撃`
+          ? `追加攻撃：防御無視が永続。あと${extraAttackRounds}T、毎回 ${Math.max(1, extraAttackCount)} 回追加攻撃`
           : "追加攻撃：防御無視が永続";
       } else {
-        text = `追加攻撃：あと${extraAttackRounds}R、毎回 ${Math.max(1, extraAttackCount)} 回追加攻撃`;
+        text = `追加攻撃：あと${extraAttackRounds}T、毎回 ${Math.max(1, extraAttackCount)} 回追加攻撃`;
       }
 
       out.push({
@@ -672,7 +674,7 @@ function buildDojoTrailBuffUIEntries(player) {
       power: regen,
       remain: null,
       source: "生命泉の大軌跡",
-      text: `軌跡：毎ラウンドHP ${regen} 回復（解除不可）`,
+      text: `軌跡：毎ターンHP ${regen} 回復（解除不可）`,
       unremovable: true,
       passive: true,
     });
@@ -874,7 +876,7 @@ function createPriestSpecialItem() {
       price: 30,
       is_priest_item: true,
       priest_effect: "regen",
-      effect_text: "10ラウンドの間、ターン開始時にHPを1回復する",
+      effect_text: "10Tの間、ターン開始時にHPを1回復する",
       is_equip: false,
     },
     {
@@ -882,7 +884,7 @@ function createPriestSpecialItem() {
       price: 15,
       is_priest_item: true,
       priest_effect: "blessing_attack",
-      effect_text: "現在の祝福をすべて消費し、1Rの間、攻撃力を消費数の1/2アップする",
+      effect_text: "現在の祝福をすべて消費し、3Tの間、攻撃力を消費数の1/2アップする",
       is_equip: false,
     },
     {
@@ -966,7 +968,7 @@ function cpuUseItemDirect(match, ws, item) {
   } else {
     const dur = item.duration ?? 0;
     match.sendSystem(
-      `🧪 ${P.name} が ${item.name} を使用（${item.effect_type}+${item.power}${dur > 0 ? ` / ${dur}R` : ""}）`
+      `🧪 ${P.name} が ${item.name} を使用（${item.effect_type}+${item.power}${dur > 0 ? ` / ${dur}T` : ""}）`
     );
   }
 
@@ -1057,6 +1059,22 @@ server.on("request", (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url && req.url.startsWith("/api/account/dojo_backup")) {
+    const u = new URL(req.url, "http://localhost");
+    const accountId = u.searchParams.get("account_id") || "";
+    if (!accountId) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, reason: "account_id required" }));
+      return;
+    }
+
+    const jobs = Object.values(JOB_TEMPLATE).map(v => v.name);
+    const data = exportDojoProgressBackup(accountId, jobs);
+    res.writeHead(data?.ok ? 200 : 404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(data));
+    return;
+  }
+
   // ----------------------------
   // API: register (initial login)
   //   POST /api/account/register
@@ -1071,6 +1089,7 @@ server.on("request", (req, res) => {
         const accountId = String(j.account_id || "");
         const name = String(j.name || "");
         const backupJobs = (j.backup_jobs && typeof j.backup_jobs === "object") ? j.backup_jobs : null;
+        const backupDojoProgress = (j.backup_dojo_progress && typeof j.backup_dojo_progress === "object") ? j.backup_dojo_progress : null;
         if (!accountId || !name) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: false, reason: "account_id and name required" }));
@@ -1087,6 +1106,13 @@ server.on("request", (req, res) => {
             importJobRecordBackup(accountId, backupJobs);
           } catch (e) {
             console.warn("importJobRecordBackup failed:", e);
+          }
+        }
+        if (backupDojoProgress) {
+          try {
+            importDojoProgressBackup(accountId, backupDojoProgress);
+          } catch (e) {
+            console.warn("importDojoProgressBackup failed:", e);
           }
         }
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -1176,8 +1202,10 @@ export class Match {
     try { this.p1.currentMatch = this; } catch {}
     try { this.p2.currentMatch = this; } catch {}
 
-    // ★ ラウンドカウンタ
+    // ★ 全体の手番カウンタ（内部用）
     this.round = 1;
+    this.P1.turn_count = 0;
+    this.P2.turn_count = 0;
 
     // ==============================
     // ★ 先攻・後攻決定ロジック
@@ -1207,9 +1235,41 @@ export class Match {
     }
 
     this.ended = false;
+    this.started = false;
+    this.battleReadySockets = new Set(
+      [this.p1, this.p2].filter(sock => sock?.isBot)
+    );
 
-    this.start();
+  }
 
+  getPlayerBySocket(wsPlayer) {
+    if (wsPlayer === this.p1) return this.P1;
+    if (wsPlayer === this.p2) return this.P2;
+    return null;
+  }
+
+  getPlayerTurnCount(wsPlayer) {
+    const player = this.getPlayerBySocket(wsPlayer);
+    return Math.max(0, Number(player?.turn_count ?? 0));
+  }
+
+  incrementPlayerTurnCount(wsPlayer) {
+    const player = this.getPlayerBySocket(wsPlayer);
+    if (!player) return 0;
+    player.turn_count = Math.max(0, Number(player.turn_count ?? 0)) + 1;
+    return player.turn_count;
+  }
+
+  markBattleReady(wsPlayer) {
+    if (this.ended || this.started) return;
+    if (wsPlayer !== this.p1 && wsPlayer !== this.p2) return;
+
+    this.battleReadySockets.add(wsPlayer);
+    const readyP1 = this.p1?.isBot || this.battleReadySockets.has(this.p1);
+    const readyP2 = this.p2?.isBot || this.battleReadySockets.has(this.p2);
+    if (readyP1 && readyP2) {
+      this.start();
+    }
   }
 
 
@@ -1267,6 +1327,7 @@ export class Match {
 
   sendBattle(msg, extra = {}) {
     if (this.devMode) return;
+    msg = this.normalizeLogMessage(msg);
     safeSend(this.p1, { type: "battle_log", msg, ...extra });
     safeSend(this.p2, { type: "battle_log", msg, ...extra });
   }
@@ -1278,12 +1339,125 @@ export class Match {
 
   sendSkill(msg) { 
     if (this.devMode) return;
+    msg = this.normalizeLogMessage(msg);
     safeSend(this.p1, { type: "skill_log", msg });
     safeSend(this.p2, { type: "skill_log", msg });
   }
 
+  getSkillDefByType(stype) {
+    for (const skills of Object.values(JOB_SKILLS ?? {})) {
+      const found = (skills ?? []).find(skill => skill?.type === stype);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  getSkillDefForActor(actor, stype, num) {
+    return (JOB_SKILLS?.[actor?.job] ?? [])[Number(num) - 1] ?? this.getSkillDefByType(stype);
+  }
+
+  getFallbackSkillName(stype, num = null) {
+    const match = String(stype ?? "").match(/^([a-z]+)_(\d+)$/);
+    if (!match) return num ? `スキル${num}` : "スキル";
+    const prefixLabel = {
+      warrior: "戦士",
+      knight: "騎士",
+      priest: "僧侶",
+      thief: "盗賊",
+      mage: "魔導士",
+      onmyoji: "陰陽師",
+      alchemist: "錬金術師",
+      archer: "弓兵",
+      doll: "人形",
+      mad: "狂人",
+    }[match[1]] ?? "スキル";
+    return `${prefixLabel}スキル${match[2]}`;
+  }
+
+  getSkillDisplayName(skillDef, stype, num = null) {
+    const name = String(skillDef?.name ?? "").trim();
+    return name || this.getFallbackSkillName(stype, num);
+  }
+
+  getSkillDescriptionText(skillDef) {
+    const description = String(skillDef?.description ?? "").trim();
+    if (description) return description;
+    const effect = String(skillDef?.effect ?? "").trim();
+    const power = skillDef?.power != null ? String(skillDef.power).trim() : "";
+    return [effect && `効果: ${effect}`, power && `威力: ${power}`].filter(Boolean).join(" / ");
+  }
+
+  buildSkillActivationLog(actor, skillDef, stype, num = null) {
+    const name = this.getSkillDisplayName(skillDef, stype, num);
+    const desc = this.getSkillDescriptionText(skillDef);
+    return desc
+      ? `✨ ${actor?.name ?? "プレイヤー"} の「${name}」発動！ ${desc}`
+      : `✨ ${actor?.name ?? "プレイヤー"} の「${name}」発動！`;
+  }
+
+  normalizeLogMessage(msg) {
+    if (typeof msg === "function") return "ログ内容を表示できませんでした。";
+    let text = String(msg ?? "").trim();
+    if (!text) return "";
+
+    text = text.replace(/_use_[a-z]+_skill/g, "スキル処理");
+    text = text.replace(/\b(?:warrior|knight|priest|thief|mage|onmyoji|alchemist|archer|doll|mad)_[1-5]\b/g, (stype) => {
+      const skillDef = this.getSkillDefByType(stype);
+      return this.getSkillDisplayName(skillDef, stype);
+    });
+    text = text.replace(/_(?:target|self)\b/g, "");
+    text = text.replace(/\bundefined\b/g, "不明");
+    text = text.replace(/\bnull\b/g, "なし");
+    return text;
+  }
+
+  sendSkillResultSummary(actor, target, detail = {}) {
+    const lines = [];
+    const records = Array.isArray(detail.skillDamageRecords) ? detail.skillDamageRecords : [];
+    const totalRecordDamage = records.reduce((sum, record) => sum + Math.max(0, Number(record?.dealt ?? 0)), 0);
+    const hasDollTarget = records.some(record => record?.targetType === "doll");
+    const targetName = hasDollTarget ? `${target?.name ?? "相手"}の人形` : (target?.name ?? "相手");
+
+    if (records.length > 0) {
+      if (totalRecordDamage > 0) {
+        lines.push(records.length > 1
+          ? `${targetName}に合計${totalRecordDamage}ダメージ（${records.length}ヒット）`
+          : `${targetName}に${totalRecordDamage}ダメージ`);
+      } else {
+        lines.push(`${targetName}へのダメージは防がれた`);
+      }
+    } else if (Number(detail.damagedTarget ?? 0) > 0) {
+      lines.push(`${target?.name ?? "相手"}に${Number(detail.damagedTarget)}ダメージ`);
+    }
+
+    if (Number(detail.damagedActor ?? 0) > 0) {
+      lines.push(`${actor?.name ?? "自分"}は反動で${Number(detail.damagedActor)}ダメージ`);
+    }
+    if (Number(detail.healedActor ?? 0) > 0) {
+      lines.push(`${actor?.name ?? "自分"}はHPを${Number(detail.healedActor)}回復`);
+    }
+    if (Number(detail.healedTarget ?? 0) > 0) {
+      lines.push(`${target?.name ?? "相手"}はHPを${Number(detail.healedTarget)}回復`);
+    }
+    const actorAttackDelta = Number(detail.actorAttackBuffDelta ?? (detail.actorAttackBuffIncreased ? 1 : 0));
+    const actorDefDelta = Number(detail.actorDefBuffDelta ?? (detail.actorDefBuffIncreased ? 1 : 0));
+    const targetAttackDelta = Number(detail.targetAttackBuffDelta ?? 0);
+    const targetDefDelta = Number(detail.targetDefBuffDelta ?? 0);
+    if (actorAttackDelta > 0) lines.push(`${actor?.name ?? "自分"}の攻撃力が上昇`);
+    if (actorAttackDelta < 0) lines.push(`${actor?.name ?? "自分"}の攻撃力が低下`);
+    if (actorDefDelta > 0) lines.push(`${actor?.name ?? "自分"}の防御力が上昇`);
+    if (actorDefDelta < 0) lines.push(`${actor?.name ?? "自分"}の防御力が低下`);
+    if (targetAttackDelta > 0) lines.push(`${target?.name ?? "相手"}の攻撃力が上昇`);
+    if (targetAttackDelta < 0) lines.push(`${target?.name ?? "相手"}の攻撃力が低下`);
+    if (targetDefDelta > 0) lines.push(`${target?.name ?? "相手"}の防御力が上昇`);
+    if (targetDefDelta < 0) lines.push(`${target?.name ?? "相手"}の防御力が低下`);
+
+    this.sendSkill(`→ ${lines.length ? lines.join(" / ") : "効果を適用しました。"}`);
+  }
+
   sendSystem(msg) {
     if (this.devMode) return;
+    msg = this.normalizeLogMessage(msg);
     safeSend(this.p1, { type: "system_log", msg });
     safeSend(this.p2, { type: "system_log", msg });
   }
@@ -1592,6 +1766,7 @@ export class Match {
 
 
   sendError(msg, ws = null) {
+    msg = this.normalizeLogMessage(msg);
     if (ws) {
       safeSend(ws, { type: "error_log", msg });
     } else {
@@ -1678,7 +1853,7 @@ export class Match {
         if (level <= 3) {
           return {
             title: `追加攻撃 Lv${level}`,
-            desc: `${level} ラウンドの間、人形が追加で1回攻撃する`,
+            desc: `${level}Tの間、人形が追加で1回攻撃する`,
             level,
             progress_now: progressNow,
             progress_need: progressNeed,
@@ -1689,7 +1864,7 @@ export class Match {
         if (level === 4) {
           return {
             title: "追加攻撃 Lv4",
-            desc: "3ラウンドの間、人形が追加で2回攻撃する",
+            desc: "3Tの間、人形が追加で2回攻撃する",
             level,
             progress_now: progressNow,
             progress_need: progressNeed,
@@ -1699,7 +1874,7 @@ export class Match {
         }
         return {
           title: "追加攻撃 Lv5",
-          desc: "追加攻撃が防御無視で永続化し、3ラウンドの間さらに2回追加攻撃する",
+          desc: "追加攻撃が防御無視で永続化し、3Tの間さらに2回追加攻撃する",
           level,
           progress_now: progressNow,
           progress_need: progressNeed,
@@ -2040,8 +2215,8 @@ export class Match {
         actor.doll.extra_attack_ignore_def_permanent = true;
       }
       popupMsg = ignoreDef
-        ? "⚡ 追加攻撃が防御無視で永続化し、3ラウンドの間さらに2回追加攻撃する！"
-        : `⚡ ${totalRounds} ラウンドの間、人形が追加で ${attacksPerTurn} 回攻撃する！`;
+        ? "⚡ 追加攻撃が防御無視で永続化し、3Tの間さらに2回追加攻撃する！"
+        : `⚡ ${totalRounds}Tの間、人形が追加で ${attacksPerTurn} 回攻撃する！`;
     } else if (key === "gain_coins") {
       const gain = 10 + (level - 1) * 5;
       actor.coins += gain;
@@ -2067,6 +2242,9 @@ export class Match {
      試合開始
      ========================================================= */
   start() {
+    if (this.started || this.ended) return;
+    this.started = true;
+
     this.sendSystem("🎮 バトル開始！");
 
     // ★ プレイヤー職業をクライアントへ送信
@@ -2082,7 +2260,7 @@ export class Match {
     }
   }
 
-    // ★ 先攻1ラウンド目用：ショップを事前生成
+    // ★ 先攻1ターン目用：ショップを事前生成
     if (this.matchType === "tutorial") {
       this.P1.shop_items = createTutorialShopList();
       this.P2.shop_items = [];
@@ -2120,6 +2298,7 @@ export class Match {
 
     const actorWS = this.current;
     const actor = (actorWS === this.p1 ? this.P1 : this.P2);
+    const actorTurnCount = this.incrementPlayerTurnCount(actorWS);
 
     // ★ 1ターンのアイテム使用回数（消費アイテム）をリセット
     actor.item_use_count = 0;
@@ -2133,8 +2312,8 @@ export class Match {
       this.sendHealEvent(actor, actor.doll.durability, "doll");
     }
 
-    const battleRound = Math.ceil(Number(this.round ?? 1) / 2);
-    if (battleRound >= 30) {
+    const battleTurn = actorTurnCount;
+    if (battleTurn >= 30) {
       if (!this.suddenDeathAnnounced) {
         this.suddenDeathAnnounced = true;
         const warningText = "⚠ サドンデスモードに突入！以降、自分のターン開始時に防御無視ダメージを受けます";
@@ -2142,10 +2321,10 @@ export class Match {
         this.sendBattle(warningText);
         this.sendPopup(warningText, null, 3600, "boom");
       }
-      const suddenDamage = 10 + Math.max(0, battleRound - 30);
+      const suddenDamage = 10 + Math.max(0, battleTurn - 30);
       actor.sudden_death_debuff = {
         power: suddenDamage,
-        round: battleRound,
+        turn: battleTurn,
         unremovable: true
       };
       let dealtSudden = 0;
@@ -2225,43 +2404,12 @@ export class Match {
     }
 
     // ===============================
-    // 自己バフ：ラウンド開始時に減少
+    // 自己バフ：自分のターン開始時に減少
     // ===============================
     if (actor.decrease_buffs_start_of_round) {
       actor.decrease_buffs_start_of_round();
     }
-
-    // ===============================
-    // 氷結（freeze）：付与者のラウンド開始時に減少
-    // ===============================
-    for (const p of [this.P1, this.P2]) {
-      if (!p.freeze_debuffs || p.freeze_debuffs.length === 0) continue;
-
-      p.freeze_debuffs = p.freeze_debuffs
-        .map(d => {
-          if (d.owner === actor) {
-            return { ...d, rounds: d.rounds - 1 };
-          }
-          return d;
-        })
-        .filter(d => d.rounds > 0);
-    }
-
-    for (const p of [this.P1, this.P2]) {
-      if (!p.defense_debuffs || p.defense_debuffs.length === 0) continue;
-
-      p.defense_debuffs = p.defense_debuffs
-        .map(d => {
-          if (d.owner === actor) {
-            return { ...d, rounds: Number(d.rounds ?? d.duration ?? 0) - 1 };
-          }
-          return d;
-        })
-        .filter(d => Number(d.rounds ?? d.duration ?? 0) > 0);
-    }
-
-
-
+    this.decrementArcherTurnStartBuffs(actor);
 
     // ▼ コイン配布（達人への道では戦闘中配布しない）
     if (this.matchType !== "dojo") {
@@ -2308,7 +2456,7 @@ export class Match {
 
 
     // ================================
-    // ★ 人形使い：暴走ラウンド進行（ラウンド開始時）
+    // ★ 人形使い：暴走ターン進行（ターン開始時）
     // ================================
     if (
       actor.job === "人形使い" &&
@@ -2318,10 +2466,10 @@ export class Match {
       actor.doll.rampage_rounds -= 1;
 
       this.sendSystem(
-        `🔥 人形は暴走中… 残り ${actor.doll.rampage_rounds}R`
+        `🔥 人形は暴走中… 残り T`
       );
 
-      // --- 3R経過 → 自爆 ---
+      // --- 経過 → 自爆 ---
       if (actor.doll.rampage_rounds <= 0) {
         this.sendSystem("💥 暴走が限界に達した！人形が自爆した！");
 
@@ -2354,7 +2502,7 @@ export class Match {
     }
 
     // ================================
-    // ★ 人形使い：耐久リジェネ（ラウンド開始時）
+    // ★ 人形使い：耐久リジェネ（ターン開始時）
     // ================================
     if (
       actor.job === "人形使い" &&
@@ -2393,7 +2541,7 @@ export class Match {
       coins: actor.coins
     });
 
-    // ▼ ラウンド情報送信
+    // ▼ ターン情報送信
     this.sendRoundInfo();
     if (actor.job === "人形使い" && actor.doll && actor.doll.pending_charge_ready) {
       this.sendStatusInfo(actorWS, actor);
@@ -2404,7 +2552,7 @@ export class Match {
   }
 
   scheduleCpuTurn(delayMs = 450) {
-    if (this.ended || !this.current?.isBot) return;
+    if (!this.started || this.ended || !this.current?.isBot) return;
     if (this._cpuTurnTimer) return;
 
     this._cpuTurnTimer = setTimeout(() => {
@@ -2585,43 +2733,6 @@ export class Match {
     return normalized;
   }
 
-  // ---------- ★ショップを開く ----------
-  openShop(wsPlayer) {
-      const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
-      if (wsPlayer !== this.current || this.action_resolving) {
-        this.sendPopup("相手が考え中です。", wsPlayer, 1400);
-        this.sendError("❌ 今は行動できません。", wsPlayer);
-        return;
-      }
-
-      if (this.matchType === "tutorial") {
-        if (
-          !Array.isArray(P.shop_items) ||
-          P.shop_items.length < SHOP_SLOT_COUNT ||
-          !P.shop_items.every(item => item?.tutorial_item === true)
-        ) {
-          P.shop_items = createTutorialShopList();
-        }
-        safeSend(wsPlayer, {
-          type: "shop_list",
-          items: P.shop_items
-        });
-        return;
-      }
-
-      // ★更新禁止：基本は既存在庫をそのまま使う（欠損時だけ5枠へ修復）
-      if (!Array.isArray(P.shop_items) || P.shop_items.filter(item => item && typeof item === "object").length < SHOP_SLOT_COUNT) {
-        P.shop_items = this.generateShopList(P);
-      }
-
-      // ★ 既存の在庫をそのまま渡すだけ
-      safeSend(wsPlayer, { 
-          type: "shop_list",
-          items: P.shop_items
-      });
-  }
-
-
   // ---------- ★購入処理（完全版） ----------
   buyItem(wsPlayer, index) {
     const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
@@ -2745,7 +2856,7 @@ export class Match {
     // ★ 購入ポップアップ（購入者のみ）
     this.sendPopup(`${item.name} を購入しました`, wsPlayer, 2200);
 
-    // ★ ラウンドは終了しない
+    // ★ ターンは終了しない
   }
 
   combineNormalEquips(wsPlayer, uid1, uid2) {
@@ -3264,27 +3375,6 @@ export class Match {
       P.job === "人形使い"
 
     ) {
-        if (false && Number(P.doll?.repair_kit_lock_rounds ?? 0) > 0) {
-            this.sendPopup(
-                "人形が壊れた次のラウンドは修理キットを使用できません。",
-                wsPlayer,
-                2800
-            );
-            this.sendError(
-                "❌ 人形が壊れた次のラウンドは修理キットを使用できません。",
-                wsPlayer
-            );
-            return;
-        }
-        // ★ 暴走中は修理キット使用不可
-        if (false && P.doll?.is_rampage) {
-            this.sendError(
-                "❌ 人形が暴走中は修理キットを使用できません。",
-                wsPlayer
-            );
-            return;
-        }
-
         if (!P.doll) {
             this.sendError("❌ 人形が存在しません。", wsPlayer);
             return;
@@ -3400,7 +3490,7 @@ export class Match {
             source: item.name ?? "聖なる香",
             uid: crypto.randomUUID(),
           });
-          message = `${item.name} を使用した！ 10Rの間、HPを1ずつ回復する`;
+          message = `${item.name} を使用した！ 10Tの間、HPを1ずつ回復する`;
         } else if (item.priest_effect === "blessing_attack") {
           const consumed = Math.max(0, Number(P.blessing_count ?? 0));
           if (consumed <= 0) {
@@ -3470,10 +3560,6 @@ export class Match {
           ? opponent.active_buffs.length
           : 0;
         const beforeOpponentBarrier = Number(opponent?.barrier ?? 0);
-        const beforeSelfAttackBuff = Number(P.get_attack_buff_total?.() ?? 0);
-        const beforeOpponentAttackBuff = Number(opponent?.get_attack_buff_total?.() ?? 0);
-        const beforeSelfDefBuff = Number(P.get_def_buff_total?.() ?? 0) + Number(P.barrier ?? 0);
-        const beforeOpponentDefBuff = Number(opponent?.get_def_buff_total?.() ?? 0) + Number(opponent?.barrier ?? 0);
 
         const applyResult = P.apply_item(item);
         if (applyResult === false) {
@@ -3535,16 +3621,8 @@ export class Match {
           }
         }
 
-        const afterSelfAttackBuff = Number(P.get_attack_buff_total?.() ?? 0);
-        const afterOpponentAttackBuff = Number(opponent?.get_attack_buff_total?.() ?? 0);
-        if (afterSelfAttackBuff > beforeSelfAttackBuff || afterOpponentAttackBuff > beforeOpponentAttackBuff) {
-          this.sendSfxEvent("powerup");
-        }
-        const afterSelfDefBuff = Number(P.get_def_buff_total?.() ?? 0) + Number(P.barrier ?? 0);
-        const afterOpponentDefBuff = Number(opponent?.get_def_buff_total?.() ?? 0) + Number(opponent?.barrier ?? 0);
-        if (afterSelfDefBuff > beforeSelfDefBuff || afterOpponentDefBuff > beforeOpponentDefBuff) {
-          this.sendSfxEvent("defup");
-        }
+        // Buff SE is derived from the following status_simple update on the client.
+        // Sending it here as well makes item buffs play the same SE twice.
 
         if (P.job === "陰陽師" && P.last_summoned_shikigami?.length) {
           this.sendShikigamiSummonEvent(P, P.last_summoned_shikigami);
@@ -3737,7 +3815,7 @@ export class Match {
       // ===== 式神 =====
       shikigami: P.shikigami_effects?.map(s =>
         s.rounds !== undefined
-          ? `${s.name}（残り${s.rounds}R）`
+          ? `${s.name}（残り${s.rounds}T）`
           : s.name
       ) ?? [],
 
@@ -3962,23 +4040,31 @@ export class Match {
   }
 
   /* =========================================================
-    ラウンド開始通知
+    ターン開始通知
     ========================================================= */
   sendRoundInfo() {
 
     if (this.ended) return;
+    const actorTurn = this.getPlayerTurnCount(this.current);
+    const enemyTurn = this.getPlayerTurnCount(this.enemy);
 
     // ---------------------------------
-    // 手番表示（これは今まで通り）
+    // 手番表示
     // ---------------------------------
     safeSend(this.current, {
       type: "your_turn",
-      msg: `▶ あなたのラウンド（ラウンド${this.round}）`
+      msg: `▶ あなたのターン（${actorTurn}T）`,
+      self_turn: actorTurn,
+      enemy_turn: enemyTurn,
+      actor_turn: actorTurn
     });
 
     safeSend(this.enemy, {
       type: "wait_turn",
-      msg: `⏳ 相手のラウンド（ラウンド${this.round}）`
+      msg: `⏳ 相手のターン（相手${actorTurn}T）`,
+      self_turn: enemyTurn,
+      enemy_turn: actorTurn,
+      actor_turn: actorTurn
     });
 
     // ---------------------------------
@@ -4065,7 +4151,7 @@ export class Match {
         logs = [`${actor.name} の攻撃力が上がった！`, ...this.dojoEnemyStrike(actor, target, { label: "追撃", hits: 3 })];
       } else if (action === "b") {
         title = "金剛三面";
-        desc = "1ラウンドの間、防御力を3倍にする。";
+        desc = "1Tの間、防御力を3倍にする。";
         const add = Math.max(1, Number(actor.get_total_defense?.() ?? actor.defense ?? 0) * 2);
         dojoAddBuff(actor, "防御力", add, 1, title);
         logs = [`${actor.name} の防御力が3倍になった！`];
@@ -4153,9 +4239,9 @@ export class Match {
       return;
     }
 
-    // 自分のラウンド以外は行動不可
+    // 自分のターン以外は行動不可
     if (wsPlayer !== this.current) {
-      this.sendError("❌ 今はあなたのラウンドではありません。", wsPlayer);
+      this.sendError("❌ 今はあなたのターンではありません。", wsPlayer);
       return;
     }
 
@@ -4167,7 +4253,7 @@ export class Match {
       return;
     }
 
-    // ★ バフラウンド処理（正しい位置）
+    // ★ バフターン処理（正しい位置）
     if (actor.process_buffs) actor.process_buffs();
 
     if (action === "矢なしターン終了") {
@@ -4283,7 +4369,7 @@ export class Match {
       return;
     }
 
-    /* ---------- スキル（失敗ならラウンド消費しない） ---------- */
+    /* ---------- スキル（失敗ならターン消費しない） ---------- */
     if (
       /^スキル[1-5]$/.test(String(action)) &&
       actor.job !== 9 &&
@@ -4293,10 +4379,10 @@ export class Match {
       const num = Number(action.replace("スキル", ""));
       const success = await this.useSkill(wsPlayer, actor, target, num);
 
-      // ★ 失敗なら：ここで終了（ラウンド交代しない・使用済みにもならない）
+      // ★ 失敗なら：ここで終了（ターン交代しない・使用済みにもならない）
       if (!success) return;
 
-      // 成功時のみ：勝敗チェックとラウンド終了は useSkill 内でやる（※下の修正版に合わせる）
+      // 成功時のみ：勝敗チェックとターン終了は useSkill 内でやる（※下の修正版に合わせる）
       return;
     }
 
@@ -4316,6 +4402,7 @@ export class Match {
       if (actor.job === "人形使い") {
 
         const stype = `doll_${num}`;
+        const skillDef = this.getSkillDefForActor(actor, stype, num);
 
         // ★ スキル発動前の差分保存
         const beforeHpActor = actor.hp;
@@ -4339,6 +4426,7 @@ export class Match {
           this.skill_lock = false;
           return false;
         }
+        this.sendSkill(this.buildSkillActivationLog(actor, skillDef, stype, num));
         
         // ★ HP減少 → ダメージ演出
         const hpLost = beforeHpActor - actor.hp;
@@ -4386,7 +4474,7 @@ export class Match {
     }[job];
 
     const stype = `${prefix}_${num}`;
-    const skillDef = (JOB_SKILLS?.[actor.job] ?? [])[num - 1] ?? null;
+    const skillDef = this.getSkillDefForActor(actor, stype, num);
 
     // ★ 魔導士：魔力不足は中央ポップアップで通知（最低必要魔力付き）
     if (actor.job === "魔導士") {
@@ -4404,8 +4492,6 @@ export class Match {
       this.skill_lock = false;
       return false;
     }
-
-    this.sendSkill(`✨ ${actor.name} のスキル発動：${stype}`);
 
     // -------- 1) レベルチェック（最優先） --------
     const requiredLevel = Number(skillDef?.min_level ?? num);
@@ -4460,7 +4546,7 @@ export class Match {
     const fn = actor[method];
 
     if (!fn) {
-      this.sendError(`❌ 未実装スキル: ${method}`, wsPlayer);
+      this.sendError(`❌ ${this.getSkillDisplayName(skillDef, stype, num)} はまだ実装されていません。`, wsPlayer);
       this.skill_lock = false;
       return false;
     }
@@ -4527,10 +4613,11 @@ export class Match {
     }
 
     if (!ok) {
-      this.sendError(`❌ スキル失敗：${stype}`, wsPlayer);
+      this.sendError(`❌ ${this.getSkillDisplayName(skillDef, stype, num)} は発動できませんでした。`, wsPlayer);
       this.skill_lock = false;
       return false; // ★ 失敗を返す（ターン消費させない）
     }
+    this.sendSkill(this.buildSkillActivationLog(actor, skillDef, stype, num));
 
     const afterActorAttackBuff = Number(actor.get_attack_buff_total?.() ?? 0);
     const afterTargetAttackBuff = Number(target.get_attack_buff_total?.() ?? 0);
@@ -4654,6 +4741,18 @@ export class Match {
       this.sendHealEvent(target, healedTarget);
     }
 
+    this.sendSkillResultSummary(actor, target, {
+      skillDamageRecords,
+      damagedActor,
+      damagedTarget,
+      healedActor,
+      healedTarget,
+      actorAttackBuffDelta: afterActorAttackBuff - beforeActorAttackBuff,
+      actorDefBuffDelta: afterActorDefBuff - beforeActorDefBuff,
+      targetAttackBuffDelta: afterTargetAttackBuff - beforeTargetAttackBuff,
+      targetDefBuffDelta: afterTargetDefBuff - beforeTargetDefBuff,
+    });
+
     if (!hasSkillDamage && attackBuffIncreased) {
       this.sendBuffVisualEvent(actor, "powerup");
     }
@@ -4716,7 +4815,7 @@ export class Match {
     }
 
     this.skill_lock = false;
-    this.endRound(); // ★ 成功した時だけラウンド消費
+    this.endRound(); // ★ 成功した時だけターン消費
     return true;
   }
 
@@ -4768,6 +4867,11 @@ export class Match {
   }
 
   decrementArcherAttackBuffs(actor) {
+    actor.archer_pierce_rounds = 0;
+    actor.archer_next_pierce = false;
+  }
+
+  decrementArcherTurnStartBuffs(actor) {
     if (Number(actor.archer_no_consume_rounds ?? 0) > 0) {
       actor.archer_no_consume_rounds -= 1;
       if (actor.archer_no_consume_rounds <= 0) {
@@ -4775,9 +4879,6 @@ export class Match {
         this.sendSystem("🏹 無尽射撃の効果が終了しました");
       }
     }
-
-    actor.archer_pierce_rounds = 0;
-    actor.archer_next_pierce = false;
 
     if (actor.archer_buff && actor.archer_buff.rounds > 0) {
       actor.archer_buff.rounds -= 1;
@@ -4788,6 +4889,53 @@ export class Match {
     }
   }
 
+  isTurnEndDebuff(buff) {
+    const type = String(buff?.type ?? "");
+    return (
+      type === "攻撃力低下" ||
+      type === "防御力低下" ||
+      type === "スキル封印" ||
+      buff?.is_debuff === true ||
+      buff?.debuff === true
+    );
+  }
+
+  decrementDebuffsEndOfTurn(player) {
+    if (!player) return;
+
+    const tickList = (list) => {
+      if (!Array.isArray(list) || list.length === 0) return [];
+      return list
+        .map(d => {
+          const nextTurns = Number(d.rounds ?? d.duration ?? 0) - 1;
+          return { ...d, rounds: nextTurns, duration: nextTurns };
+        })
+        .filter(d => Number(d.rounds ?? d.duration ?? 0) > 0);
+    };
+
+    player.freeze_debuffs = tickList(player.freeze_debuffs);
+    player.defense_debuffs = tickList(player.defense_debuffs);
+
+    if (Array.isArray(player.active_buffs) && player.active_buffs.length > 0) {
+      const next = [];
+      for (const b of player.active_buffs) {
+        if (!this.isTurnEndDebuff(b) || b.permanent || b.unremovable || b.passive) {
+          next.push({ ...b });
+          continue;
+        }
+        const nextTurns = Number(b.duration ?? b.rounds ?? 0) - 1;
+        if (nextTurns > 0) {
+          next.push({ ...b, duration: nextTurns, rounds: nextTurns });
+        }
+      }
+      player.active_buffs = next;
+    }
+
+    if (!player.active_buffs?.some(b => b.type === "スキル封印")) {
+      player.skill_sealed = false;
+    }
+  }
+
 
 
 
@@ -4795,7 +4943,7 @@ export class Match {
   /* =========================================================
      DOT処理（鬼火など）
      ========================================================= */
-  applyDots() {
+  applyDots(turnEndedPlayer = null) {
     const players = [
       { P: this.P1, ws: this.p1 },
       { P: this.P2, ws: this.p2 }
@@ -4803,10 +4951,14 @@ export class Match {
 
     for (const { P } of players) {
       if (!P.dot_effects) continue;
+      const consumeDuration = !turnEndedPlayer || P === turnEndedPlayer;
 
       const remain = [];
 
       for (const dot of P.dot_effects) {
+        const turnsBefore = Number(dot.turns ?? dot.rounds ?? dot.duration ?? 0);
+        if (turnsBefore <= 0) continue;
+
         const target = P;
         const beforeHp = target.hp;
         const beforeDoll = target.doll ? Number(target.doll.durability ?? 0) : null;
@@ -4899,14 +5051,17 @@ export class Match {
         }
 
 
-        // ★ DOTターン消費（turns / rounds 両対応）
-        const turnsNow = Number(dot.turns ?? dot.rounds ?? 0);
-        dot.turns = turnsNow - 1;
+        if (consumeDuration) {
+          // ★ DOT継続Tは、付与されている本人のターン終了時だけ減少
+          dot.turns = turnsBefore - 1;
 
-        // 表示側が rounds を参照していても崩れないように同期
-        if (dot.rounds != null) dot.rounds = dot.turns;
+          // 表示側が rounds を参照していても崩れないように同期
+          if (dot.rounds != null) dot.rounds = dot.turns;
 
-        if (dot.turns > 0) remain.push(dot);
+          if (dot.turns > 0) remain.push(dot);
+        } else {
+          remain.push(dot);
+        }
 
       }
 
@@ -4917,7 +5072,7 @@ export class Match {
 
     // DOTで決着した場合
     if (this.P1.hp <= 0 || this.P2.hp <= 0) {
-      if (this.ended) return;
+      if (this.ended) return true;
 
       let result;
       if (this.P1.hp > this.P2.hp) result = "p1";
@@ -4925,7 +5080,10 @@ export class Match {
       else result = "draw";
 
       this.finishBattle(result);
+      return true;
     }
+
+    return false;
   }
 
 
@@ -5252,7 +5410,7 @@ export class Match {
   }
 
   /* =========================================================
-     ラウンド終了処理
+     ターン終了処理
      ========================================================= */
   endRound() { // ★ 修正（旧 endTurn）
     this.skill_lock = false;
@@ -5261,7 +5419,13 @@ export class Match {
     if (this.ended) return;
 
     const actor = this.current === this.p1 ? this.P1 : this.P2;
-    const target = this.current === this.p1 ? this.P2 : this.P1;
+
+    // ターン終了時：毒/鬼火は両者ぶんダメージ、残りTは付与されている本人の終了時だけ減少
+    if (this.applyDots(actor)) return;
+
+    // デバフの継続Tは、付与されている本人のターン終了時に減少
+    this.decrementDebuffsEndOfTurn(actor);
+    this.sendSimpleStatusBoth();
 
     // ★ 最大レベル未満の時だけ毎ターン EXP +5（達人への道では戦闘中EXPなし）
     if (this.matchType !== "dojo" && (LEVEL_REQUIREMENTS[actor.level] ?? null) != null) {
@@ -5291,15 +5455,12 @@ export class Match {
 
     actor.decrease_shikigami_end_of_round();
 
-    this.applyDots();
-    if (this.ended) return;
 
-
-    // ラウンド交代
+    // ターン交代
     [this.current, this.enemy] = [this.enemy, this.current];
     this.round++; // ★ 修正（旧 this.turn++）
 
-    // ★ 次のラウンド開始処理（ここでコイン配布）
+    // ★ 次のターン開始処理（ここでコイン配布）
     this.startRound(); // ★ 修正（旧 startTurn）
 
     // コイン同期
@@ -5601,7 +5762,7 @@ const DOJO_TRAIL_THIRD_COLUMN_EFFECTS = {
   27: { name: "最大HP +10", effect_text: "最大HPが10上昇する。最大HPが増えた分、現在HPも回復する。", icon: DOJO_TRAIL_HP_ICON },
   28: { name: "最大HP +10", effect_text: "最大HPが10上昇する。最大HPが増えた分、現在HPも回復する。", icon: DOJO_TRAIL_HP_ICON },
   29: { name: "最大HP +10", effect_text: "最大HPが10上昇する。最大HPが増えた分、現在HPも回復する。", icon: DOJO_TRAIL_HP_ICON },
-  30: { name: "生命泉の大軌跡", effect_text: "最大HPが40上昇し、毎ラウンドHPが2回復する。", icon: DOJO_TRAIL_HP_ICON }
+  30: { name: "生命泉の大軌跡", effect_text: "最大HPが40上昇し、毎ターンHPが2回復する。", icon: DOJO_TRAIL_HP_ICON }
 };
 
 const DOJO_TRAIL_FOURTH_COLUMN_EFFECTS = {
@@ -5648,7 +5809,7 @@ const DOJO_TRAIL_SKILL_COLUMN_EFFECTS = {
   52: { name: "全スキルダメージ +5", effect_text: "戦士の全スキルダメージが5上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
   53: { name: "全スキルダメージ +5", effect_text: "戦士の全スキルダメージが5上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
   54: { name: "全スキルダメージ +5", effect_text: "戦士の全スキルダメージが5上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
-  55: { name: "剛勇覚醒の大軌跡", effect_text: "戦士スキル4「剛勇覚醒」を解放する。レベル3で使用可能。5R攻撃力+20後、通常攻撃を行う。", icon: DOJO_TRAIL_SKILL_4_MAJOR_ICON },
+  55: { name: "剛勇覚醒の大軌跡", effect_text: "戦士スキル4「剛勇覚醒」を解放する。レベル3で使用可能。5T攻撃力+20後、通常攻撃を行う。", icon: DOJO_TRAIL_SKILL_4_MAJOR_ICON },
   56: { name: "全スキルダメージ +10", effect_text: "戦士の全スキルダメージが10上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
   57: { name: "全スキルダメージ +10", effect_text: "戦士の全スキルダメージが10上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
   58: { name: "全スキルダメージ +10", effect_text: "戦士の全スキルダメージが10上昇する。", icon: DOJO_TRAIL_SKILL_DAMAGE_SMALL_ICON },
@@ -5737,7 +5898,7 @@ function createDojoInvinciblePotion() {
     rounds: 2,
     price: 0,
     icon_src: DOJO_SPECIAL_INVINCIBLE_ICON,
-    effect_text: "2Rの間、受けるダメージを0にする。"
+    effect_text: "2Tの間、受けるダメージを0にする。"
   };
 }
 
@@ -5753,7 +5914,7 @@ function createDojoGrowthElixir() {
     power: 2,
     price: 0,
     icon_src: DOJO_SPECIAL_GROWTH_ELIXIR_ICON,
-    effect_text: "使用後、ステージクリアまで毎ラウンド攻撃力+2。"
+    effect_text: "使用後、ステージクリアまで毎ターン攻撃力+2。"
   };
 }
 
@@ -5907,10 +6068,6 @@ function getDojoTrailCoinGainDetail(run, amount) {
   }
   const bonus = Math.max(1, Math.floor(base * percent / 100));
   return { amount: base + bonus, base, bonus, percent };
-}
-
-function applyDojoTrailCoinGainBonus(run, amount) {
-  return getDojoTrailCoinGainDetail(run, amount).amount;
 }
 
 function recordDojoCoinSpent(ws, amount) {
@@ -6642,26 +6799,6 @@ function applyDojoDrops(run, player, drops) {
   }
 }
 
-function addShopItemToPlayerInventory(P, item) {
-  P.items = Array.isArray(P.items) ? P.items : [];
-  P.equipment_inventory = Array.isArray(P.equipment_inventory) ? P.equipment_inventory : [];
-  P.special_inventory = Array.isArray(P.special_inventory) ? P.special_inventory : [];
-  P.arrow_inventory = Array.isArray(P.arrow_inventory) ? P.arrow_inventory : [];
-  if (isArrowItem(item)) {
-    addArrowToPlayerStack(P, item, { includeEquipped: true });
-  } else if (item.is_doll_costume && P.job === "人形使い") {
-    P.special_inventory.push(item);
-  } else if (item.equip_type === "mage_equip" || item.equip_type === "alchemist_unique" || item.equip_type === "dojo_special") {
-    P.special_inventory.push(item);
-  } else if (item.is_mad_special_item) {
-    P.items.push(item);
-  } else if (item.is_equip) {
-    P.equipment_inventory.push(item);
-  } else {
-    P.items.push(item);
-  }
-}
-
 function serializeDojoPlayer(player) {
   const trailMaxHpBonus = Number(player?._dojoTrailMaxHpBonusApplied ?? 0);
   return {
@@ -7252,7 +7389,7 @@ function startCpuMatch(humanWS) {
     // ---------- 人形使い：スキルUI系 ----------
     if (m.type === "request_doll_skill1") {
       if (sock !== match.current) {
-        match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+        match.sendError("❌ 今はあなたのターンではありません。", sock);
         return;
       }
       safeSend(sock, { type: "request_doll_part_select" });
@@ -7298,7 +7435,7 @@ function startCpuMatch(humanWS) {
 
     if (m.type === "request_alchemist_skill3_select") {
       if (sock !== match.current) {
-        match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+        match.sendError("❌ 今はあなたのターンではありません。", sock);
         return;
       }
       const candidates = buildAlchemistFusionCandidateData(P);
@@ -7313,7 +7450,7 @@ function startCpuMatch(humanWS) {
 
     if (m.type === "use_alchemist_skill3") {
       if (sock !== match.current) {
-        match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+        match.sendError("❌ 今はあなたのターンではありません。", sock);
         return;
       }
       const selected = Array.isArray(m.uids) ? m.uids.map(uid => String(uid)) : [];
@@ -7484,7 +7621,7 @@ function createTutorialShopList() {
       power: 3,
       duration: 2,
       price: 5,
-      effect_text: "攻撃力 +3 / 2R",
+      effect_text: "攻撃力 +3 / 2T",
       is_equip: false,
       tutorial_item: true
     }
@@ -7973,7 +8110,7 @@ function analyzeCpuState(match, ws) {
 
 function decideCpuAction(state) {
   // =========================
-  // 1) 準備行動（ラウンド非消費）
+  // 1) 準備行動（ターン非消費）
   // =========================
 
   // 回復（HPが減っていて、回復アイテムを持っている）
@@ -8023,7 +8160,7 @@ function decideCpuAction(state) {
   }
 
   // =========================
-  // 2) 消費行動（ラウンド消費）
+  // 2) 消費行動（ターン消費）
   // =========================
   // =========================
   // ★ 錬金術師：合成不能なら即攻撃（無限防止）
@@ -8173,7 +8310,7 @@ async function waitCpuThink(match, botWS, label = "考え中", minMs = CPU_THINK
 }
 
 // =========================================================
-// ★ CPU AI：ターン処理（1ラウンドで準備→最後に消費）
+// ★ CPU AI：ターン処理（1ターンで準備→最後に消費）
 // =========================================================
 export async function maybeCpuTurn(match) {
   if (match.ended) return;
@@ -8571,6 +8708,14 @@ wss.on("connection", (ws) => {
   console.log("接続: クライアント");
 
   ws.on("close", () => {
+    const m = ws.currentMatch;
+    if (ws.matchType === "dojo" && ws.dojoRun && ws.player && ws.accountId && (!m || !m.ended)) {
+      try {
+        saveCurrentDojoRun(ws);
+      } catch (e) {
+        console.warn("[DOJO] save on close failed:", e);
+      }
+    }
     clients.delete(ws);
 
     // 待機キューから除外
@@ -8582,7 +8727,6 @@ wss.on("connection", (ws) => {
     }
 
     // 進行中の試合があれば、切断側の敗北で即終了
-    const m = ws.currentMatch;
     if (m && !m.ended) {
       m.handleDisconnect(ws);
     }
@@ -8590,6 +8734,11 @@ wss.on("connection", (ws) => {
 
   ws.on("message", (raw) => {
     const msg = JSON.parse(raw.toString());
+
+    if (msg.type === "battle_ready") {
+      ws.currentMatch?.markBattleReady?.(ws);
+      return;
+    }
 
     if (msg.type === "join_dojo") {
       const accountId = msg.account_id ? String(msg.account_id) : null;
@@ -8738,7 +8887,7 @@ wss.on("connection", (ws) => {
         // 以下、join_random の共通ハンドラと同等（必要分のみ）
         if (m.type === "request_doll_skill1") {
           if (sock !== match.current) {
-            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            match.sendError("❌ 今はあなたのターンではありません。", sock);
             return;
           }
           if (P.used_skill_set?.has("doll_1")) {
@@ -8751,7 +8900,7 @@ wss.on("connection", (ws) => {
 
         if (m.type === "use_doll_skill1") {
           if (sock !== match.current) {
-            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            match.sendError("❌ 今はあなたのターンではありません。", sock);
             return;
           }
           if (!P.doll) {
@@ -8765,7 +8914,7 @@ wss.on("connection", (ws) => {
 
         if (m.type === "use_doll_skill2") {
           if (sock !== match.current) {
-            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            match.sendError("❌ 今はあなたのターンではありません。", sock);
             return;
           }
           P.pending_hp_cost = Number(m.hpCost);
@@ -8799,7 +8948,7 @@ wss.on("connection", (ws) => {
 
         if (m.type === "request_alchemist_skill3_select") {
           if (sock !== match.current) {
-            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            match.sendError("❌ 今はあなたのターンではありません。", sock);
             return;
           }
           const candidates = buildAlchemistFusionCandidateData(P);
@@ -8814,7 +8963,7 @@ wss.on("connection", (ws) => {
 
         if (m.type === "use_alchemist_skill3") {
           if (sock !== match.current) {
-            match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+            match.sendError("❌ 今はあなたのターンではありません。", sock);
             return;
           }
           const selected = Array.isArray(m.uids) ? m.uids.map(uid => String(uid)) : [];
@@ -8992,9 +9141,9 @@ wss.on("connection", (ws) => {
           // ================================
           if (m.type === "request_doll_skill1") {
 
-            // 自分のラウンド以外は不可
+            // 自分のターン以外は不可
             if (sock !== match.current) {
-              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              match.sendError("❌ 今はあなたのターンではありません。", sock);
               return;
             }
 
@@ -9017,7 +9166,7 @@ wss.on("connection", (ws) => {
           if (m.type === "use_doll_skill1") {
 
             if (sock !== match.current) {
-              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              match.sendError("❌ 今はあなたのターンではありません。", sock);
               return;
             }
 
@@ -9040,7 +9189,7 @@ wss.on("connection", (ws) => {
           if (m.type === "use_doll_skill2") {
 
             if (sock !== match.current) {
-              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              match.sendError("❌ 今はあなたのターンではありません。", sock);
               return;
             }
 
@@ -9063,7 +9212,7 @@ wss.on("connection", (ws) => {
           if (m.type === "request_doll_skill3") {
 
             if (sock !== match.current) {
-              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              match.sendError("❌ 今はあなたのターンではありません。", sock);
               return;
             }
 
@@ -9098,7 +9247,7 @@ wss.on("connection", (ws) => {
 
           if (m.type === "request_alchemist_skill3_select") {
             if (sock !== match.current) {
-              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              match.sendError("❌ 今はあなたのターンではありません。", sock);
               return;
             }
             const candidates = buildAlchemistFusionCandidateData(P);
@@ -9113,7 +9262,7 @@ wss.on("connection", (ws) => {
 
           if (m.type === "use_alchemist_skill3") {
             if (sock !== match.current) {
-              match.sendError("❌ 今はあなたのラウンドではありません。", sock);
+              match.sendError("❌ 今はあなたのターンではありません。", sock);
               return;
             }
             const selected = Array.isArray(m.uids) ? m.uids.map(uid => String(uid)) : [];

@@ -3,9 +3,6 @@
 
 
 import {
-  MAGE_EQUIPS,
-  MAGE_MANA_ITEMS,
-  ARROW_DATA,
   createDollCostume,
   DOLL_COSTUME_TYPES
 } from "./constants.js";
@@ -25,10 +22,6 @@ export function getMageSlot(eq) {
 // ---------------------------------------------------------
 // 人形衣装スロット判定
 // ---------------------------------------------------------
-export function getDollCostumeSlot(item) {
-  return item.part; // "head" | "body" | "leg" | "foot"
-}
-
 import {
     generateRandomEquip,
     upgradeEquipStar,
@@ -119,11 +112,11 @@ export class Player {
 
 
         this.archer_buff = null;          // 追撃バフ（{ rounds, extra }）
-        this.archer_pierce_rounds = 0;    // 矢追撃の防御貫通残りラウンド
+        this.archer_pierce_rounds = 0;    // 矢追撃の防御貫通残りターン
         this.archer_next_pierce = false;  // 旧セーブ互換
-        this.archer_no_consume_rounds = 0; // 矢を消費しない残りラウンド
+        this.archer_no_consume_rounds = 0; // 矢を消費しない残りターン
         this.archer_no_consume_permanent = false;
-        this.damage_taken_last_round = 0; // 前ラウンドダメージ → 反撃矢用
+        this.damage_taken_last_round = 0; // 前ターンダメージ → 反撃矢用
 
 
         // freeze（A方式：スタックごとに2T）
@@ -790,7 +783,7 @@ if (type === "arrow") {
 
 
 
-    // コイン系装備の毎ラウンドボーナス（Python: apply_equip_coin_bonus）
+    // コイン系装備の毎ターンボーナス（Python: apply_equip_coin_bonus）
     apply_equip_coin_bonus() {
         if (this.equipment) {
             if (this.equipment.effect_type === "coin_per_turn") {
@@ -802,7 +795,7 @@ if (type === "arrow") {
         }
     }
     // ---------------------------------------------------------
-    // 魔導士専用装備：毎ラウンド効果発動
+    // 魔導士専用装備：毎ターン効果発動
     // ---------------------------------------------------------
     apply_mage_equip_effects() {
 
@@ -930,79 +923,6 @@ if (type === "arrow") {
   // ================================
   // ステータス表示（最新版）
   // ================================
-  show_status(io) {
-    io.log(`\n=== ${this.name} のステータス ===`);
-    io.log(`職業: ${this.job}  レベル: ${this.level}`);
-    io.log(`HP: ${this.hp} / ${this.max_hp}`);
-
-    io.log(`攻撃力: ${this.get_total_attack()}  （基礎:${this.base_attack}）`);
-    io.log(`防御力: ${this.get_total_defense()}  （基礎:${this.base_defense}）`);
-
-    io.log(`コイン: ${this.coins}`);
-
-    // 魔導士専用
-    if (this.job === "魔導士") {
-      io.log(`魔力: ${this.mana}/${this.mana_max}`);
-    }
-
-    // 装備
-    if (this.equipment) {
-      io.log(
-        `通常装備: ${this.equipment.name}（★${this.equipment.star}） 効果: ${this.equipment.effect_text}`
-      );
-    } else {
-      io.log("通常装備: なし");
-    }
-
-    // 魔導士装備
-    if (this.mage_equips) {
-      const count = Object.keys(this.mage_equips).length;
-      io.log(`魔導士専用装備: ${count}個`);
-    }
-
-    // 弓兵専用
-    if (this.job === "弓兵") {
-      io.log(`矢スロット1: ${this.arrow ? this.arrow.name : "なし"}`);
-      if (this.arrow_slots >= 2) {
-        io.log(`矢スロット2: ${this.arrow2 ? this.arrow2.name : "なし"}`);
-      }
-
-      if (this.freeze_debuffs?.length > 0) {
-        io.log(
-          `氷結デバフ: ${this.freeze_debuffs.length}スタック（合計攻撃力 -${
-            this.freeze_debuffs.length * 2
-          }）`
-        );
-      }
-    }
-
-    // DOT（毒など）
-    if (this.dot_effects?.length > 0) {
-      const dots = this.dot_effects
-        .map(e => `${e.name}(${e.power}×${e.rounds})`)
-        .join(", ");
-      io.log(`状態異常: ${dots}`);
-    }
-
-    // バフ表示
-    if (this.active_buffs?.length > 0) {
-      const buffs = this.active_buffs
-        .map(b => `${b.type}+${b.power}(${b.rounds}R)`)
-        .join(", ");
-      io.log(`バフ: ${buffs}`);
-    } else {
-      io.log("バフ: なし");
-    }
-    if (this.job === "人形使い") {
-        io.log(
-            `人形：耐久 ${this.doll.durability}/${this.doll.max_durability} ` +
-            `破壊:${this.doll.is_broken}`
-        );
-    }
-
-    io.log("======================================");
-  }
-
     // ---------------------------------------------------------
     // 烏天狗の追撃（UI：turns管理／内部：別カウンタ triggers）
     // ---------------------------------------------------------
@@ -1026,7 +946,7 @@ if (type === "arrow") {
         // 内部トリガー消費
         this.karasu_tengu_triggers--;
 
-        // UI表示用の shikigami_effects も1ラウンド減らす必要があるので同期
+        // UI表示用の shikigami_effects も1ターン減らす必要があるので同期
         for (const eff of this.shikigami_effects) {
             if (eff.name === "烏天狗") {
                 eff.rounds = Math.max(0, eff.rounds - 1);
@@ -1062,13 +982,6 @@ if (type === "arrow") {
         // =========================================
         if (this.job === "人形使い" && this.doll && !this.doll.is_broken) {
             targetType = "doll";
-
-            // 復活直後の無敵（1ターン）
-            if (false && this.doll.revive_guard_rounds > 0) {
-                log("🪆 修理直後の人形は破壊されない！");
-                this.doll.revive_guard_rounds = 0;
-                return 0;
-            }
 
             // 人形の防御力で計算
             const dollDef = this.getDollDefense();
@@ -1386,7 +1299,7 @@ if (type === "arrow") {
         // ★ 説明文（ここに効果を書く）
         costume.effect_text =
             (costume.effect_type === "COIN" || costume.effect_type === "CHARGE")
-                ? `毎ラウンドチャージ +${value}`
+                ? `毎ターンチャージ +${value}`
                 : `人形の${effectLabel}力 +${value}`;
     }
 
@@ -1453,7 +1366,7 @@ if (type === "arrow") {
             if (item.dojo_special_item_effect === "invincible") {
                 const rounds = Math.max(1, Number(item.rounds ?? 2));
                 this.dojo_invincible_rounds = Math.max(Number(this.dojo_invincible_rounds ?? 0), rounds);
-                this.last_item_message = `${rounds}Rの間、無敵状態になった！`;
+                this.last_item_message = `${rounds}Tの間、無敵状態になった！`;
                 this.used_items_this_round += 1;
                 return true;
             }
@@ -1461,7 +1374,7 @@ if (type === "arrow") {
             if (item.dojo_special_item_effect === "attack_growth") {
                 this.dojo_attack_growth_active = true;
                 this.dojo_attack_growth_per_round = Math.max(1, Number(item.power ?? 2));
-                this.last_item_message = `ステージクリアまで、毎ラウンド攻撃力+${this.dojo_attack_growth_per_round}`;
+                this.last_item_message = `ステージクリアまで、毎ターン攻撃力+${this.dojo_attack_growth_per_round}`;
                 this.used_items_this_round += 1;
                 return true;
             }
@@ -1509,7 +1422,7 @@ if (type === "arrow") {
         // バフ効果（攻撃力 / 防御力）
         if (et === "攻撃力" || et === "防御力") {
 
-            // ★ 統合しない：常に「別バフ」として追加（rounds 個別管理）
+            // ★ 統合しない：常に「別バフ」として追加（turns 個別管理）
             this.active_buffs.push({
                 type: et,
                 power,
@@ -1518,14 +1431,14 @@ if (type === "arrow") {
                 uid: crypto.randomUUID(),         // ★ 同一アイテムでも別扱いにする
             });
 
-            log(`${this.name} の ${et} が +${power}（${duration}R）`);
+            log(`${this.name} の ${et} が +${power}（${duration}T）`);
             this.used_items_this_round += 1;
             return;
         }
 
 
 
-        log(`${this.name} に ${et}+${power}（${duration}R）`);
+        log(`${this.name} に ${et}+${power}（${duration}T）`);
         this.used_items_this_round += 1;
     }
 
@@ -1561,13 +1474,13 @@ if (type === "arrow") {
                 const dur = b.duration ?? b.rounds ?? 0;
 
                 if (b.type === "攻撃力") {
-                    list.push(`攻撃 +${b.power}（あと${dur}R）`);
+                    list.push(`攻撃 +${b.power}（あと${dur}T）`);
                 } else if (b.type === "防御力") {
-                    list.push(`防御 +${b.power}（あと${dur}R）`);
+                    list.push(`防御 +${b.power}（あと${dur}T）`);
                 } else if (b.type === "攻撃力低下") {
-                    list.push(`攻撃 -${b.power}（あと${dur}R）`);
+                    list.push(`攻撃 -${b.power}（あと${dur}T）`);
                 } else if (b.type === "防御力低下") {
-                    list.push(`防御 -${b.power}（あと${dur}R）`);
+                    list.push(`防御 -${b.power}（あと${dur}T）`);
                 }
             });
         }
@@ -1587,7 +1500,7 @@ if (type === "arrow") {
         // ★ 凍結デバフ（freeze_debuffs）
         if (Array.isArray(this.freeze_debuffs)) {
             this.freeze_debuffs.forEach(f => {
-                list.push(`凍結：攻撃 -${f.atkDown}（あと${f.rounds ?? f.duration ?? 0}R）`);
+                list.push(`凍結：攻撃 -${f.atkDown}（あと${f.rounds ?? f.duration ?? 0}T）`);
             });
         }
 
@@ -1595,7 +1508,7 @@ if (type === "arrow") {
             this.dot_effects.forEach(d => {
                 if (!d) return;
                 const turns = d.rounds ?? d.turns ?? d.duration ?? 0;
-                list.push(`${d.name ?? "継続ダメージ"}：${d.power ?? 0}ダメージ（あと${turns}R）`);
+                list.push(`${d.name ?? "継続ダメージ"}：${d.power ?? 0}ダメージ（あと${turns}T）`);
             });
         }
 
@@ -1619,7 +1532,7 @@ if (type === "arrow") {
                 // ★ T消費（鬼火・毒など）
                 const remainT = (s.turns !== undefined) ? s.turns : null;
 
-                // ★ R消費（猫又・玄武・烏天狗など）
+            // ★ T消費（猫又・玄武・烏天狗など）
                 const remainR = (s.rounds !== undefined) ? s.rounds : null;
 
                 let display = 0;
@@ -1630,11 +1543,11 @@ if (type === "arrow") {
                     unit = "T";
                 } else if (remainR !== null) {
                     display = remainR;
-                    unit = "R";
+                    unit = "T";
                 } else {
-                    // 万が一どちらもない場合 → 0R扱い
+                    // 万が一どちらもない場合 → 0T扱い
                     display = 0;
-                    unit = "R";
+                    unit = "T";
                 }
 
                 // ★ 修正点：s.name を使う
@@ -1659,13 +1572,24 @@ if (type === "arrow") {
                 next.push({ ...b });
                 continue;
             }
+            const isTurnEndDebuff =
+                b.type === "攻撃力低下" ||
+                b.type === "防御力低下" ||
+                b.type === "スキル封印" ||
+                b.is_debuff === true ||
+                b.debuff === true;
+            if (isTurnEndDebuff) {
+                next.push({ ...b });
+                continue;
+            }
             const dur = b.duration ?? b.rounds ?? 0;
             const newDur = dur - 1;
 
             if (newDur > 0) {
                 next.push({
                     ...b,
-                    duration: newDur
+                    duration: newDur,
+                    rounds: newDur
                 });
             }
         }
@@ -1681,7 +1605,7 @@ if (type === "arrow") {
 
 
     // ---------------------------------------------------------
-    // 毎ラウンド終了：式神の残りラウンドを減らす
+    // 毎ターン終了：式神の残りターンを減らす
     // ---------------------------------------------------------
     decrease_shikigami_end_of_round() {
 
@@ -1689,14 +1613,14 @@ if (type === "arrow") {
 
         for (const s of this.shikigami_effects) {
 
-            // ★ 烏天狗は「ラウンド」ではなく「残り追撃数」
+            // ★ 烏天狗は「ターン」ではなく「残り追撃数」
             if (s.triggers !== undefined) {
-                // triggers はラウンドごとに減らさないのでそのまま残す
+                // triggers はターンごとに減らさないのでそのまま残す
                 next.push(s);
                 continue;
             }
 
-            // ★ 玄武・猫又・カラス天狗など「ラウンドを持つ式神」
+            // ★ 玄武・猫又・カラス天狗など「ターンを持つ式神」
             if (s.rounds !== undefined) {
                 const newTurn = s.rounds - 1;
 
@@ -1719,7 +1643,7 @@ if (type === "arrow") {
     }
 
     // ---------------------------------------------------------
-    // 猫又などのスキル封印ラウンドを減らす
+    // 猫又などのスキル封印ターンを減らす
     // ---------------------------------------------------------
     decrease_skill_seal() {
         if (this.skill_sealed_rounds > 0) {
@@ -1923,7 +1847,7 @@ if (type === "arrow") {
             });
 
             const total = this.get_total_attack() + this.get_dojo_skill_damage_bonus();
-            log(`🔥 剛勇覚醒！ 攻撃力+20（5R）後、${total} ダメージ！`);
+            log(`🔥 剛勇覚醒！ 攻撃力+20（5T）後、${total} ダメージ！`);
             opponent.take_damage(total, false, this);
 
             this.used_skill_set.add(stype);
@@ -2017,7 +1941,7 @@ if (type === "arrow") {
                 uid: crypto.randomUUID(),
             });
             this.blessing_count = Number(this.blessing_count ?? 0) + 1;
-            log("✨ 継続回復！ 10Rの間、毎ターンHPを2回復する！");
+            log("✨ 継続回復！ 10Tの間、毎ターンHPを2回復する！");
             this.used_skill_set.add(stype);
             return true;
         }
@@ -2033,7 +1957,7 @@ if (type === "arrow") {
                 uid: crypto.randomUUID(),
             });
             this.blessing_count = Number(this.blessing_count ?? 0) + 1;
-            log("✨ デバフ解除＋継続回復！ 12Rの間、毎ターンHPを2回復する！");
+            log("✨ デバフ解除＋継続回復！ 12Tの間、毎ターンHPを2回復する！");
 
             this.used_skill_set.add(stype);
             return true;
@@ -2357,9 +2281,9 @@ if (type === "arrow") {
             this.shikigami_effects = [];
         }
 
-        // ===== 鬼火（毎ターン 3 ダメ × 5T）=====
+        // ===== 鬼火（各ターン終了時 5 ダメ × 5T）=====
         if (name === "鬼火") {
-            log("🕯 鬼火召喚！相手を焼き続ける！（5T × 5ダメージ）");
+            log("🕯 鬼火召喚！各ターン終了時に相手を焼き続ける！（5T × 5ダメージ）");
 
             opponent.dot_effects.push({
                 name: "鬼火",
@@ -2375,7 +2299,7 @@ if (type === "arrow") {
 
         // ===== 猫又（スキル封印 2T）=====
         if (name === "猫又") {
-            log("🐈‍⬛ 猫又召喚！相手の術を封じる！(2ラウンド)");
+            log("🐈‍⬛ 猫又召喚！相手の術を封じる！(2T)");
 
             opponent.active_buffs.push({
                 type: "スキル封印",
@@ -2420,7 +2344,7 @@ if (type === "arrow") {
         }
 
 
-        // ===== 烏天狗（自ラウンド攻撃/スキル時に追撃 ×3回）=====
+        // ===== 烏天狗（自ターン攻撃/スキル時に追撃 ×3回）=====
         if (name === "烏天狗") {
             log("🐦 烏天狗召喚！素早い追撃！");
 
@@ -2673,10 +2597,10 @@ if (type === "arrow") {
             return false;
         }
 
-        // ---------- スキル1：追撃 +1（3ラウンド） ----------
+        // ---------- スキル1：追撃 +1（3ターン） ----------
         if (stype === "archer_1") {
-            this.archer_buff = { rounds: 3, extra: 1 }; // 3Rの間 追撃+1
-            log("⚡ 3ラウンドの間、追撃が +1 回になる。");
+            this.archer_buff = { rounds: 3, extra: 1 }; // 3Tの間 追撃+1
+            log("⚡ 3Tの間、追撃が +1 回になる。");
             this.used_skill_set.add(stype);
             return true;
         }
@@ -2690,10 +2614,10 @@ if (type === "arrow") {
                 this.arrow_slots = 2;
             }
 
-            // ▼ 追撃バフ（3R）
+            // ▼ 追撃バフ（3T）
             this.archer_buff = { rounds: 3, extra: 1 };
 
-            log("🏹 矢筒拡張！ 矢スロット+1 ＆ 追撃+1（3R）");
+            log("🏹 矢筒拡張！ 矢スロット+1 ＆ 追撃+1（3T）");
 
             this.used_skill_set.add(stype);
             return true;
@@ -2908,7 +2832,7 @@ if (type === "arrow") {
             ok: true,
             logs: [
                 "🔥 人形が暴走状態に入った！",
-                "⚠ 衣装効果が2倍になる（3R）"
+                "⚠ 衣装効果が2倍になる（3T）"
             ]
         };
     }
@@ -2956,15 +2880,15 @@ if (type === "arrow") {
 
         // ---------- スキル2：痛みへの執着 ----------
         if (stype === "mad_2") {
-            // 共通：攻撃力+3 (3ラウンド)
+            // 共通：攻撃力+3 (3ターン)
             this.active_buffs.push({ type: "攻撃力", power: 3, rounds: 3 });
-            log(`🔥 ${this.name} は痛みへの執着を見せた！ (攻撃力+3 / 3R)`);
+            log(`🔥 ${this.name} は痛みへの執着を見せた！ (攻撃力+3 / 3T)`);
 
             if (isMad) {
-                // 狂化状態：2ラウンドの間、大幅強化
+                // 狂化状態：2ターンの間、大幅強化
                 this.active_buffs.push({ type: "攻撃力", power: 10, rounds: 2 });
                 this.active_buffs.push({ type: "防御力", power: 5, rounds: 2 });
-                log(`👹 狂化ボーナス！ 2ラウンドの間、攻撃力+10、防御力+5！`);
+                log(`👹 狂化ボーナス！ 2Tの間、攻撃力+10、防御力+5！`);
             }
             this.used_skill_set.add(stype);
             return true;

@@ -5,44 +5,6 @@ export const MAX_HP = 200;
 export const INITIAL_ATTACK = 20;
 export const INITIAL_DEFENSE = 10;
 
-export const INITIAL_COINS_DEFAULT = 10;
-export const COIN_PER_TURN_BASE = 10; // 内部名はそのまま
-export const SHOP_SIZE = 5;
-export const MAX_ITEM_USES_PER_TURN = 2;
-
-export const BASE_ATKDEF_BASE = 6;
-export const HP_RECOVERY_BASE = 10;
-
-export const PRICE_BUFF = {
-  1: 8,
-  2: 12,
-  3: 16,
-};
-
-export const PRICE_RECOVER = {
-  1: 15,
-  2: 20,
-  3: 25,
-};
-
-export const EFFECT_TYPES = ["攻撃力", "防御力", "HP"];
-
-// ============================================
-// 職業ID
-// ============================================
-export const JOBS = {
-  1: { id: 1, name: "戦士" },
-  2: { id: 2, name: "騎士" },
-  3: { id: 3, name: "僧侶" },
-  4: { id: 4, name: "盗賊" },
-  5: { id: 5, name: "魔導士" },
-  6: { id: 6, name: "陰陽師" },
-  7: { id: 7, name: "錬金術師" },
-  8: { id: 8, name: "弓兵" },
-  9: { id: 9, name: "人形使い" },
-  10:{ id: 10, name: "狂人" },
-};
-
 // ============================================
 // 職業テンプレート
 // ============================================
@@ -106,8 +68,8 @@ export const JOB_SKILLS = {
       name: "バーストアップ",
       min_level: 2,
       power: 30,
-      effect: "攻撃力+3（3ラウンド）",
-      description: "防御無視30ダメージを与え、攻撃力が3上昇（3ラウンド）。",
+      effect: "攻撃力+3（3T）",
+      description: "防御無視30ダメージを与え、攻撃力が3上昇（3T）。",
     },
     {
       type: "warrior_3",
@@ -121,9 +83,9 @@ export const JOB_SKILLS = {
       type: "warrior_4",
       name: "剛勇覚醒",
       min_level: 3,
-      power: "攻撃力+20（5R）＋通常攻撃",
+      power: "攻撃力+20（5T）＋通常攻撃",
       effect: "自己強化後に攻撃",
-      description: "5ラウンドの間、攻撃力を20上昇。その後、通常攻撃を行う。",
+      description: "5Tの間、攻撃力を20上昇。その後、通常攻撃を行う。",
     },
     {
       type: "warrior_5",
@@ -141,16 +103,16 @@ export const JOB_SKILLS = {
       name: "ガードストライク",
       min_level: 1,
       power: 20,
-      effect: "自身に防御力+2（4ラウンド）",
-      description: "20ダメージを与え、自身の防御力を2上昇（4ラウンド）。",
+      effect: "自身に防御力+2（4T）",
+      description: "20ダメージを与え、自身の防御力を2上昇（4T）。",
     },
     {
       type: "knight_2",
       name: "フォートレスブレイク",
       min_level: 2,
       power: "15 + 自身の防御力",
-      effect: "防御力+4（3ラウンド）",
-      description: "防御依存ダメージ（15＋DEF）を与え、防御力+4（3ラウンド）。",
+      effect: "防御力+4（3T）",
+      description: "防御依存ダメージ（15＋DEF）を与え、防御力+4（3T）。",
     },
     {
       type: "knight_3",
@@ -169,16 +131,16 @@ export const JOB_SKILLS = {
       name: "リジェネ",
       min_level: 1,
       power: 2,
-      effect: "継続回復10R",
-      description: "10ラウンドの間、自分のターン開始時にHPを2回復する。",
+      effect: "継続回復10T",
+      description: "10Tの間、自分のターン開始時にHPを2回復する。",
     },
     {
       type: "priest_2",
       name: "ディスペルリジェネ",
       min_level: 2,
       power: 2,
-      effect: "デバフ解除＋継続回復12R",
-      description: "デバフを解除し、12ラウンドの間、自分のターン開始時にHPを2回復する。",
+      effect: "デバフ解除＋継続回復12T",
+      description: "デバフを解除し、12Tの間、自分のターン開始時にHPを2回復する。",
     },
     {
       type: "priest_3",
@@ -304,16 +266,16 @@ export const JOB_SKILLS = {
       name: "追撃構え",
       min_level: 1,
       power: null,
-      effect: "追撃+1（3R）＋通常攻撃",
-      description: "3ラウンドの間、追撃が+1回される。その後、通常攻撃を行う。",
+      effect: "追撃+1（3T）＋通常攻撃",
+      description: "3Tの間、追撃が+1回される。その後、通常攻撃を行う。",
     },
     {
       type: "archer_2",
       name: "矢筒拡張",
       min_level: 2,
       power: null,
-      effect: "矢スロット+1＆追撃+1（3R）＋通常攻撃",
-      description: "矢スロットが1つ増え、3ラウンド追撃+1。その後、通常攻撃を行う。",
+      effect: "矢スロット+1＆追撃+1（3T）＋通常攻撃",
+      description: "矢スロットが1つ増え、3T追撃+1。その後、通常攻撃を行う。",
     },
     {
       type: "archer_3",
@@ -348,7 +310,7 @@ export const JOB_SKILLS = {
       min_level: 3,
       power: null,
       effect: "人形暴走",
-      description: "一定ラウンドの間、人形を暴走状態にする。",
+      description: "一定ターンの間、人形を暴走状態にする。",
     },
   ],
 
@@ -367,7 +329,7 @@ export const JOB_SKILLS = {
       min_level: 2,
       power: null,
       effect: "攻撃力+3 (条件付き追加バフ)",
-      description: "自分の攻撃力を+3（3T）。狂化状態なら追加で2ターン攻撃力+10、防御力+5。"
+      description: "自分の攻撃力を+3（3T）。狂化状態なら追加で2T攻撃力+10、防御力+5。"
     },
     {
       type: "mad_3",
@@ -400,7 +362,7 @@ export const ARROW_DATA = {
     price: 15,
     arrow_count: 3,
     arrows_remaining: 3,
-    effect_text: "15ダメ+毒付与（3ダメ×2ラウンド）",
+    effect_text: "15ダメ+毒付与（各ターン終了時3ダメ×2T）",
   },
 
   freeze: {
@@ -422,7 +384,7 @@ export const ARROW_DATA = {
     price: 10,
     arrow_count: 3,
     arrows_remaining: 3,
-    effect_text: "10ダメ+前のラウンドの被ダメの半分で反撃",
+    effect_text: "10ダメ+前のターンの被ダメの半分で反撃",
   },
 
   def_down: {
@@ -434,45 +396,10 @@ export const ARROW_DATA = {
     price: 15,
     arrow_count: 3,
     arrows_remaining: 3,
-    effect_text: "10ダメ+相手の防御力-1（3R・重複あり）",
+    effect_text: "10ダメ+相手の防御力-1（3T・重複あり）",
   },
 };
 
-
-// 魔導士専用：魔力回復アイテム
-export const MAGE_MANA_ITEMS = [
-  {
-    name: "魔力水（小）", price: 20, effect_type: "MANA",
-    power: 10, duration: 0, is_equip: false, effect_text: "魔力+10"
-  },
-  {
-    name: "魔力水（中）", price: 25, effect_type: "MANA",
-    power: 20, duration: 0, is_equip: false, effect_text: "魔力+20"
-  },
-  {
-    name: "魔力水（大）", price: 30, effect_type: "MANA",
-    power: 30, duration: 0, is_equip: false, effect_text: "魔力+30"
-  }
-];
-
-// 魔導士専用装備（4種）
-export const MAGE_EQUIPS = [
-  { name: "魔導士の杖", price: 15, is_equip: true, equip_type: "mage_equip", mana_gain: 2, coin_per_turn: 3, effect_text: "毎ラウンド魔力+2,コイン+3" },
-  { name: "魔力の指輪", price: 10, is_equip: true, equip_type: "mage_equip", mana_gain: 3, regen_hp: 2, effect_text: "毎ラウンド魔力+3 / HP+2" },
-  { name: "魔導士のローブ", price: 10, is_equip: true, equip_type: "mage_equip", mana_gain: 3, def_bonus: 2, effect_text: "毎ラウンド魔力+3 / 防御+2" },
-  { name: "古代魔導書", price: 25, is_equip: true, equip_type: "mage_equip", mana_gain: 5, magic_pierce: true, effect_text: "毎ラウンド魔力+5 / 魔法防御貫通" }
-];
-
-// ================================
-// 人形使い専用：修理キット
-// ================================
-export const DOLL_REPAIR_KIT = {
-  name: "修理キット",
-  price: 30,
-  category: "item",
-  is_doll_item: true,
-  effect_text: "人形の耐久を20回復",
-};
 
 // =========================================================
 // 人形使い：衣装アイテム定義
@@ -496,7 +423,7 @@ export function createDollCostume({ part, effect_type, star }) {
   } else if (effect_type === "DEF") {
     effect_text = `人形の防御力 +${value}`;
   } else if (effect_type === "CHARGE") {
-    effect_text = `毎ラウンドチャージ +${value}`;
+    effect_text = `毎ターンチャージ +${value}`;
   }
 
   return {

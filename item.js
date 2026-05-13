@@ -78,7 +78,7 @@ export function generateOneShopItem(level) {
     // 効果種別（攻撃力 / 防御力 / HP）
     const effect = EFFECT_TYPES[Math.floor(Math.random() * EFFECT_TYPES.length)];
 
-    // バフ継続ラウンド（1〜3）※HPのときは0（即時）
+    // バフ継続ターン（1〜3）※HPのときは0（即時）
     const duration = Math.floor(Math.random() * 3) + 1;
     const duration_use = (effect === "HP") ? 0 : duration;
 
@@ -90,13 +90,13 @@ export function generateOneShopItem(level) {
     if (effect === "攻撃力") {
         power = calcBuffPower(star, duration_use);
         price = PRICE_BUFF[star];
-        name = `★${star} 攻撃力UP (${duration_use}R)`;
-        effect_text = `攻撃力 +${power} / ${duration_use}R`;
+        name = `★${star} 攻撃力UP (${duration_use}T)`;
+        effect_text = `攻撃力 +${power} / ${duration_use}T`;
     } else if (effect === "防御力") {
         power = calcBuffPower(star, duration_use);
         price = PRICE_BUFF[star];
-        name = `★${star} 防御力UP (${duration_use}R)`;
-        effect_text = `防御力 +${power} / ${duration_use}R`;
+        name = `★${star} 防御力UP (${duration_use}T)`;
+        effect_text = `防御力 +${power} / ${duration_use}T`;
     } else {  // HP
         power = calcHpRecovery(star);
         price = PRICE_RECOVER[star];
@@ -109,7 +109,7 @@ export function generateOneShopItem(level) {
         star,               // レアリティ★
         effect_type: effect, // "攻撃力" / "防御力" / "HP"
         power,              // 効果量
-        duration: duration_use, // バフラウンド（HPは0）
+        duration: duration_use, // バフターン（HPは0）
         price,              // ショップ価格
         effect_text,        // 説明テキスト
         is_equip: false
@@ -117,7 +117,3 @@ export function generateOneShopItem(level) {
 }
 
 // おまけ：レベル指定なしの簡易ランダム生成（必要なら使用）
-export function generateRandomItem(level = 1) {
-    return generateOneShopItem(level);
-}
-

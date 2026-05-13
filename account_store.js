@@ -259,6 +259,62 @@ function ensureDojoProgressSlot(account, jobName) {
   return slot;
 }
 
+function cloneJsonSafe(value) {
+  if (value == null) return null;
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return null;
+  }
+}
+
+function normalizeDojoTrailNodes(nodes) {
+  if (!Array.isArray(nodes)) return [];
+  return [...new Set(nodes
+    .map(n => Number(n))
+    .filter(n => Number.isInteger(n) && n >= 1 && n <= 80))]
+    .sort((a, b) => a - b);
+}
+
+function normalizeDojoBackupSlot(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const savedRun = raw.savedRun && typeof raw.savedRun === "object"
+    ? cloneJsonSafe(raw.savedRun)
+    : null;
+  const savedAt = Math.max(0, Number(raw.savedAt ?? savedRun?.savedAt ?? 0) || 0);
+  const updatedAt = Math.max(0, Number(raw.updatedAt ?? savedAt ?? 0) || 0);
+  const slot = {
+    highestStage: Math.max(0, Math.min(30, Math.floor(Number(raw.highestStage ?? raw.savedStage ?? savedRun?.run?.stage ?? 0) || 0))),
+    clearCount: Math.max(0, Math.floor(Number(raw.clearCount ?? 0) || 0)),
+    cleared: Boolean(raw.cleared),
+    updatedAt,
+    prestigePoints: Math.max(0, Math.floor(Number(raw.prestigePoints ?? savedRun?.run?.dojoTrail?.prestigePoints ?? 0) || 0)),
+    trailAttackGrowth: Math.max(0, Math.floor(Number(raw.trailAttackGrowth ?? savedRun?.run?.dojoTrail?.trailAttackGrowth ?? 0) || 0)),
+    trailNodes: normalizeDojoTrailNodes(raw.trailNodes ?? savedRun?.run?.dojoTrail?.trailNodes)
+  };
+  if (savedRun) {
+    slot.savedRun = {
+      ...savedRun,
+      savedAt: savedAt || Number(savedRun.savedAt ?? 0) || nowMs()
+    };
+    slot.updatedAt = Math.max(slot.updatedAt, Number(slot.savedRun.savedAt ?? 0) || 0);
+  }
+  return slot;
+}
+
+function hasDojoSlotProgress(slot) {
+  if (!slot || typeof slot !== "object") return false;
+  return (
+    Number(slot.highestStage ?? 0) > 0 ||
+    Number(slot.clearCount ?? 0) > 0 ||
+    Boolean(slot.cleared) ||
+    Number(slot.prestigePoints ?? 0) > 0 ||
+    Number(slot.trailAttackGrowth ?? 0) > 0 ||
+    (Array.isArray(slot.trailNodes) && slot.trailNodes.length > 0) ||
+    Boolean(slot.savedRun)
+  );
+}
+
 export function getOrCreateAccount(accountId) {
   const db = loadJsonSafe();
   if (!db.accounts[accountId]) {
@@ -329,7 +385,8 @@ export function importJobRecordBackup(accountId, backupJobs = {}) {
       name: "",
       createdAt: nowMs(),
       lastNameChangeAt: 0,
-      jobs: {}
+      jobs: {},
+      dojoProgress: {}
     };
   }
   const acc = db.accounts[accountId];
@@ -376,6 +433,118 @@ export function importJobRecordBackup(accountId, backupJobs = {}) {
 
   saveJsonSafe(db);
   return { ok: true, applied };
+}
+
+export function importDojoProgressBackup(accountId, backupProgress = {}) {
+  if (!accountId) return { ok: false, reason: "account_id required" };
+  if (!backupProgress || typeof backupProgress !== "object") return { ok: false, reason: "backup invalid" };
+
+  const db = loadJsonSafe();
+  if (!db.accounts[accountId]) {
+    db.accounts[accountId] = {
+      id: accountId,
+      name: "",
+      createdAt: nowMs(),
+      lastNameChangeAt: 0,
+      jobs: {},
+      dojoProgress: {}
+    };
+  }
+  const acc = db.accounts[accountId];
+  if (!acc.jobs || typeof acc.jobs !== "object") acc.jobs = {};
+  if (!acc.dojoProgress || typeof acc.dojoProgress !== "object") acc.dojoProgress = {};
+
+  let applied = 0;
+  for (const [job, raw] of Object.entries(backupProgress)) {
+    if (!job) continue;
+    const backup = normalizeDojoBackupSlot(raw);
+    if (!backup || !hasDojoSlotProgress(backup)) continue;
+
+    const slot = ensureDojoProgressSlot(acc, job);
+    const curHasProgress = hasDojoSlotProgress(slot);
+    const curUpdatedAt = Math.max(0, Number(slot.updatedAt ?? slot.savedRun?.savedAt ?? 0) || 0);
+    const backupUpdatedAt = Math.max(0, Number(backup.updatedAt ?? backup.savedRun?.savedAt ?? 0) || 0);
+    const backupIsNewer = backupUpdatedAt > curUpdatedAt || !curHasProgress;
+
+    if (backupIsNewer) {
+      slot.highestStage = backup.highestStage;
+      slot.clearCount = backup.clearCount;
+      slot.cleared = backup.cleared;
+      slot.prestigePoints = backup.prestigePoints;
+      slot.trailAttackGrowth = backup.trailAttackGrowth;
+      slot.trailNodes = [...backup.trailNodes];
+      slot.savedRun = backup.savedRun ? cloneJsonSafe(backup.savedRun) : null;
+      slot.updatedAt = backupUpdatedAt || nowMs();
+      applied += 1;
+      continue;
+    }
+
+    let changed = false;
+    const nextHighest = Math.max(Number(slot.highestStage ?? 0), Number(backup.highestStage ?? 0));
+    if (nextHighest !== Number(slot.highestStage ?? 0)) {
+      slot.highestStage = nextHighest;
+      changed = true;
+    }
+    const nextClearCount = Math.max(Number(slot.clearCount ?? 0), Number(backup.clearCount ?? 0));
+    if (nextClearCount !== Number(slot.clearCount ?? 0)) {
+      slot.clearCount = nextClearCount;
+      changed = true;
+    }
+    if (backup.cleared && !slot.cleared) {
+      slot.cleared = true;
+      changed = true;
+    }
+    const mergedTrailNodes = normalizeDojoTrailNodes([...(slot.trailNodes || []), ...(backup.trailNodes || [])]);
+    if (mergedTrailNodes.join(",") !== (slot.trailNodes || []).join(",")) {
+      slot.trailNodes = mergedTrailNodes;
+      changed = true;
+    }
+
+    const curSavedAt = Math.max(0, Number(slot.savedRun?.savedAt ?? 0) || 0);
+    const backupSavedAt = Math.max(0, Number(backup.savedRun?.savedAt ?? 0) || 0);
+    if (backup.savedRun && backupSavedAt > curSavedAt) {
+      slot.savedRun = cloneJsonSafe(backup.savedRun);
+      changed = true;
+    }
+
+    if (changed) {
+      slot.updatedAt = Math.max(nowMs(), Number(slot.updatedAt ?? 0), backupUpdatedAt);
+      applied += 1;
+    }
+  }
+
+  if (applied > 0) saveJsonSafe(db);
+  return { ok: true, applied };
+}
+
+export function exportDojoProgressBackup(accountId, jobNames = []) {
+  if (!accountId) return { ok: false, reason: "account_id required" };
+  const db = loadJsonSafe();
+  const acc = db.accounts[accountId];
+  if (!acc) return { ok: false, reason: "account not found" };
+
+  const jobs = Array.isArray(jobNames) && jobNames.length
+    ? jobNames
+    : Object.keys(acc.dojoProgress || {});
+  const dojoProgress = {};
+  for (const job of jobs) {
+    if (!job) continue;
+    const slot = ensureDojoProgressSlot(acc, job);
+    dojoProgress[job] = {
+      highestStage: Number(slot.highestStage ?? 0),
+      clearCount: Number(slot.clearCount ?? 0),
+      cleared: Boolean(slot.cleared),
+      updatedAt: Number(slot.updatedAt ?? 0),
+      prestigePoints: Number(slot.prestigePoints ?? 0),
+      trailAttackGrowth: Number(slot.trailAttackGrowth ?? 0),
+      trailNodes: [...slot.trailNodes],
+      savedRun: slot.savedRun ? cloneJsonSafe(slot.savedRun) : null,
+      savedStage: slot.savedRun?.run?.stage ?? null,
+      savedAt: slot.savedRun?.savedAt ?? null
+    };
+  }
+
+  return { ok: true, dojoProgress, exportedAt: nowMs() };
 }
 export function changeAccountName({ accountId, name }) {
   const v = validateAccountName(name);

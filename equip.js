@@ -17,7 +17,7 @@ export const MAGE_EQUIPS = [
     equip_type: "mage_equip",
     mana_gain: 2,
     coin_per_turn: 3,
-    effect_text: "毎ラウンド魔力+2 / コイン+3",
+    effect_text: "毎ターン魔力+2 / コイン+3",
     // ★（星）はランダム装備専用なので付けない
   },
   {
@@ -27,7 +27,7 @@ export const MAGE_EQUIPS = [
     equip_type: "mage_equip",
     mana_gain: 3,
     regen_hp: 2,
-    effect_text: "毎ラウンド魔力+3 / HP+2",
+    effect_text: "毎ターン魔力+3 / HP+2",
   },
   {
     name: "魔導士のローブ",
@@ -36,7 +36,7 @@ export const MAGE_EQUIPS = [
     equip_type: "mage_equip",
     mana_gain: 3,
     def_bonus: 2,
-    effect_text: "毎ラウンド魔力+3 / 防御+2",
+    effect_text: "毎ターン魔力+3 / 防御+2",
   },
   {
     name: "古代魔導書",
@@ -45,7 +45,7 @@ export const MAGE_EQUIPS = [
     equip_type: "mage_equip",
     mana_gain: 5,
     magic_pierce: true,
-    effect_text: "毎ラウンド魔力+5 / 魔法防御貫通",
+    effect_text: "毎ターン魔力+5 / 魔法防御貫通",
   },
 ];
 
@@ -79,7 +79,7 @@ export function generateEquipmentForLevel(level) {
 
   if (cat === "coin") {
     power = star * 2;
-    effect_text = `毎ラウンドコイン+${power}`;
+    effect_text = `毎ターンコイン+${power}`;
   } else if (cat === "攻撃力") {
     const map = { 1: 2, 2: 3, 3: 4 };
     power = map[star];
@@ -121,7 +121,7 @@ export function generateRandomEquip() {
 
   if (cat === "coin") {
     power = star * 2;
-    effect_text = `毎ラウンドコイン+${power}`;
+    effect_text = `毎ターンコイン+${power}`;
   } else if (cat === "攻撃力") {
     const map = { 1: 2, 2: 3, 3: 4 };
     power = map[star];
@@ -158,7 +158,7 @@ export function upgradeEquipStar(equip) {
 
   if (equip.effect_type === "coin_per_turn") {
     equip.power = newStar * 2;
-    equip.effect_text = `毎ラウンドコイン+${equip.power}`;
+    equip.effect_text = `毎ターンコイン+${equip.power}`;
   } else if (equip.effect_type === "攻撃力") {
     const map = { 1: 2, 2: 3, 3: 4, 4: 5 };
     equip.power = map[newStar] ?? equip.power;
@@ -191,7 +191,7 @@ export function createAlchemistUniqueEquip({
   const effects = [];
   if (atk > 0) effects.push(`攻撃力+${atk}`);
   if (defense > 0) effects.push(`防御力+${defense}`);
-  if (coin > 0) effects.push(`毎ラウンドコイン+${coin}`);
+  if (coin > 0) effects.push(`毎ターンコイン+${coin}`);
 
   const effect_text =
     effects.length > 0 ? effects.join(" / ") : "効果なし";
