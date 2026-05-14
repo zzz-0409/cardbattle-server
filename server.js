@@ -318,6 +318,24 @@ function buildSkillRemaining(player) {
 //   - active_buffs / freeze_debuffs をUI向けに整形
 //   - 将来の拡張に対応できるよう kind ベースで返す
 // ============================
+const SKILL_SEAL_BUFF_TYPE = "\u30b9\u30ad\u30eb\u5c01\u5370";
+const SKILL_SEALED_POPUP_MESSAGE = "\u30b9\u30ad\u30eb\u5c01\u5370\u4e2d\u3067\u3059\u3002\u30b9\u30ad\u30eb\u306f\u4f7f\u7528\u3067\u304d\u307e\u305b\u3093\u3002";
+
+function getSkillSealTurnsForStatus(player) {
+  if (!player) return 0;
+  const direct = Math.max(0, Number(player.skill_sealed_rounds ?? 0));
+  const buffs = Array.isArray(player.active_buffs) ? player.active_buffs : [];
+  const activeTurns = buffs
+    .filter(buff => buff?.type === SKILL_SEAL_BUFF_TYPE)
+    .map(buff => Number(buff.duration ?? buff.rounds ?? buff.turns ?? 0))
+    .filter(turns => Number.isFinite(turns) && turns > 0);
+  return Math.max(direct, ...activeTurns, 0);
+}
+
+function isPlayerSkillSealed(player) {
+  return !!player?.skill_sealed || getSkillSealTurnsForStatus(player) > 0;
+}
+
 function buildBuffUIData(player) {
   const out = [];
 
@@ -1307,6 +1325,9 @@ export class Match {
         defense: actor.doll ? (actor.doll.is_broken ? 0 : actor.getDollDefense()) : actor.get_total_defense(),
         special_defense: Math.max(0, Number(actor.get_special_defense?.() ?? 0)),
         buffs: buildStatusBuffDescriptionList(actor),
+        skill_sealed: isPlayerSkillSealed(actor),
+        skill_sealed_turns: getSkillSealTurnsForStatus(actor),
+        skill_sealed_rounds: getSkillSealTurnsForStatus(actor),
 
         // ★ これを必ず追加
         arrow_slots: actor.arrow_slots ?? 1,
@@ -1522,6 +1543,9 @@ export class Match {
       archer_no_consume_rounds: player.archer_no_consume_rounds ?? 0,
       archer_no_consume_permanent: !!player.archer_no_consume_permanent,
       archer_pierce_rounds: player.archer_pierce_rounds ?? (player.archer_next_pierce ? 1 : 0),
+      skill_sealed: isPlayerSkillSealed(player),
+      skill_sealed_turns: getSkillSealTurnsForStatus(player),
+      skill_sealed_rounds: getSkillSealTurnsForStatus(player),
       dojo_skill_damage_bonus: Math.max(0, Number(player.get_dojo_skill_damage_bonus?.() ?? 0)),
       dojo_coin_gain_percent: Math.max(0, Number(player._dojoTrailCoinGainPercent ?? 0)),
       equipment: [
@@ -1540,6 +1564,7 @@ export class Match {
             pending_charge_ready: !!dollSource.pending_charge_ready,
             attack: dollSource.is_broken ? 0 : player.getDollAttack(),
             defense: player.getDollDefense(),
+            costumes: dollSource.costumes ?? {},
           }
         : null,
       special_equip: buildSpecialEquip(player),
@@ -4024,6 +4049,9 @@ export class Match {
       archer_no_consume_rounds: self.archer_no_consume_rounds ?? 0,
       archer_no_consume_permanent: !!self.archer_no_consume_permanent,
       archer_pierce_rounds: self.archer_pierce_rounds ?? (self.archer_next_pierce ? 1 : 0),
+      skill_sealed: isPlayerSkillSealed(self),
+      skill_sealed_turns: getSkillSealTurnsForStatus(self),
+      skill_sealed_rounds: getSkillSealTurnsForStatus(self),
 
         // ★ 必ず配列に正規化
         equipment: [
@@ -4044,6 +4072,7 @@ export class Match {
               pending_charge_ready: !!self.doll.pending_charge_ready,
               attack: self.doll.is_broken ? 0 : self.getDollAttack(),
               defense: self.getDollDefense(),
+              costumes: self.doll.costumes ?? {},
             }
           : null,
 
@@ -4098,6 +4127,9 @@ export class Match {
       archer_no_consume_rounds: enemy.archer_no_consume_rounds ?? 0,
       archer_no_consume_permanent: !!enemy.archer_no_consume_permanent,
       archer_pierce_rounds: enemy.archer_pierce_rounds ?? (enemy.archer_next_pierce ? 1 : 0),
+      skill_sealed: isPlayerSkillSealed(enemy),
+      skill_sealed_turns: getSkillSealTurnsForStatus(enemy),
+      skill_sealed_rounds: getSkillSealTurnsForStatus(enemy),
 
         // ★ 必ず配列に正規化
         equipment: [
@@ -4118,6 +4150,7 @@ export class Match {
               pending_charge_ready: !!enemy.doll.pending_charge_ready,
               attack: enemy.doll.is_broken ? 0 : enemy.getDollAttack(),
               defense: enemy.getDollDefense(),
+              costumes: enemy.doll.costumes ?? {},
             }
           : null,
 
@@ -4640,7 +4673,8 @@ export class Match {
     }
 
     // -------- 3) スキル封印中 --------
-    if (actor.skill_sealed) {
+    if (isPlayerSkillSealed(actor)) {
+      this.sendPopup(SKILL_SEALED_POPUP_MESSAGE, wsPlayer, 2600);
       this.sendError("❌ スキルは封印されている…！", wsPlayer);
       this.skill_lock = false;
       return false;
@@ -5260,22 +5294,6 @@ export class Match {
       return;
     }
 
-    // ============================
-    // ★ 対戦終了イベント（UI演出用）
-    //   - 勝者: win / 敗者: lose / 引き分け: draw
-    // ============================
-    if (result === "p1" && wsWinner && wsLoser) {
-      safeSend(wsWinner, { type: "battle_end", result: "win" });
-      safeSend(wsLoser,  { type: "battle_end", result: "lose" });
-    } else if (result === "p2" && wsWinner && wsLoser) {
-      safeSend(wsWinner, { type: "battle_end", result: "win" });
-      safeSend(wsLoser,  { type: "battle_end", result: "lose" });
-    } else {
-      // draw
-      safeSend(this.p1, { type: "battle_end", result: "draw" });
-      safeSend(this.p2, { type: "battle_end", result: "draw" });
-    }
-
     if (winner && loser) {
 
       // 勝者 / 敗者
@@ -5376,19 +5394,43 @@ export class Match {
       if (result === "p2") return ws === this.p2 ? "win" : "lose";
       return "draw";
     };
-    const sendResultDetail = (ws, selfPlayer, enemyPlayer) => {
-      if (!ws || ws.isBot) return;
-      safeSend(ws, {
+    const buildResultDetailPayload = (ws, selfPlayer, enemyPlayer) => ({
         type: "battle_result_detail",
         result: resultForWs(ws),
         matchType: this.matchType,
         selfName: selfPlayer?.name || "",
+        selfJob: selfPlayer?.job || "",
         enemyName: enemyPlayer?.name || "",
+        enemyJob: enemyPlayer?.job || "",
         rating: resultDetailByWs.get(ws) || { ranked: false, reason: "none" }
-      });
+    });
+    const sendResultDetail = (ws, selfPlayer, enemyPlayer) => {
+      if (!ws || ws.isBot) return;
+      safeSend(ws, buildResultDetailPayload(ws, selfPlayer, enemyPlayer));
     };
     sendResultDetail(this.p1, this.P1, this.P2);
     sendResultDetail(this.p2, this.P2, this.P1);
+
+    // ============================
+    // ★ 対戦終了イベント（UI演出用）
+    //   レート詳細を同梱し、勝利画面の表示時に確実にRATE CHANGEを描画できるようにする。
+    // ============================
+    const sendBattleEnd = (ws, selfPlayer, enemyPlayer) => {
+      if (!ws) return;
+      const detail = buildResultDetailPayload(ws, selfPlayer, enemyPlayer);
+      safeSend(ws, {
+        type: "battle_end",
+        result: detail.result,
+        matchType: detail.matchType,
+        selfName: detail.selfName,
+        selfJob: detail.selfJob,
+        enemyName: detail.enemyName,
+        enemyJob: detail.enemyJob,
+        rating: detail.rating
+      });
+    };
+    sendBattleEnd(this.p1, this.P1, this.P2);
+    sendBattleEnd(this.p2, this.P2, this.P1);
 
 
     // 自動レベルアップ判定（両者）
@@ -7840,7 +7882,8 @@ function createTutorialShopList() {
       price: 5,
       effect_text: "HP +30",
       is_equip: false,
-      tutorial_item: true
+      tutorial_item: true,
+      tutorial_shop_target: "item"
     },
     {
       uid: crypto.randomUUID(),
@@ -7854,6 +7897,7 @@ function createTutorialShopList() {
       price: 5,
       effect_text: "攻撃力 +3",
       tutorial_item: true,
+      tutorial_shop_target: "equip",
       tutorial_no_equip_prompt: true
     },
     {
@@ -7897,6 +7941,21 @@ function createTutorialShopList() {
       tutorial_item: true
     }
   ];
+}
+
+function isTutorialShopList(items) {
+  if (!Array.isArray(items)) return false;
+  const hasForcedItem = items.some(item => item?.tutorial_shop_target === "item");
+  const hasForcedEquip = items.some(item => item?.tutorial_shop_target === "equip");
+  return hasForcedItem && hasForcedEquip && items.every(item => item?.tutorial_item === true);
+}
+
+function ensureTutorialShopList(player) {
+  if (!player) return [];
+  if (!isTutorialShopList(player.shop_items)) {
+    player.shop_items = createTutorialShopList();
+  }
+  return player.shop_items;
 }
 
 function startTutorialMatch(humanWS) {
@@ -7951,18 +8010,16 @@ function startTutorialMatch(humanWS) {
       return;
     }
     if (m.type === "open_shop") {
-      match.openShop(sock);
+      safeSend(sock, { type: "shop_list", items: ensureTutorialShopList(P) });
       return;
     }
     if (m.type === "buy_item") {
+      ensureTutorialShopList(P);
       match.buyItem(sock, m.index);
       return;
     }
     if (m.type === "shop_reroll") {
-      if (!Array.isArray(P.shop_items) || !P.shop_items.every(item => item?.tutorial_item === true)) {
-        P.shop_items = createTutorialShopList();
-      }
-      safeSend(sock, { type: "shop_list", items: P.shop_items });
+      safeSend(sock, { type: "shop_list", items: ensureTutorialShopList(P) });
       return;
     }
     if (m.type === "level_up_request") {
@@ -8178,6 +8235,42 @@ function canUseCpuSkill(P, id, match = null) {
   return true;
 }
 
+function canCpuUseDollCharge(P) {
+  if (P?.job !== "人形使い" || !P.doll || P.doll.is_broken) return false;
+  if (Array.isArray(P.pending_doll_charge_choices) && P.pending_doll_charge_choices.length > 0) {
+    return true;
+  }
+  return Number(P.doll.charge ?? 0) >= DOLL_CHARGE_COST;
+}
+
+function pickCpuDollChargePart(P) {
+  const parts = Object.entries(P?.doll?.costumes ?? {})
+    .filter(([, costume]) => !!costume && Number(costume?.star ?? 1) < 8)
+    .map(([part]) => part);
+  return parts.length > 0 ? parts[Math.floor(Math.random() * parts.length)] : null;
+}
+
+function cpuUseDollCharge(match, ws) {
+  const P = ws?.player;
+  if (!match || !canCpuUseDollCharge(P)) return false;
+
+  if (match.hasPendingDollCharge?.(P)) {
+    const choices = Array.isArray(P.pending_doll_charge_choices)
+      ? P.pending_doll_charge_choices
+      : [];
+    const picked = choices[Math.floor(Math.random() * choices.length)] ?? null;
+    if (!picked?.key) return false;
+    const part = picked.key === "costume_boost" ? pickCpuDollChargePart(P) : null;
+    return !!match.resolveDollChargeChoice?.(ws, P, picked.key, part);
+  }
+
+  const requested = !!match.requestDollChargeChoices?.(ws, P);
+  if (requested && match.hasPendingDollCharge?.(P)) {
+    return cpuUseDollCharge(match, ws);
+  }
+  return requested;
+}
+
 // =========================================================
 // ★ CPU AI：状態分析（修正版）
 // =========================================================
@@ -8363,6 +8456,7 @@ function analyzeCpuState(match, ws) {
 
     usableItem,
     hasUsableItem: !!usableItem,
+    canDollCharge: canCpuUseDollCharge(P),
 
 
     // ★ ここが重要
@@ -8402,6 +8496,10 @@ function decideCpuAction(state) {
   // 回復（HPが減っていて、回復アイテムを持っている）
   if (state.hasUsableItem) {
     return { type: "use_item" };
+  }
+
+  if (state.canDollCharge) {
+    return { type: "doll_charge" };
   }
 
   // =========================
@@ -8513,6 +8611,11 @@ async function cpuStep(match, ws) {
 
   if (action.type === "equip" && state.equipItem) {
     match.useItem(ws, state.equipItem.uid, "equip");
+    return false;
+  }
+
+  if (action.type === "doll_charge") {
+    cpuUseDollCharge(match, ws);
     return false;
   }
 
@@ -8655,6 +8758,7 @@ export async function maybeCpuTurn(match) {
         case "use_item":
           if (state.usableItem) {
             const used = cpuUseItemDirect(match, botWS, state.usableItem);
+            if (used) didSomething = true;
 
             // ★ 修理キットとターン消費アイテムはターンを終了
             if (
@@ -8667,6 +8771,12 @@ export async function maybeCpuTurn(match) {
               match.endRound();
               return;
             }
+          }
+          break;
+
+        case "doll_charge":
+          if (cpuUseDollCharge(match, botWS)) {
+            didSomething = true;
           }
           break;
 
@@ -8685,12 +8795,14 @@ export async function maybeCpuTurn(match) {
               "arrow",
               slot
             );
+            didSomething = true;
           }
           break;
 
         case "equip":
           if (state.equipItem) {
             match.useItem(botWS, state.equipItem.uid, "equip");
+            didSomething = true;
           }
           break;
 
@@ -8743,6 +8855,7 @@ export async function maybeCpuTurn(match) {
             }
 
             match.useItem(botWS, state.specialEquip.uid, "special");
+            didSomething = true;
           }
           break;
 

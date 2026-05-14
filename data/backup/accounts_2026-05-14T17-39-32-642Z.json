@@ -7,10 +7,10 @@
       "lastNameChangeAt": 1778220842868,
       "jobs": {
         "戦士": {
-          "rating": 1000,
-          "wins": 0,
+          "rating": 1016,
+          "wins": 2,
           "losses": 2,
-          "updatedAt": 1778169867176
+          "updatedAt": 1778767706021
         },
         "騎士": {
           "rating": 1000,
@@ -19,16 +19,16 @@
           "updatedAt": 0
         },
         "僧侶": {
-          "rating": 1000,
+          "rating": 992,
           "wins": 0,
-          "losses": 0,
-          "updatedAt": 0
+          "losses": 1,
+          "updatedAt": 1778767162382
         },
         "盗賊": {
-          "rating": 1000,
+          "rating": 992,
           "wins": 0,
-          "losses": 0,
-          "updatedAt": 0
+          "losses": 1,
+          "updatedAt": 1778767339079
         },
         "魔導士": {
           "rating": 1000,
@@ -55,10 +55,10 @@
           "updatedAt": 0
         },
         "人形使い": {
-          "rating": 1000,
+          "rating": 992,
           "wins": 0,
-          "losses": 0,
-          "updatedAt": 0
+          "losses": 1,
+          "updatedAt": 1778765765902
         },
         "狂人": {
           "rating": 1000,
@@ -72,20 +72,20 @@
           "highestStage": 20,
           "clearCount": 0,
           "cleared": false,
-          "updatedAt": 1778695437772,
+          "updatedAt": 1778766896127,
           "savedRun": {
             "run": {
               "mode": "dojo",
               "jobName": "戦士",
-              "stage": 8,
-              "highestStage": 7,
+              "stage": 9,
+              "highestStage": 8,
               "startedAt": 1778548549782,
               "lastDrops": [
                 {
                   "type": "coin",
                   "name": "コイン",
-                  "amount": 11,
-                  "base_amount": 11,
+                  "amount": 6,
+                  "base_amount": 6,
                   "trail_bonus_amount": 0,
                   "trail_bonus_percent": 0
                 },
@@ -111,7 +111,7 @@
                 "ashura"
               ],
               "dojoTrail": {
-                "prestigePoints": 4,
+                "prestigePoints": 9,
                 "trailNodes": [
                   61,
                   62,
@@ -143,14 +143,14 @@
                 "iconJobId": "1",
                 "titleJobId": "1",
                 "titleText": "見習い戦士",
-                "iconSrc": "Assets/shokugyousenntaku/sennsi1_facefix_transparent.png",
+                "iconSrc": "Assets/profile/icons/warrior-face.png",
                 "frameId": "none",
                 "frameSrc": ""
               },
               "job": "戦士",
               "level": 1,
-              "exp": 35,
-              "hp": 86,
+              "exp": 40,
+              "hp": 80,
               "max_hp": 200,
               "dojoTrailBonusesStripped": true,
               "base_attack": 23,
@@ -158,7 +158,7 @@
               "base_defense": 10,
               "defense": 10,
               "special_defense": 0,
-              "coins": 96,
+              "coins": 102,
               "items": [],
               "dojoStorage": {
                 "items": [],
@@ -204,7 +204,8 @@
                 "items": [],
                 "equipment": [],
                 "special": [
-                  "6c6f396e-ea49-47e7-ae58-0f600adeeec4"
+                  "6c6f396e-ea49-47e7-ae58-0f600adeeec4",
+                  "4b62284a-297c-4007-876b-fc87c2017116"
                 ]
               },
               "dojoCarrySlots": {
@@ -228,6 +229,18 @@
               "arrow_slots": 1,
               "shop_items": [
                 {
+                  "name": "★1 防御力装備",
+                  "star": 1,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "防御力",
+                  "effect_type": "防御力",
+                  "power": 2,
+                  "price": 10,
+                  "effect_text": "防御力+2",
+                  "is_arrow": false
+                },
+                {
                   "name": "★2 防御力装備",
                   "star": 2,
                   "is_equip": true,
@@ -240,14 +253,28 @@
                   "is_arrow": false
                 },
                 {
-                  "name": "★2 HP回復",
+                  "name": "★2 攻撃力装備",
                   "star": 2,
-                  "effect_type": "HP",
-                  "power": 15,
-                  "duration": 0,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "攻撃力",
+                  "effect_type": "攻撃力",
+                  "power": 3,
                   "price": 20,
-                  "effect_text": "HP +15 (即時)",
-                  "is_equip": false
+                  "effect_text": "攻撃力+3",
+                  "is_arrow": false
+                },
+                {
+                  "name": "★2 攻撃力装備",
+                  "star": 2,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "攻撃力",
+                  "effect_type": "攻撃力",
+                  "power": 3,
+                  "price": 20,
+                  "effect_text": "攻撃力+3",
+                  "is_arrow": false
                 },
                 {
                   "name": "★1 攻撃力装備",
@@ -260,32 +287,10 @@
                   "price": 10,
                   "effect_text": "攻撃力+2",
                   "is_arrow": false
-                },
-                {
-                  "name": "★2 攻撃力UP (3T)",
-                  "star": 2,
-                  "effect_type": "攻撃力",
-                  "power": 3,
-                  "duration": 3,
-                  "price": 12,
-                  "effect_text": "攻撃力 +3 / 3T",
-                  "is_equip": false
-                },
-                {
-                  "name": "★1 防御力装備",
-                  "star": 1,
-                  "is_equip": true,
-                  "equip_type": "normal",
-                  "equip_category": "防御力",
-                  "effect_type": "防御力",
-                  "power": 2,
-                  "price": 10,
-                  "effect_text": "防御力+2",
-                  "is_arrow": false
                 }
               ]
             },
-            "savedAt": 1778695437772
+            "savedAt": 1778766896127
           },
           "prestigePoints": 18,
           "trailNodes": [

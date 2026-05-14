@@ -7,10 +7,10 @@
       "lastNameChangeAt": 1778220842868,
       "jobs": {
         "戦士": {
-          "rating": 1000,
-          "wins": 0,
+          "rating": 1016,
+          "wins": 2,
           "losses": 2,
-          "updatedAt": 1778169867176
+          "updatedAt": 1778767706021
         },
         "騎士": {
           "rating": 1000,
@@ -19,16 +19,16 @@
           "updatedAt": 0
         },
         "僧侶": {
-          "rating": 1000,
+          "rating": 992,
           "wins": 0,
-          "losses": 0,
-          "updatedAt": 0
+          "losses": 1,
+          "updatedAt": 1778767162382
         },
         "盗賊": {
-          "rating": 1000,
+          "rating": 992,
           "wins": 0,
-          "losses": 0,
-          "updatedAt": 0
+          "losses": 1,
+          "updatedAt": 1778767339079
         },
         "魔導士": {
           "rating": 1000,
@@ -55,10 +55,10 @@
           "updatedAt": 0
         },
         "人形使い": {
-          "rating": 1000,
+          "rating": 992,
           "wins": 0,
-          "losses": 0,
-          "updatedAt": 0
+          "losses": 1,
+          "updatedAt": 1778765765902
         },
         "狂人": {
           "rating": 1000,
@@ -72,7 +72,7 @@
           "highestStage": 20,
           "clearCount": 0,
           "cleared": false,
-          "updatedAt": 1778695472709,
+          "updatedAt": 1778766896127,
           "savedRun": {
             "run": {
               "mode": "dojo",
@@ -143,7 +143,7 @@
                 "iconJobId": "1",
                 "titleJobId": "1",
                 "titleText": "見習い戦士",
-                "iconSrc": "Assets/shokugyousenntaku/sennsi1_facefix_transparent.png",
+                "iconSrc": "Assets/profile/icons/warrior-face.png",
                 "frameId": "none",
                 "frameSrc": ""
               },
@@ -290,7 +290,7 @@
                 }
               ]
             },
-            "savedAt": 1778695472709
+            "savedAt": 1778766896127
           },
           "prestigePoints": 18,
           "trailNodes": [
