@@ -72,7 +72,7 @@
           "highestStage": 20,
           "clearCount": 0,
           "cleared": false,
-          "updatedAt": 1778812086216,
+          "updatedAt": 1778812968929,
           "savedRun": {
             "run": {
               "mode": "dojo",
@@ -297,7 +297,7 @@
                 }
               ]
             },
-            "savedAt": 1778812086216
+            "savedAt": 1778812968929
           },
           "prestigePoints": 18,
           "trailNodes": [
