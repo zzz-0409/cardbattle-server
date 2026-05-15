@@ -2,6 +2,8 @@
 
 import { EQUIP_PRICE_BY_STAR, EQUIP_CATEGORIES } from "./constants.js";
 
+export const NORMAL_EQUIP_MAX_STAR = 5;
+
 // =========================================
 // 魔導士専用装備（4種）
 //  - 杖：コイン増加 + 魔力
@@ -151,8 +153,8 @@ export function generateRandomEquip() {
 // 星+1（錬金術師スキル2）
 // ------------------------------------------
 export function upgradeEquipStar(equip) {
-  let oldStar = equip.star ?? 1;
-  const newStar = oldStar + 1;
+  const oldStar = Math.max(1, Math.floor(Number(equip.star ?? 1)) || 1);
+  const newStar = Math.min(NORMAL_EQUIP_MAX_STAR, oldStar + 1);
 
   equip.star = newStar;
 
@@ -160,11 +162,11 @@ export function upgradeEquipStar(equip) {
     equip.power = newStar * 2;
     equip.effect_text = `毎ターンコイン+${equip.power}`;
   } else if (equip.effect_type === "攻撃力") {
-    const map = { 1: 2, 2: 3, 3: 4, 4: 5 };
+    const map = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 };
     equip.power = map[newStar] ?? equip.power;
     equip.effect_text = `攻撃力+${equip.power}`;
   } else if (equip.effect_type === "防御力") {
-    const map = { 1: 2, 2: 3, 3: 4, 4: 5 };
+    const map = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 };
     equip.power = map[newStar] ?? equip.power;
     equip.effect_text = `防御力+${equip.power}`;
   }

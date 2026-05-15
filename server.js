@@ -7,7 +7,7 @@ export const JOB_DATA = JOB_TEMPLATE;
 
 import crypto from "crypto";
 import { generateOneShopItem } from "./item.js";
-import { generateEquipmentForLevel, upgradeEquipStar } from "./equip.js";
+import { generateEquipmentForLevel, NORMAL_EQUIP_MAX_STAR, upgradeEquipStar } from "./equip.js";
 import { MAGE_EQUIPS } from "./equip.js";
 import { getMageSlot } from "./player.js";
 import { MAGE_MANA_ITEMS } from "./mage_items.js";
@@ -48,6 +48,7 @@ const DEBUG = true;
 const SHOP_SLOT_COUNT = 5;
 const ARROW_SHOP_SET_COUNT = 3;
 const ARCHER_START_ARROW_COUNT = 5;
+const DOJO_TRAIL_COIN_SPENT_ATTACK_STEP = 20;
 
 const clients = new Set();
 
@@ -721,13 +722,13 @@ function buildDojoTrailBuffUIEntries(player) {
     });
   }
   if (nodes.has(40)) {
-    const spentAttackBonus = Math.max(0, Math.floor(Number(player.dojoTrailState?.trailCoinSpent ?? player._dojoTrailCoinSpent ?? 0) / 50));
+    const spentAttackBonus = Math.max(0, Math.floor(Number(player.dojoTrailState?.trailCoinSpent ?? player._dojoTrailCoinSpent ?? 0) / DOJO_TRAIL_COIN_SPENT_ATTACK_STEP));
     out.push({
       kind: "passive_atk",
       power: spentAttackBonus,
       remain: null,
       source: "蓄財の大軌跡",
-      text: `軌跡：消費コイン50枚につき攻撃力+1（現在+${spentAttackBonus}）`,
+      text: `軌跡：消費コイン${DOJO_TRAIL_COIN_SPENT_ATTACK_STEP}枚につき攻撃力+1（現在+${spentAttackBonus}）`,
       unremovable: true,
       passive: true,
     });
@@ -3018,6 +3019,11 @@ export class Match {
 
     if (star1 !== star2 || category1 !== category2) {
       this.sendError("❌ 星と効果が同じ通常装備を2つ選んでください。", wsPlayer);
+      return;
+    }
+
+    if (star1 >= NORMAL_EQUIP_MAX_STAR) {
+      this.sendError(`❌ 装備合成の最大レベルは${NORMAL_EQUIP_MAX_STAR}です。`, wsPlayer);
       return;
     }
 
@@ -5954,7 +5960,7 @@ const DOJO_TRAIL_FOURTH_COLUMN_EFFECTS = {
   37: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
   38: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
   39: { name: "コイン獲得量 +10%", effect_text: "達人への道のコイン獲得量が10%上がる。", icon: DOJO_TRAIL_COIN_GAIN_SMALL_ICON },
-  40: { name: "蓄財の大軌跡", effect_text: "達人への道で消費したコイン50枚につき攻撃力が1上昇する。", icon: DOJO_TRAIL_COIN_SPENT_ATTACK_MAJOR_ICON }
+  40: { name: "蓄財の大軌跡", effect_text: `達人への道で消費したコイン${DOJO_TRAIL_COIN_SPENT_ATTACK_STEP}枚につき攻撃力が1上昇する。`, icon: DOJO_TRAIL_COIN_SPENT_ATTACK_MAJOR_ICON }
 };
 
 const DOJO_TRAIL_DROP_COLUMN_EFFECTS = {
@@ -6222,7 +6228,7 @@ function getDojoTrailAttackBonus(state) {
   for (const id of [1, 2, 3, 4]) if (unlocked.has(id)) bonus += 1;
   for (const id of [6, 7, 8, 9]) if (unlocked.has(id)) bonus += 2;
   if (unlocked.has(40)) {
-    bonus += Math.max(0, Math.floor(Number(state?.trailCoinSpent ?? 0) / 50));
+    bonus += Math.max(0, Math.floor(Number(state?.trailCoinSpent ?? 0) / DOJO_TRAIL_COIN_SPENT_ATTACK_STEP));
   }
   return bonus;
 }
@@ -6781,6 +6787,11 @@ function combineDojoStorageEquips(ws, uid1, uid2) {
     return false;
   }
 
+  if (star1 >= NORMAL_EQUIP_MAX_STAR) {
+    safeSend(ws, { type: "popup", msg: `装備合成の最大レベルは${NORMAL_EQUIP_MAX_STAR}です。`, ms: 2400 });
+    return false;
+  }
+
   const nextEquip = upgradeEquipStar({
     ...eq1,
     uid: crypto.randomUUID(),
@@ -6798,6 +6809,7 @@ function findDojoStorageEquipCombinePair(equipment = []) {
   const seen = new Map();
   for (const item of equipment ?? []) {
     if (!item?.is_equip || item.equip_type !== "normal") continue;
+    if (Number(item.star ?? 1) >= NORMAL_EQUIP_MAX_STAR) continue;
     const key = `${Number(item.star ?? 1)}::${String(item.equip_category ?? item.effect_type ?? "")}`;
     const prev = seen.get(key);
     if (prev) return [prev, item];

@@ -72,22 +72,22 @@
           "highestStage": 20,
           "clearCount": 0,
           "cleared": false,
-          "updatedAt": 1778812437975,
+          "updatedAt": 1778818481803,
           "savedRun": {
             "run": {
               "mode": "dojo",
               "jobName": "戦士",
-              "stage": 10,
-              "highestStage": 9,
-              "startedAt": 1778548549782,
+              "stage": 9,
+              "highestStage": 8,
+              "startedAt": 1778818002070,
               "lastDrops": [
                 {
                   "type": "coin",
                   "name": "コイン",
-                  "amount": 15,
-                  "base_amount": 15,
-                  "trail_bonus_amount": 0,
-                  "trail_bonus_percent": 0
+                  "amount": 30,
+                  "base_amount": 17,
+                  "trail_bonus_amount": 13,
+                  "trail_bonus_percent": 80
                 },
                 {
                   "type": "exp",
@@ -98,6 +98,23 @@
                   "type": "prestige",
                   "name": "軌跡ポイント",
                   "amount": 4
+                },
+                {
+                  "type": "equip",
+                  "name": "★2 防御力装備",
+                  "item": {
+                    "name": "★2 防御力装備",
+                    "star": 2,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "防御力",
+                    "effect_type": "防御力",
+                    "power": 3,
+                    "price": 20,
+                    "effect_text": "防御力+3",
+                    "is_arrow": false,
+                    "uid": "db13ac77-1fd3-432f-adab-3f6a2a37d850"
+                  }
                 }
               ],
               "midBossPool": [
@@ -106,13 +123,23 @@
                 "anubis"
               ],
               "bigBossPool": [
+                "ashura",
                 "zeus",
-                "thor",
-                "ashura"
+                "susanoo"
               ],
               "dojoTrail": {
-                "prestigePoints": 13,
+                "prestigePoints": 2,
                 "trailNodes": [
+                  31,
+                  32,
+                  33,
+                  34,
+                  35,
+                  36,
+                  37,
+                  38,
+                  39,
+                  40,
                   61,
                   62,
                   63,
@@ -122,16 +149,11 @@
                   67,
                   68,
                   69,
-                  70,
-                  71,
-                  72,
-                  73,
-                  74,
-                  75
+                  70
                 ],
                 "trailAttackGrowth": 0,
                 "trailItemAttackGrowth": 0,
-                "trailCoinSpent": 10
+                "trailCoinSpent": 90
               },
               "trailUpgrades": {},
               "waiting": true,
@@ -149,7 +171,7 @@
               },
               "job": "戦士",
               "level": 1,
-              "exp": 45,
+              "exp": 40,
               "hp": 44,
               "max_hp": 200,
               "dojoTrailBonusesStripped": true,
@@ -158,23 +180,60 @@
               "base_defense": 10,
               "defense": 10,
               "special_defense": 0,
-              "coins": 107,
+              "coins": 64,
               "items": [],
               "dojoStorage": {
-                "items": [],
+                "items": [
+                  {
+                    "name": "★2 攻撃力UP (2T)",
+                    "star": 2,
+                    "effect_type": "攻撃力",
+                    "power": 5,
+                    "duration": 2,
+                    "price": 12,
+                    "effect_text": "攻撃力 +5 / 2T",
+                    "is_equip": false,
+                    "uid": "7e2ce5b1-f1ac-48c8-b799-bed3e188cb90"
+                  },
+                  {
+                    "name": "★2 HP回復",
+                    "star": 2,
+                    "effect_type": "HP",
+                    "power": 15,
+                    "duration": 0,
+                    "price": 20,
+                    "effect_text": "HP +15 (即時)",
+                    "is_equip": false,
+                    "uid": "ee8e4327-0054-46ea-8bcc-49895821ba49"
+                  }
+                ],
                 "equipment": [
                   {
-                    "name": "★2 攻撃力装備",
-                    "star": 2,
+                    "name": "★4 攻撃力装備",
+                    "star": 4,
                     "is_equip": true,
                     "equip_type": "normal",
                     "equip_category": "攻撃力",
                     "effect_type": "攻撃力",
-                    "power": 3,
-                    "price": 20,
-                    "effect_text": "攻撃力+3",
+                    "power": 5,
+                    "price": 10,
+                    "effect_text": "攻撃力+5",
                     "is_arrow": false,
-                    "uid": "2220cddf-41d4-4322-9788-888d1a110421"
+                    "uid": "f65a301d-631b-4440-9d6b-24d37804c8dc"
+                  },
+                  {
+                    "uid": "604f192b-ae4f-4026-9fc5-ea33b8580610",
+                    "name": "★3 攻撃力装備",
+                    "star": 3,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "equip_power": 2,
+                    "power": 4,
+                    "price": 0,
+                    "effect_text": "攻撃力+4",
+                    "is_arrow": false
                   },
                   {
                     "name": "★1 防御力装備",
@@ -187,12 +246,39 @@
                     "price": 10,
                     "effect_text": "防御力+2",
                     "is_arrow": false,
-                    "uid": "6908de0b-cacb-446a-9315-653067e1df97"
+                    "uid": "ab85c72e-2474-4df1-a5f8-687f9848659e"
+                  },
+                  {
+                    "uid": "fa122462-860c-4c6a-8fd8-723d64bfdde1",
+                    "name": "★1 攻撃力装備",
+                    "star": 1,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "equip_power": 2,
+                    "power": 2,
+                    "price": 0,
+                    "effect_text": "攻撃力+2",
+                    "is_arrow": false
+                  },
+                  {
+                    "name": "★2 防御力装備",
+                    "star": 2,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "防御力",
+                    "effect_type": "防御力",
+                    "power": 3,
+                    "price": 20,
+                    "effect_text": "防御力+3",
+                    "is_arrow": false,
+                    "uid": "db13ac77-1fd3-432f-adab-3f6a2a37d850"
                   }
                 ],
                 "special": [
                   {
-                    "uid": "6c6f396e-ea49-47e7-ae58-0f600adeeec4",
+                    "uid": "35769c11-3a24-41b3-8db7-4de0f3370a33",
                     "name": "デュランダル",
                     "is_equip": true,
                     "equip_type": "dojo_special",
@@ -202,7 +288,7 @@
                     "effect_text": "基礎防御力+5。装備中にダメージを受けると、自身の攻撃力と防御力の合計の半分だけ防御貫通の反撃ダメージを与える。"
                   },
                   {
-                    "uid": "4b62284a-297c-4007-876b-fc87c2017116",
+                    "uid": "cf28d64a-1fbe-473f-a78f-c4958cab599b",
                     "name": "ムラサメ",
                     "is_equip": true,
                     "equip_type": "dojo_special",
@@ -216,15 +302,18 @@
               "dojoLoadout": {
                 "items": [],
                 "equipment": [
-                  "6908de0b-cacb-446a-9315-653067e1df97"
+                  "ab85c72e-2474-4df1-a5f8-687f9848659e",
+                  "f65a301d-631b-4440-9d6b-24d37804c8dc",
+                  "604f192b-ae4f-4026-9fc5-ea33b8580610",
+                  "fa122462-860c-4c6a-8fd8-723d64bfdde1",
+                  "db13ac77-1fd3-432f-adab-3f6a2a37d850"
                 ],
                 "special": [
-                  "6c6f396e-ea49-47e7-ae58-0f600adeeec4",
-                  "4b62284a-297c-4007-876b-fc87c2017116"
+                  "35769c11-3a24-41b3-8db7-4de0f3370a33"
                 ]
               },
               "dojoCarrySlots": {
-                "items": 5,
+                "items": 1,
                 "equipment": 5,
                 "special": 5
               },
@@ -244,60 +333,58 @@
               "arrow_slots": 1,
               "shop_items": [
                 {
-                  "name": "★1 防御力UP (1T)",
+                  "name": "★1 防御力UP (2T)",
                   "star": 1,
                   "effect_type": "防御力",
-                  "power": 6,
-                  "duration": 1,
-                  "price": 8,
-                  "effect_text": "防御力 +6 / 1T",
-                  "is_equip": false
-                },
-                {
-                  "name": "★1 防御力UP (1T)",
-                  "star": 1,
-                  "effect_type": "防御力",
-                  "power": 6,
-                  "duration": 1,
-                  "price": 8,
-                  "effect_text": "防御力 +6 / 1T",
-                  "is_equip": false
-                },
-                {
-                  "name": "★2 攻撃力UP (1T)",
-                  "star": 2,
-                  "effect_type": "攻撃力",
-                  "power": 9,
-                  "duration": 1,
-                  "price": 12,
-                  "effect_text": "攻撃力 +9 / 1T",
-                  "is_equip": false
-                },
-                {
-                  "name": "★1 攻撃力UP (2T)",
-                  "star": 1,
-                  "effect_type": "攻撃力",
                   "power": 3,
                   "duration": 2,
                   "price": 8,
-                  "effect_text": "攻撃力 +3 / 2T",
+                  "effect_text": "防御力 +3 / 2T",
                   "is_equip": false
                 },
                 {
-                  "name": "★1 攻撃力装備",
-                  "star": 1,
-                  "is_equip": true,
-                  "equip_type": "normal",
-                  "equip_category": "攻撃力",
+                  "name": "★2 HP回復",
+                  "star": 2,
+                  "effect_type": "HP",
+                  "power": 15,
+                  "duration": 0,
+                  "price": 20,
+                  "effect_text": "HP +15 (即時)",
+                  "is_equip": false
+                },
+                {
+                  "name": "★3 HP回復",
+                  "star": 3,
+                  "effect_type": "HP",
+                  "power": 20,
+                  "duration": 0,
+                  "price": 25,
+                  "effect_text": "HP +20 (即時)",
+                  "is_equip": false
+                },
+                {
+                  "name": "★2 攻撃力UP (3T)",
+                  "star": 2,
                   "effect_type": "攻撃力",
-                  "power": 2,
-                  "price": 10,
-                  "effect_text": "攻撃力+2",
-                  "is_arrow": false
+                  "power": 3,
+                  "duration": 3,
+                  "price": 12,
+                  "effect_text": "攻撃力 +3 / 3T",
+                  "is_equip": false
+                },
+                {
+                  "name": "★1 防御力UP (2T)",
+                  "star": 1,
+                  "effect_type": "防御力",
+                  "power": 3,
+                  "duration": 2,
+                  "price": 8,
+                  "effect_text": "防御力 +3 / 2T",
+                  "is_equip": false
                 }
               ]
             },
-            "savedAt": 1778812437974
+            "savedAt": 1778818481803
           },
           "prestigePoints": 18,
           "trailNodes": [
