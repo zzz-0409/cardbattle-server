@@ -72,20 +72,20 @@
           "highestStage": 20,
           "clearCount": 0,
           "cleared": false,
-          "updatedAt": 1778812054541,
+          "updatedAt": 1778812086216,
           "savedRun": {
             "run": {
               "mode": "dojo",
               "jobName": "戦士",
-              "stage": 9,
-              "highestStage": 8,
+              "stage": 10,
+              "highestStage": 9,
               "startedAt": 1778548549782,
               "lastDrops": [
                 {
                   "type": "coin",
                   "name": "コイン",
-                  "amount": 6,
-                  "base_amount": 6,
+                  "amount": 15,
+                  "base_amount": 15,
                   "trail_bonus_amount": 0,
                   "trail_bonus_percent": 0
                 },
@@ -97,7 +97,7 @@
                 {
                   "type": "prestige",
                   "name": "軌跡ポイント",
-                  "amount": 5
+                  "amount": 4
                 }
               ],
               "midBossPool": [
@@ -111,7 +111,7 @@
                 "ashura"
               ],
               "dojoTrail": {
-                "prestigePoints": 9,
+                "prestigePoints": 13,
                 "trailNodes": [
                   61,
                   62,
@@ -149,8 +149,8 @@
               },
               "job": "戦士",
               "level": 1,
-              "exp": 40,
-              "hp": 80,
+              "exp": 45,
+              "hp": 44,
               "max_hp": 200,
               "dojoTrailBonusesStripped": true,
               "base_attack": 23,
@@ -158,7 +158,7 @@
               "base_defense": 10,
               "defense": 10,
               "special_defense": 0,
-              "coins": 92,
+              "coins": 107,
               "items": [],
               "dojoStorage": {
                 "items": [],
@@ -215,7 +215,9 @@
               },
               "dojoLoadout": {
                 "items": [],
-                "equipment": [],
+                "equipment": [
+                  "6908de0b-cacb-446a-9315-653067e1df97"
+                ],
                 "special": [
                   "6c6f396e-ea49-47e7-ae58-0f600adeeec4",
                   "4b62284a-297c-4007-876b-fc87c2017116"
@@ -242,55 +244,44 @@
               "arrow_slots": 1,
               "shop_items": [
                 {
-                  "name": "★1 防御力装備",
+                  "name": "★1 防御力UP (1T)",
                   "star": 1,
-                  "is_equip": true,
-                  "equip_type": "normal",
-                  "equip_category": "防御力",
                   "effect_type": "防御力",
-                  "power": 2,
-                  "price": 10,
-                  "effect_text": "防御力+2",
-                  "is_arrow": false,
-                  "sold_out": true,
-                  "soldOut": true,
-                  "shop_sold_out": true
+                  "power": 6,
+                  "duration": 1,
+                  "price": 8,
+                  "effect_text": "防御力 +6 / 1T",
+                  "is_equip": false
                 },
                 {
-                  "name": "★2 防御力装備",
-                  "star": 2,
-                  "is_equip": true,
-                  "equip_type": "normal",
-                  "equip_category": "防御力",
+                  "name": "★1 防御力UP (1T)",
+                  "star": 1,
                   "effect_type": "防御力",
-                  "power": 3,
-                  "price": 20,
-                  "effect_text": "防御力+3",
-                  "is_arrow": false
+                  "power": 6,
+                  "duration": 1,
+                  "price": 8,
+                  "effect_text": "防御力 +6 / 1T",
+                  "is_equip": false
                 },
                 {
-                  "name": "★2 攻撃力装備",
+                  "name": "★2 攻撃力UP (1T)",
                   "star": 2,
-                  "is_equip": true,
-                  "equip_type": "normal",
-                  "equip_category": "攻撃力",
+                  "effect_type": "攻撃力",
+                  "power": 9,
+                  "duration": 1,
+                  "price": 12,
+                  "effect_text": "攻撃力 +9 / 1T",
+                  "is_equip": false
+                },
+                {
+                  "name": "★1 攻撃力UP (2T)",
+                  "star": 1,
                   "effect_type": "攻撃力",
                   "power": 3,
-                  "price": 20,
-                  "effect_text": "攻撃力+3",
-                  "is_arrow": false
-                },
-                {
-                  "name": "★2 攻撃力装備",
-                  "star": 2,
-                  "is_equip": true,
-                  "equip_type": "normal",
-                  "equip_category": "攻撃力",
-                  "effect_type": "攻撃力",
-                  "power": 3,
-                  "price": 20,
-                  "effect_text": "攻撃力+3",
-                  "is_arrow": false
+                  "duration": 2,
+                  "price": 8,
+                  "effect_text": "攻撃力 +3 / 2T",
+                  "is_equip": false
                 },
                 {
                   "name": "★1 攻撃力装備",
@@ -306,7 +297,7 @@
                 }
               ]
             },
-            "savedAt": 1778812054541
+            "savedAt": 1778812086216
           },
           "prestigePoints": 18,
           "trailNodes": [
