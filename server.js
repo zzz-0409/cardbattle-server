@@ -351,7 +351,7 @@ function getArcherExtraBuffEntries(player) {
     }))
     .filter(buff => buff.rounds > 0 && buff.extra > 0);
   if (buffs.length > 0) return buffs;
-  if (player.archer_buff && Number(player.archer_buff.rounds ?? 0) > 0) {
+  if (!Array.isArray(player.archer_buffs) && player.archer_buff && Number(player.archer_buff.rounds ?? 0) > 0) {
     return [{
       rounds: Math.floor(Number(player.archer_buff.rounds ?? 0)),
       extra: Math.max(1, Math.floor(Number(player.archer_buff.extra ?? 1))),
@@ -5161,22 +5161,28 @@ export class Match {
   }
 
   decrementArcherTurnStartBuffs(actor) {
+    let changed = false;
     if (Number(actor.archer_no_consume_rounds ?? 0) > 0) {
       actor.archer_no_consume_rounds -= 1;
+      changed = true;
       if (actor.archer_no_consume_rounds <= 0) {
         actor.archer_no_consume_rounds = 0;
         this.sendSystem("🏹 無尽射撃の効果が終了しました");
       }
     }
 
+    const hadExtraBuffs = getArcherExtraBuffEntries(actor).length > 0;
     const expiredExtraBuffs = typeof actor.tick_archer_extra_buffs === "function"
       ? actor.tick_archer_extra_buffs()
       : 0;
+    if (hadExtraBuffs) changed = true;
     if (expiredExtraBuffs > 0) {
       this.sendSystem(expiredExtraBuffs === 1
         ? "🏹 追撃効果が終了しました"
         : `🏹 追撃効果が${expiredExtraBuffs}個終了しました`);
     }
+    if (changed) this.sendSimpleStatusBoth();
+    return changed;
   }
 
   isTurnEndDebuff(buff) {

@@ -521,7 +521,12 @@ export class Player {
             }))
             .filter(buff => buff.rounds > 0 && buff.extra > 0);
 
-        if (buffs.length === 0 && this.archer_buff && Number(this.archer_buff.rounds ?? 0) > 0) {
+        if (
+            !Array.isArray(this.archer_buffs) &&
+            buffs.length === 0 &&
+            this.archer_buff &&
+            Number(this.archer_buff.rounds ?? 0) > 0
+        ) {
             buffs = [{
                 rounds: Math.floor(Number(this.archer_buff.rounds ?? 0)),
                 extra: Math.max(1, Math.floor(Number(this.archer_buff.extra ?? 1))),
@@ -562,6 +567,7 @@ export class Player {
         this.archer_buffs = this.archer_buffs
             .map(buff => ({ ...buff, rounds: Math.floor(Number(buff.rounds ?? 0)) - 1 }))
             .filter(buff => Number(buff.rounds ?? 0) > 0 && Number(buff.extra ?? 0) > 0);
+        this.archer_buff = null;
         const after = this.normalize_archer_extra_buffs().length;
         return Math.max(0, before - after);
     }
