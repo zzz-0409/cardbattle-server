@@ -488,8 +488,23 @@ export class Player {
         return remaining;
     }
 
+    get_arrow_stack_key(arrow) {
+        if (!arrow || typeof arrow !== "object") return "";
+        return String(arrow.effect ?? arrow.arrow_effect ?? arrow.name ?? arrow.icon_src ?? "").trim().toLowerCase();
+    }
+
+    normalize_equipped_arrow_uniqueness() {
+        if (!this.arrow || !this.arrow2) return;
+        if (this.get_arrow_stack_key(this.arrow) !== this.get_arrow_stack_key(this.arrow2)) return;
+        const total = this.normalize_arrow_ammo(this.arrow) + this.normalize_arrow_ammo(this.arrow2);
+        this.arrow.arrows_remaining = total;
+        this.arrow.arrow_count = total;
+        this.arrow2 = null;
+    }
+
     get_equipped_arrow_entries() {
         const entries = [];
+        this.normalize_equipped_arrow_uniqueness();
         if (this.arrow) {
             if (this.normalize_arrow_ammo(this.arrow) > 0) {
                 entries.push({ slot: "arrow", item: this.arrow });
@@ -2850,7 +2865,7 @@ if (type === "arrow") {
                 if (effect === "poison") {
                     opponent.dot_effects.push({
                         name: "毒",
-                        power: 3,
+                        power: 2,
                         turns: 2,
                         rounds: 2,
                         source: this.name,

@@ -105,16 +105,16 @@ function addArrowToPlayerStack(P, item, { includeEquipped = true } = {}) {
   if (!P || !isArrowItem(item)) return { item, merged: false, target: "none" };
   P.arrow_inventory = Array.isArray(P.arrow_inventory) ? P.arrow_inventory : [];
   const key = getArrowStackKey(item);
-  const inventoryTarget = P.arrow_inventory.find(it => getArrowStackKey(it) === key);
-  if (inventoryTarget) {
-    return { item: mergeArrowAmmo(inventoryTarget, item), merged: true, target: "inventory" };
-  }
   if (includeEquipped) {
     for (const slot of ["arrow", "arrow2"]) {
       if (P[slot] && getArrowStackKey(P[slot]) === key) {
         return { item: mergeArrowAmmo(P[slot], item), merged: true, target: "equipped", slot };
       }
     }
+  }
+  const inventoryTarget = P.arrow_inventory.find(it => getArrowStackKey(it) === key);
+  if (inventoryTarget) {
+    return { item: mergeArrowAmmo(inventoryTarget, item), merged: true, target: "inventory" };
   }
   P.arrow_inventory.push(item);
   return { item, merged: false, target: "inventory" };
@@ -134,6 +134,48 @@ function normalizePlayerArrowInventory(P) {
     else merged.push(item);
   }
   P.arrow_inventory = merged;
+}
+
+function normalizePlayerArrowStorage(P) {
+  if (!P) return;
+  P.arrow_inventory = Array.isArray(P.arrow_inventory) ? P.arrow_inventory : [];
+  P.special_inventory = Array.isArray(P.special_inventory) ? P.special_inventory : [];
+
+  if (P.special_inventory.length > 0) {
+    const special = [];
+    for (const item of P.special_inventory) {
+      if (isArrowItem(item)) {
+        addArrowToPlayerStack(P, item, { includeEquipped: true });
+      } else {
+        special.push(item);
+      }
+    }
+    P.special_inventory = special;
+  }
+
+  normalizePlayerArrowInventory(P);
+
+  if (P.arrow && P.arrow2 && getArrowStackKey(P.arrow) === getArrowStackKey(P.arrow2)) {
+    mergeArrowAmmo(P.arrow, P.arrow2);
+    P.arrow2 = null;
+  }
+
+  for (const slot of ["arrow", "arrow2"]) {
+    const equipped = P[slot];
+    if (!isArrowItem(equipped)) continue;
+    const key = getArrowStackKey(equipped);
+    const rest = [];
+    for (const item of P.arrow_inventory) {
+      if (isArrowItem(item) && getArrowStackKey(item) === key) {
+        mergeArrowAmmo(equipped, item);
+      } else {
+        rest.push(item);
+      }
+    }
+    P.arrow_inventory = rest;
+  }
+
+  normalizePlayerArrowInventory(P);
 }
 
 function getPlayerArrowSlotKey(slot) {
@@ -2995,7 +3037,12 @@ export class Match {
     let purchasedItem = item;
     if (isArrowItem(item)) {
         // 矢
-        purchasedItem = addArrowToPlayerStack(P, item, { includeEquipped: true }).item;
+        const arrowAdd = addArrowToPlayerStack(P, item, { includeEquipped: true });
+        purchasedItem = {
+          ...arrowAdd.item,
+          is_equipped_special: arrowAdd.target === "equipped",
+          purchased_merge_target: arrowAdd.target,
+        };
 
     } else if (
         item.is_doll_costume &&
@@ -3168,6 +3215,7 @@ export class Match {
   // --------------------------------------------------------
   useItem(wsPlayer, uid, action, slot = 1) {
       const P = (wsPlayer === this.p1 ? this.P1 : this.P2);
+      normalizePlayerArrowStorage(P);
       if (wsPlayer !== this.current || this.action_resolving) {
         this.sendPopup("相手が考え中です。", wsPlayer, 1400);
         this.sendError("❌ 今は行動できません。", wsPlayer);
@@ -3344,6 +3392,29 @@ export class Match {
         let splitEquipped = false;
 
         if (sourceSlot) {
+            this.sendPopup("装備中の矢は一度外してから付け替えてください", wsPlayer, 2200);
+            this.sendItemList(wsPlayer, P);
+            return;
+        }
+
+        const itemKey = getArrowStackKey(item);
+        const sameEquippedSlot = ["arrow", "arrow2"].find(slotKey =>
+          P[slotKey] && getArrowStackKey(P[slotKey]) === itemKey
+        );
+
+        if (sameEquippedSlot) {
+            mergeArrowAmmo(P[sameEquippedSlot], item);
+            P[source] = P[source].filter(x => x.uid !== uid);
+            normalizePlayerArrowStorage(P);
+            this.sendBattle(`${item.name} を装備中の矢にまとめた！`);
+            this.sendPopup(`${item.name} を装備中の矢にまとめた！`, wsPlayer, 2000);
+            this.sendItemList(wsPlayer, P);
+            this.sendStatusInfo(wsPlayer, P);
+            this.sendSimpleStatusBoth();
+            return;
+        }
+
+        if (sourceSlot) {
             if (sourceSlot === targetSlot) {
                 this.sendPopup(`${item.name} はすでにそのスロットに装備中です`, wsPlayer, 1600);
                 this.sendItemList(wsPlayer, P);
@@ -3368,7 +3439,7 @@ export class Match {
             P[source] = P[source].filter(x => x.uid !== uid);
         }
 
-        normalizePlayerArrowInventory(P);
+        normalizePlayerArrowStorage(P);
 
         if (splitEquipped) {
             this.sendBattle(`${item.name} を別スロットに分けて装備した！`);
@@ -3889,7 +3960,7 @@ export class Match {
     // 所持アイテム一覧を送信（共通）
     // ===============================
     sendItemList(wsPlayer, P) {
-      normalizePlayerArrowInventory(P);
+      normalizePlayerArrowStorage(P);
       const equippedSpecialItems = [];
       const specialEquip = buildSpecialEquip(P);
       for (const slot of specialEquip?.slots ?? []) {
