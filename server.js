@@ -337,6 +337,40 @@ function isPlayerSkillSealed(player) {
   return !!player?.skill_sealed || getSkillSealTurnsForStatus(player) > 0;
 }
 
+function getArcherExtraBuffEntries(player) {
+  if (!player) return [];
+  if (typeof player.get_archer_extra_buffs === "function") {
+    return player.get_archer_extra_buffs();
+  }
+  const fromArray = Array.isArray(player.archer_buffs) ? player.archer_buffs : [];
+  const buffs = fromArray
+    .map(buff => ({
+      rounds: Math.floor(Number(buff?.rounds ?? buff?.duration ?? 0)),
+      extra: Math.max(0, Math.floor(Number(buff?.extra ?? buff?.power ?? 1))),
+      source: buff?.source ?? "追撃強化",
+    }))
+    .filter(buff => buff.rounds > 0 && buff.extra > 0);
+  if (buffs.length > 0) return buffs;
+  if (player.archer_buff && Number(player.archer_buff.rounds ?? 0) > 0) {
+    return [{
+      rounds: Math.floor(Number(player.archer_buff.rounds ?? 0)),
+      extra: Math.max(1, Math.floor(Number(player.archer_buff.extra ?? 1))),
+      source: player.archer_buff.source ?? "追撃強化",
+    }];
+  }
+  return [];
+}
+
+function getArcherExtraBuffSummary(player) {
+  const buffs = getArcherExtraBuffEntries(player);
+  const extra = buffs.reduce((sum, buff) => sum + Math.max(0, Number(buff.extra ?? 0)), 0);
+  if (extra <= 0) return null;
+  return {
+    extra,
+    rounds: Math.max(...buffs.map(buff => Number(buff.rounds ?? 0))),
+  };
+}
+
 function buildBuffUIData(player) {
   const out = [];
 
@@ -528,15 +562,29 @@ function buildBuffUIData(player) {
   }
 
 
-  if (player.job === "弓兵" && player.archer_buff && Number(player.archer_buff.rounds ?? 0) > 0) {
-    const extra = Math.max(1, Number(player.archer_buff.extra ?? 1));
-    const rounds = Number(player.archer_buff.rounds ?? 0);
-    out.push({
-      kind: "archer_extra_attack",
-      power: extra,
-      remain: rounds,
-      source: "追撃強化",
-      text: `追撃強化：追加攻撃 +${extra}（あと${rounds}T）`,
+  if (player.job === "弓兵") {
+    const archerBuffs = getArcherExtraBuffEntries(player);
+    const sourceCounts = new Map();
+    archerBuffs.forEach(buff => {
+      const source = String(buff.source ?? "追撃強化");
+      sourceCounts.set(source, Number(sourceCounts.get(source) ?? 0) + 1);
+    });
+    const sourceSeen = new Map();
+    archerBuffs.forEach((buff, index) => {
+      const extra = Math.max(1, Number(buff.extra ?? 1));
+      const rounds = Math.max(1, Number(buff.rounds ?? 1));
+      const source = String(buff.source ?? "追撃強化");
+      sourceSeen.set(source, Number(sourceSeen.get(source) ?? 0) + 1);
+      const label = Number(sourceCounts.get(source) ?? 0) > 1
+        ? `${source}${Number(sourceSeen.get(source) ?? 1)}`
+        : source;
+      out.push({
+        kind: "archer_extra_attack",
+        power: extra,
+        remain: rounds,
+        source: label,
+        text: `${label}：追加攻撃 +${extra}（あと${rounds}T）`,
+      });
     });
   }
   if (
@@ -602,6 +650,21 @@ function buildBuffUIData(player) {
       remain: Number(player.karasu_tengu_triggers ?? 0),
       source: "烏天狗",
       text: `烏天狗：攻撃/スキル後に追撃（残り${Number(player.karasu_tengu_triggers ?? 0)}回）`,
+    });
+  }
+
+  const madState = buildMadStateData(player);
+  if (madState) {
+    out.push({
+      kind: "mad",
+      power: madState.total,
+      remain: null,
+      source: "狂人パッシブ",
+      text: madState.is_mad
+        ? `累積被ダメージ：${madState.total}/${madState.threshold}（狂化状態・解除不可）`
+        : `累積被ダメージ：${madState.total}/${madState.threshold}（狂化まであと${madState.remaining}・解除不可）`,
+      unremovable: true,
+      passive: true,
     });
   }
 
@@ -851,6 +914,19 @@ function buildStatusBuffDescriptionList(player) {
   const base = player?.getBuffDescriptionList?.() ?? [];
   const trail = buildDojoTrailBuffUIEntries(player).map(b => b.text).filter(Boolean);
   return [...base, ...trail];
+}
+
+function buildStatusInfoDescriptionList(player) {
+  const list = buildStatusBuffDescriptionList(player);
+  const mad = buildMadStateData(player);
+  if (mad) {
+    list.push(
+      mad.is_mad
+        ? `狂人：累積被ダメージ ${mad.total}/${mad.threshold}（狂化状態）`
+        : `狂人：累積被ダメージ ${mad.total}/${mad.threshold}（狂化まであと${mad.remaining}）`
+    );
+  }
+  return list;
 }
 
 function buildMadStateData(player) {
@@ -1325,7 +1401,8 @@ export class Match {
         attack: actor.doll ? (actor.doll.is_broken ? 0 : actor.getDollAttack()) : actor.get_total_attack(),
         defense: actor.doll ? (actor.doll.is_broken ? 0 : actor.getDollDefense()) : actor.get_total_defense(),
         special_defense: Math.max(0, Number(actor.get_special_defense?.() ?? 0)),
-        buffs: buildStatusBuffDescriptionList(actor),
+        buffs: buildStatusInfoDescriptionList(actor),
+        mad_state: buildMadStateData(actor),
         skill_sealed: isPlayerSkillSealed(actor),
         skill_sealed_turns: getSkillSealTurnsForStatus(actor),
         skill_sealed_rounds: getSkillSealTurnsForStatus(actor),
@@ -1540,7 +1617,8 @@ export class Match {
       equip_slots: player.dojoEquipSlots ?? { equipment: 1, special: 1 },
       damage_taken_last_round: player.damage_taken_last_round ?? 0,
       damage_taken_last_turn: player.damage_taken_last_turn ?? 0,
-      archer_buff: player.archer_buff ?? null,
+      archer_buff: getArcherExtraBuffSummary(player),
+      archer_buffs: getArcherExtraBuffEntries(player),
       archer_no_consume_rounds: player.archer_no_consume_rounds ?? 0,
       archer_no_consume_permanent: !!player.archer_no_consume_permanent,
       archer_pierce_rounds: player.archer_pierce_rounds ?? (player.archer_next_pierce ? 1 : 0),
@@ -1590,7 +1668,9 @@ export class Match {
       if (type === "doll") return isP1 ? "self_doll" : "enemy_doll";
       return isP1 ? "self" : "enemy";
     };
-
+    const sourcePlayer = extra?.source_player ?? null;
+    const sourceSideForP1 = sourcePlayer === "p1" ? "self" : sourcePlayer === "p2" ? "enemy" : null;
+    const sourceSideForP2 = sourcePlayer === "p1" ? "enemy" : sourcePlayer === "p2" ? "self" : null;
     // p1 視点
     safeSend(this.p1, {
       type: "damage_event",
@@ -1600,6 +1680,7 @@ export class Match {
       hit_sfx: damageAmount >= 50 ? "boom" : "attack",
       status_patch: this.buildLiveStatusPatch(targetPlayer),
       ...extra,
+      ...(sourceSideForP1 ? { source_side: sourceSideForP1, arrow_source_side: sourceSideForP1 } : {}),
     });
 
     // p2 視点（反転）
@@ -1611,6 +1692,7 @@ export class Match {
       hit_sfx: damageAmount >= 50 ? "boom" : "attack",
       status_patch: this.buildLiveStatusPatch(targetPlayer),
       ...extra,
+      ...(sourceSideForP2 ? { source_side: sourceSideForP2, arrow_source_side: sourceSideForP2 } : {}),
     });
   }
 
@@ -3939,7 +4021,7 @@ export class Match {
 
       // ===== 装備・バフ =====
       equipment: equipmentList,
-      buffs: buildStatusBuffDescriptionList(P),
+      buffs: buildStatusInfoDescriptionList(P),
 
       // ===== 式神 =====
       shikigami: P.shikigami_effects?.map(s =>
@@ -4051,7 +4133,8 @@ export class Match {
         equip_slots: self.dojoEquipSlots ?? { equipment: 1, special: 1 },
         damage_taken_last_round: self.damage_taken_last_round ?? 0,
       damage_taken_last_turn: self.damage_taken_last_turn ?? 0,
-      archer_buff: self.archer_buff ?? null,
+      archer_buff: getArcherExtraBuffSummary(self),
+      archer_buffs: getArcherExtraBuffEntries(self),
       archer_no_consume_rounds: self.archer_no_consume_rounds ?? 0,
       archer_no_consume_permanent: !!self.archer_no_consume_permanent,
       archer_pierce_rounds: self.archer_pierce_rounds ?? (self.archer_next_pierce ? 1 : 0),
@@ -4129,7 +4212,8 @@ export class Match {
         equip_slots: enemy.dojoEquipSlots ?? { equipment: 1, special: 1 },
         damage_taken_last_round: enemy.damage_taken_last_round ?? 0,
       damage_taken_last_turn: enemy.damage_taken_last_turn ?? 0,
-      archer_buff: enemy.archer_buff ?? null,
+      archer_buff: getArcherExtraBuffSummary(enemy),
+      archer_buffs: getArcherExtraBuffEntries(enemy),
       archer_no_consume_rounds: enemy.archer_no_consume_rounds ?? 0,
       archer_no_consume_permanent: !!enemy.archer_no_consume_permanent,
       archer_pierce_rounds: enemy.archer_pierce_rounds ?? (enemy.archer_next_pierce ? 1 : 0),
@@ -4431,7 +4515,7 @@ export class Match {
       // ============================
       // ★ UI用：ダメージ演出送信
       // ============================
-        this.sendDamageEvent(target, dealt, "normal", targetType, { show_zero: true });
+        this.sendDamageEvent(target, dealt, "normal", targetType, { show_zero: true, normal_attack: true });
         if (dealt > 0) {
           this.sendSfxEvent("attack");
         }
@@ -4849,11 +4933,18 @@ export class Match {
             sequence_index: index,
             sequence_total: skillDamageRecords.length,
             status_patch: record.statusPatch,
+            ...(stype === "warrior_2" ? { hit_sfx: "warrior2" } : {}),
           }
         );
       }
     } else if (damagedTarget > 0) {
-      this.sendDamageEvent(target, damagedTarget, "normal", "body");
+      this.sendDamageEvent(
+        target,
+        damagedTarget,
+        "normal",
+        "body",
+        stype === "warrior_2" ? { hit_sfx: "warrior2" } : {}
+      );
     }
 
     // 人形へのダメージ（HPが減らないケース）
@@ -5004,6 +5095,14 @@ export class Match {
     }
 
     const results = arrowAttack.results ?? [];
+    const arrowVisualTotal = Math.max(1, results.length);
+    const distinctArrowSlots = new Set(results.map(r => r?.slot).filter(Boolean)).size;
+    const arrowBaseCountRaw = Number(arrowAttack.arrow_count ?? distinctArrowSlots ?? 1);
+    const arrowBaseCount = Math.max(1, Number.isFinite(arrowBaseCountRaw) ? arrowBaseCountRaw : (distinctArrowSlots || 1));
+    const arrowRepeatRaw = Number(arrowAttack.repeat ?? Math.ceil(arrowVisualTotal / arrowBaseCount));
+    const arrowRepeatCount = Math.max(1, Number.isFinite(arrowRepeatRaw) ? arrowRepeatRaw : 1);
+    const arrowSequenceId = `arrow-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const arrowEffectSequence = results.map(r => String(r?.effect ?? "normal"));
     for (let index = 0; index < results.length && actor.hp > 0; index += 1) {
       const r = results[index];
       const remainText = r.consumed
@@ -5024,8 +5123,23 @@ export class Match {
         {
           show_zero: true,
           action_source: "arrow",
+          source_player: actor === this.P1 ? "p1" : "p2",
+          normal_attack: !r.extraAttack && label === "攻撃",
           sequence_index: index,
           sequence_total: results.length,
+          arrow_rain: true,
+          arrow_sequence_id: arrowSequenceId,
+          arrow_rain_index: index,
+          arrow_rain_total: arrowVisualTotal,
+          arrow_base_count: arrowBaseCount,
+          arrow_repeat_count: arrowRepeatCount,
+          arrow_repeat_index: Number(r.repeatIndex ?? Math.floor(index / arrowBaseCount)),
+          arrow_index: Number(r.arrowIndex ?? (index % arrowBaseCount)),
+          arrow_slot: r.slot ?? "",
+          arrow_name: r.name ?? "",
+          arrow_effect: r.effect ?? "normal",
+          arrow_effect_sequence: arrowEffectSequence,
+          hit_sfx: "arrow",
           status_patch: this.buildLiveStatusPatch(target, r.statusSnapshot ?? {}),
         }
       );
@@ -5055,12 +5169,13 @@ export class Match {
       }
     }
 
-    if (actor.archer_buff && actor.archer_buff.rounds > 0) {
-      actor.archer_buff.rounds -= 1;
-      if (actor.archer_buff.rounds <= 0) {
-        actor.archer_buff = null;
-        this.sendSystem("🏹 追撃効果が終了しました");
-      }
+    const expiredExtraBuffs = typeof actor.tick_archer_extra_buffs === "function"
+      ? actor.tick_archer_extra_buffs()
+      : 0;
+    if (expiredExtraBuffs > 0) {
+      this.sendSystem(expiredExtraBuffs === 1
+        ? "🏹 追撃効果が終了しました"
+        : `🏹 追撃効果が${expiredExtraBuffs}個終了しました`);
     }
   }
 
@@ -6664,6 +6779,7 @@ function resetDojoBattleState(player) {
   player.freeze_debuffs = [];
   player.defense_debuffs = [];
   player.archer_buff = null;
+  player.archer_buffs = [];
   player.archer_no_consume_rounds = 0;
   player.archer_no_consume_permanent = false;
   player.archer_pierce_rounds = 0;
@@ -7654,7 +7770,9 @@ async function handleDojoSocketMessage(ws, m) {
     return;
   }
   if (m.type === "request_status_detail") {
-    match.sendStatusDetail(ws, match.P1, match.P2, m.target === "enemy" ? "enemy" : "self");
+    const self = ws === match.p1 ? match.P1 : match.P2;
+    const enemy = self === match.P1 ? match.P2 : match.P1;
+    match.sendStatusDetail(ws, self, enemy, m.target === "enemy" ? "enemy" : "self");
     return;
   }
   if (m.type === "use_item") {
@@ -7798,10 +7916,12 @@ function startCpuMatch(humanWS) {
 
     // ---------- ステータス詳細 ----------
     if (m.type === "request_status_detail") {
+      const self = sock === match.p1 ? match.P1 : match.P2;
+      const enemy = self === match.P1 ? match.P2 : match.P1;
       match.sendStatusDetail(
         sock,
-        match.P1,
-        match.P2,
+        self,
+        enemy,
         m.target === "enemy" ? "enemy" : "self"
       );
       return;
@@ -8010,7 +8130,9 @@ function startTutorialMatch(humanWS) {
       return;
     }
     if (m.type === "request_status_detail") {
-      match.sendStatusDetail(sock, match.P1, match.P2, m.target === "enemy" ? "enemy" : "self");
+      const self = sock === match.p1 ? match.P1 : match.P2;
+      const enemy = self === match.P1 ? match.P2 : match.P1;
+      match.sendStatusDetail(sock, self, enemy, m.target === "enemy" ? "enemy" : "self");
       return;
     }
     if (m.type === "use_item") {
@@ -9398,10 +9520,12 @@ wss.on("connection", (ws) => {
         }
 
         if (m.type === "request_status_detail") {
+          const self = sock === match.p1 ? match.P1 : match.P2;
+          const enemy = self === match.P1 ? match.P2 : match.P1;
           match.sendStatusDetail(
             sock,
-            match.P1,
-            match.P2,
+            self,
+            enemy,
             m.target === "enemy" ? "enemy" : "self"
           );
           return;

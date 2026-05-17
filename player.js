@@ -111,7 +111,8 @@ export class Player {
         this.arrow_slots = 1;
 
 
-        this.archer_buff = null;          // 追撃バフ（{ rounds, extra }）
+        this.archer_buff = null;          // 追撃バフ互換サマリ（{ rounds, extra }）
+        this.archer_buffs = [];           // 追撃バフ本体（[{ rounds, extra }]）
         this.archer_pierce_rounds = 0;    // 矢追撃の防御貫通残りターン
         this.archer_next_pierce = false;  // 旧セーブ互換
         this.archer_no_consume_rounds = 0; // 矢を消費しない残りターン
@@ -508,6 +509,65 @@ export class Player {
 
     has_usable_arrow() {
         return this.get_equipped_arrow_entries().length > 0;
+    }
+
+    normalize_archer_extra_buffs() {
+        const fromArray = Array.isArray(this.archer_buffs) ? this.archer_buffs : [];
+        let buffs = fromArray
+            .map(buff => ({
+                rounds: Math.floor(Number(buff?.rounds ?? buff?.duration ?? 0)),
+                extra: Math.max(0, Math.floor(Number(buff?.extra ?? buff?.power ?? 1))),
+                source: buff?.source ?? "追撃強化",
+            }))
+            .filter(buff => buff.rounds > 0 && buff.extra > 0);
+
+        if (buffs.length === 0 && this.archer_buff && Number(this.archer_buff.rounds ?? 0) > 0) {
+            buffs = [{
+                rounds: Math.floor(Number(this.archer_buff.rounds ?? 0)),
+                extra: Math.max(1, Math.floor(Number(this.archer_buff.extra ?? 1))),
+                source: this.archer_buff.source ?? "追撃強化",
+            }];
+        }
+
+        this.archer_buffs = buffs;
+        const totalExtra = buffs.reduce((sum, buff) => sum + Math.max(0, Number(buff.extra ?? 0)), 0);
+        if (totalExtra > 0) {
+            this.archer_buff = {
+                rounds: Math.max(...buffs.map(buff => Number(buff.rounds ?? 0))),
+                extra: totalExtra,
+            };
+        } else {
+            this.archer_buff = null;
+        }
+        return buffs;
+    }
+
+    add_archer_extra_buff(extra = 1, rounds = 3, source = "追撃強化") {
+        this.normalize_archer_extra_buffs();
+        this.archer_buffs.push({
+            rounds: Math.max(1, Math.floor(Number(rounds ?? 3))),
+            extra: Math.max(1, Math.floor(Number(extra ?? 1))),
+            source,
+        });
+        this.normalize_archer_extra_buffs();
+    }
+
+    get_archer_extra_attack_count() {
+        return this.normalize_archer_extra_buffs()
+            .reduce((sum, buff) => sum + Math.max(0, Number(buff.extra ?? 0)), 0);
+    }
+
+    tick_archer_extra_buffs() {
+        const before = this.normalize_archer_extra_buffs().length;
+        this.archer_buffs = this.archer_buffs
+            .map(buff => ({ ...buff, rounds: Math.floor(Number(buff.rounds ?? 0)) - 1 }))
+            .filter(buff => Number(buff.rounds ?? 0) > 0 && Number(buff.extra ?? 0) > 0);
+        const after = this.normalize_archer_extra_buffs().length;
+        return Math.max(0, before - after);
+    }
+
+    get_archer_extra_buffs() {
+        return this.normalize_archer_extra_buffs().map(buff => ({ ...buff }));
     }
 
 
@@ -1704,6 +1764,25 @@ if (type === "arrow") {
         }
     }
 
+    is_negative_buff(buff) {
+        const type = String(buff?.type ?? "");
+        return (
+            buff?.is_debuff === true ||
+            buff?.debuff === true ||
+            type === "攻撃力低下" ||
+            type === "防御力低下" ||
+            type === "スキル封印"
+        );
+    }
+
+    remove_dispellable_buffs() {
+        const before = Array.isArray(this.active_buffs) ? this.active_buffs.length : 0;
+        this.active_buffs = (this.active_buffs ?? []).filter(
+            b => b?.unremovable || b?.passive || this.is_negative_buff(b)
+        );
+        return before - this.active_buffs.length;
+    }
+
         can_level_up() {
             // 上限Lv3
             if (this.level >= 3) return false;
@@ -2410,11 +2489,21 @@ if (type === "arrow") {
                 opponent.equipment = null;
             }
 
-            // ---- Python仕様どおり：バフ解除、封印解除、バリア解除 ----
-            opponent.active_buffs = (opponent.active_buffs ?? []).filter(
-                b => b?.unremovable || b?.passive
-            );
-            opponent.skill_sealed = false;
+            // ---- バフ解除：デバフ（攻撃低下・防御低下・スキル封印など）は残す ----
+            if (typeof opponent.remove_dispellable_buffs === "function") {
+                opponent.remove_dispellable_buffs();
+            } else {
+                opponent.active_buffs = (opponent.active_buffs ?? []).filter(
+                    b =>
+                        b?.unremovable ||
+                        b?.passive ||
+                        b?.is_debuff === true ||
+                        b?.debuff === true ||
+                        b?.type === "攻撃力低下" ||
+                        b?.type === "防御力低下" ||
+                        b?.type === "スキル封印"
+                );
+            }
             opponent.barrier = 0;
 
             return;
@@ -2631,7 +2720,7 @@ if (type === "arrow") {
 
         // ---------- スキル1：追撃 +1（3ターン） ----------
         if (stype === "archer_1") {
-            this.archer_buff = { rounds: 3, extra: 1 }; // 3Tの間 追撃+1
+            this.add_archer_extra_buff(1, 3, "集中射撃");
             log("⚡ 集中射撃！ 3Tの間、追撃が +1 回になる。");
             this.used_skill_set.add(stype);
             return true;
@@ -2647,7 +2736,7 @@ if (type === "arrow") {
             }
 
             // ▼ 追撃バフ（3T）
-            this.archer_buff = { rounds: 3, extra: 1 };
+            this.add_archer_extra_buff(1, 3, "狙い撃ち＋矢拡張");
 
             log("🏹 狙い撃ち＋矢拡張！ 矢スロット+1 ＆ 追撃+1（3T）");
 
@@ -2682,10 +2771,7 @@ if (type === "arrow") {
             return { ok: false, reason: "no_arrow", results: [] };
         }
 
-        const repeat =
-            (this.archer_buff && this.archer_buff.rounds > 0)
-                ? (1 + (this.archer_buff.extra ?? 1))
-                : 1;
+        const repeat = 1 + this.get_archer_extra_attack_count();
         const noConsume = !!this.archer_no_consume_permanent || Number(this.archer_no_consume_rounds ?? 0) > 0;
         const results = [];
         const depletedSlots = new Set();
@@ -2693,6 +2779,7 @@ if (type === "arrow") {
         for (let r = 0; r < repeat; r++) {
             for (const entry of arrowEntries) {
                 const arrow = entry.item;
+                const arrowIndex = arrowEntries.indexOf(entry);
                 const { power, pierce, name, effect } = arrow;
                 const isExtraAttack = r > 0;
                 const shouldConsume = consume && !noConsume && !isExtraAttack;
@@ -2720,6 +2807,9 @@ if (type === "arrow") {
 
                 results.push({
                     name,
+                    slot: entry.slot,
+                    arrowIndex,
+                    repeatIndex: r,
                     power: basePower,
                     dealt,
                     isCrit: false,
@@ -2773,7 +2863,7 @@ if (type === "arrow") {
             this[slot] = null;
         }
 
-        return { ok: true, results };
+        return { ok: true, results, arrow_count: arrowEntries.length, repeat };
     }
 
     // ---------------------------------------------------------

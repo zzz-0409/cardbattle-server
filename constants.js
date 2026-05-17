@@ -75,9 +75,9 @@ export const JOB_SKILLS = {
       type: "warrior_3",
       name: "ラストブレード",
       min_level: 3,
-      power: "20 + 現在攻撃力",
+      power: "10 + 現在攻撃力",
       effect: "防御無視",
-      description: "基礎20＋自身の攻撃力分の防御無視ダメージを与える。",
+      description: "基礎10＋自身の攻撃力分の防御無視ダメージを与える。",
     },
     {
       type: "warrior_4",

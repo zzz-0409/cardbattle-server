@@ -72,7 +72,7 @@
           "highestStage": 20,
           "clearCount": 0,
           "cleared": false,
-          "updatedAt": 1778818523388,
+          "updatedAt": 1778833495335,
           "savedRun": {
             "run": {
               "mode": "dojo",
@@ -153,7 +153,7 @@
                 ],
                 "trailAttackGrowth": 0,
                 "trailItemAttackGrowth": 0,
-                "trailCoinSpent": 130
+                "trailCoinSpent": 150
               },
               "trailUpgrades": {},
               "waiting": true,
@@ -180,7 +180,7 @@
               "base_defense": 10,
               "defense": 10,
               "special_defense": 0,
-              "coins": 24,
+              "coins": 4,
               "items": [],
               "dojoStorage": {
                 "items": [
@@ -222,19 +222,6 @@
                     "uid": "ab85c72e-2474-4df1-a5f8-687f9848659e"
                   },
                   {
-                    "name": "★2 防御力装備",
-                    "star": 2,
-                    "is_equip": true,
-                    "equip_type": "normal",
-                    "equip_category": "防御力",
-                    "effect_type": "防御力",
-                    "power": 3,
-                    "price": 20,
-                    "effect_text": "防御力+3",
-                    "is_arrow": false,
-                    "uid": "db13ac77-1fd3-432f-adab-3f6a2a37d850"
-                  },
-                  {
                     "uid": "ca234117-d689-48d9-96ea-52e863616529",
                     "name": "★2 攻撃力装備",
                     "star": 2,
@@ -260,6 +247,33 @@
                     "effect_text": "攻撃力+6",
                     "is_arrow": false,
                     "uid": "c6fb1614-bf68-4e3e-8bbe-1af863955855"
+                  },
+                  {
+                    "uid": "d481fb5e-140a-42c3-8af1-884eed2829f4",
+                    "name": "★1 攻撃力装備",
+                    "star": 1,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "equip_power": 2,
+                    "power": 2,
+                    "price": 0,
+                    "effect_text": "攻撃力+2",
+                    "is_arrow": false
+                  },
+                  {
+                    "name": "★3 防御力装備",
+                    "star": 3,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "防御力",
+                    "effect_type": "防御力",
+                    "power": 4,
+                    "price": 20,
+                    "effect_text": "防御力+4",
+                    "is_arrow": false,
+                    "uid": "de2bb44a-9bf8-4ebc-b268-3ad266135e09"
                   }
                 ],
                 "special": [
@@ -289,8 +303,8 @@
                 "items": [],
                 "equipment": [
                   "ab85c72e-2474-4df1-a5f8-687f9848659e",
-                  "db13ac77-1fd3-432f-adab-3f6a2a37d850",
-                  "c6fb1614-bf68-4e3e-8bbe-1af863955855"
+                  "c6fb1614-bf68-4e3e-8bbe-1af863955855",
+                  "ca234117-d689-48d9-96ea-52e863616529"
                 ],
                 "special": [
                   "35769c11-3a24-41b3-8db7-4de0f3370a33",
@@ -352,7 +366,10 @@
                   "power": 3,
                   "price": 20,
                   "effect_text": "防御力+3",
-                  "is_arrow": false
+                  "is_arrow": false,
+                  "sold_out": true,
+                  "soldOut": true,
+                  "shop_sold_out": true
                 },
                 {
                   "name": "★2 防御力装備",
@@ -378,7 +395,7 @@
                 }
               ]
             },
-            "savedAt": 1778818523388
+            "savedAt": 1778833495335
           },
           "prestigePoints": 18,
           "trailNodes": [
