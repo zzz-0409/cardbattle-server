@@ -49,10 +49,10 @@
           "updatedAt": 0
         },
         "弓兵": {
-          "rating": 1000,
-          "wins": 0,
+          "rating": 1008,
+          "wins": 1,
           "losses": 0,
-          "updatedAt": 0
+          "updatedAt": 1778995264413
         },
         "人形使い": {
           "rating": 992,
