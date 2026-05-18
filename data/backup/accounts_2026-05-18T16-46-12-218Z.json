@@ -65,6 +65,12 @@
           "wins": 0,
           "losses": 0,
           "updatedAt": 0
+        },
+        "召喚士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
         }
       },
       "dojoProgress": {

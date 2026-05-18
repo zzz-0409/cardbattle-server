@@ -17,7 +17,7 @@ export const JOB_TEMPLATE = {
   6: { name: "陰陽師", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
   7: { name: "錬金術師", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
   8: { name: "弓兵", coin: 10, atk_bonus: -7, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
-  9: { name: "人形使い", coin: 10, atk_bonus: -19, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
+  9: { name: "召喚士", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
   10:{ name: "狂人", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 }
 
 };
@@ -287,30 +287,30 @@ export const JOB_SKILLS = {
     },
   ],
 
-  "人形使い": [
+  "召喚士": [
     {
-      type: "doll_1",
-      name: "修理キット調達",
+      type: "summoner_1",
+      name: "竜卵契約",
       min_level: 1,
       power: null,
-      effect: "修理キット入手",
-      description: "修理キットを1つ入手する。",
+      effect: "竜の卵を1つ入手",
+      description: "未契約の竜の卵を1つ選び、手元に加える。",
     },
     {
-      type: "doll_2",
-      name: "総仕立て直し",
+      type: "summoner_2",
+      name: "成長促進",
       min_level: 2,
       power: null,
-      effect: "装備中衣装の星+1",
-      description: "装備しているすべての部位の衣装の★を1上げる（最大★8）。",
+      effect: "卵/竜の成長段階+1",
+      description: "卵なら幼体へ、幼体なら成体へ成長させる。成体には使用できない。",
     },
     {
-      type: "doll_3",
-      name: "人形暴走",
+      type: "summoner_3",
+      name: "竜脈解放",
       min_level: 3,
       power: null,
-      effect: "人形暴走",
-      description: "一定ターンの間、人形を暴走状態にする。",
+      effect: "2T全竜前衛効果＋通常攻撃",
+      description: "2Tの間、すべての竜が前衛効果を発揮する。その後、通常攻撃を行う。",
     },
   ],
 
@@ -341,6 +341,77 @@ export const JOB_SKILLS = {
     }
   ],
 };
+
+// =========================================================
+// 召喚士：竜・卵・餌定義
+// =========================================================
+export const SUMMONER_HATCH_TURNS = 3;
+export const SUMMONER_GROWTH_MAX = 10;
+export const SUMMONER_EGG_PRICE = 20;
+export const SUMMONER_FEED_PRICE = 10;
+export const SUMMONER_FEED_GROWTH = 2;
+
+export const SUMMONER_DRAGON_DATA = {
+  tiamat: {
+    type: "tiamat",
+    name: "ティアマト",
+    egg_color: "赤",
+    icon_src: "Assets/summoner/icon-tiamat.png",
+    egg_icon_src: "Assets/summoner/egg-tiamat.png",
+    juvenile_src: "Assets/summoner/dragon-tiamat-juvenile.png",
+    adult_src: "Assets/summoner/dragon-tiamat-adult.png",
+    effect_text: "召喚士行動後、防御無視ダメージを与える",
+  },
+  nidhogg: {
+    type: "nidhogg",
+    name: "ニーズヘッグ",
+    egg_color: "青",
+    icon_src: "Assets/summoner/icon-nidhogg.png",
+    egg_icon_src: "Assets/summoner/egg-nidhogg.png",
+    juvenile_src: "Assets/summoner/dragon-nidhogg-juvenile-clean.png",
+    adult_src: "Assets/summoner/dragon-nidhogg-adult-clean.png",
+    effect_text: "召喚士行動後、毒や攻撃低下を与える",
+  },
+  fafnir: {
+    type: "fafnir",
+    name: "ファフニール",
+    egg_color: "黄",
+    icon_src: "Assets/summoner/icon-fafnir.png",
+    egg_icon_src: "Assets/summoner/egg-fafnir.png",
+    juvenile_src: "Assets/summoner/dragon-fafnir-juvenile.png",
+    adult_src: "Assets/summoner/dragon-fafnir-adult.png",
+    effect_text: "召喚士の防御を高め、成体前衛時は受けたダメージを反射する",
+  },
+};
+
+export const SUMMONER_DRAGON_TYPES = Object.keys(SUMMONER_DRAGON_DATA);
+
+export function createSummonerEggItem(type) {
+  const data = SUMMONER_DRAGON_DATA[type];
+  if (!data) return null;
+  return {
+    uid: crypto.randomUUID(),
+    name: `竜の卵（${data.egg_color}）`,
+    price: SUMMONER_EGG_PRICE,
+    is_summoner_egg: true,
+    summoner_dragon_type: type,
+    icon_src: data.egg_icon_src,
+    effect_text: `${data.name}の卵。所持して3T経過すると幼体になる。`,
+    is_equip: false,
+  };
+}
+
+export function createSummonerFeedItem() {
+  return {
+    uid: crypto.randomUUID(),
+    name: "竜の餌",
+    price: SUMMONER_FEED_PRICE,
+    is_summoner_feed: true,
+    icon_src: "Assets/summoner/feed.png",
+    effect_text: `幼体の成長値+${SUMMONER_FEED_GROWTH}。`,
+    is_equip: false,
+  };
+}
 
 export const ARROW_DATA = {
   normal: {

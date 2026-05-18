@@ -4,7 +4,10 @@
 
 import {
   createDollCostume,
-  DOLL_COSTUME_TYPES
+  DOLL_COSTUME_TYPES,
+  SUMMONER_DRAGON_DATA,
+  SUMMONER_GROWTH_MAX,
+  SUMMONER_HATCH_TURNS
 } from "./constants.js";
 
 import crypto from "crypto";
@@ -172,6 +175,7 @@ export class Player {
         // 人形使い：人形オブジェクト
         // ================================
         this.doll = null;
+        this.summoner = null;
 
         /* ★★★ この直後に追加 ★★★ */
         if (this.job === "人形使い") {
@@ -242,6 +246,13 @@ export class Player {
             }
 
         }
+        if (this.job === "召喚士") {
+            this.summoner = {
+                front: null,
+                resonance_turns: 0,
+                dragons: [],
+            };
+        }
         // ---------------------------------------------------------
         // 狂人累積ダメージ
         // ---------------------------------------------------------
@@ -252,6 +263,99 @@ export class Player {
 
     }
        
+    ensureSummonerState() {
+        if (this.job !== "召喚士") return null;
+        if (!this.summoner || typeof this.summoner !== "object") {
+            this.summoner = {
+                front: null,
+                resonance_turns: 0,
+                dragons: [],
+            };
+        }
+        this.summoner.dragons = Array.isArray(this.summoner.dragons)
+            ? this.summoner.dragons
+            : [];
+        for (const dragon of this.summoner.dragons) {
+            if (!dragon || typeof dragon !== "object") continue;
+            const data = SUMMONER_DRAGON_DATA[dragon.type] ?? {};
+            dragon.name ??= data.name ?? "竜";
+            dragon.stage ??= "egg";
+            dragon.hatch_turns_remaining = Math.max(0, Number(dragon.hatch_turns_remaining ?? SUMMONER_HATCH_TURNS));
+            dragon.growth = Math.max(0, Number(dragon.growth ?? 0));
+            dragon.growth_max = Math.max(1, Number(dragon.growth_max ?? SUMMONER_GROWTH_MAX));
+        }
+
+        const currentFront = this.summoner.dragons.find(dragon =>
+            dragon?.type === this.summoner.front &&
+            dragon.stage !== "egg"
+        );
+        if (!currentFront) {
+            const nextFront = this.summoner.dragons.find(dragon => dragon?.stage !== "egg");
+            this.summoner.front = nextFront?.type ?? null;
+        }
+        return this.summoner;
+    }
+
+    getSummonerDragons() {
+        return this.ensureSummonerState()?.dragons ?? [];
+    }
+
+    getSummonerDragon(type) {
+        const key = String(type ?? "");
+        return this.getSummonerDragons().find(dragon => dragon?.type === key) ?? null;
+    }
+
+    getSummonerFrontType() {
+        const state = this.ensureSummonerState();
+        return state?.front ?? null;
+    }
+
+    isSummonerDragonFront(type) {
+        return String(this.getSummonerFrontType() ?? "") === String(type ?? "");
+    }
+
+    isSummonerResonanceActive() {
+        return this.job === "召喚士" && Number(this.summoner?.resonance_turns ?? 0) > 0;
+    }
+
+    getSummonerDragonRole(dragon) {
+        if (!dragon || dragon.stage === "egg") return "egg";
+        if (this.isSummonerResonanceActive()) return "front";
+        return this.isSummonerDragonFront(dragon.type) ? "front" : "back";
+    }
+
+    getSummonerDefenseBonus() {
+        if (this.job !== "召喚士") return 0;
+        let total = 0;
+        for (const dragon of this.getSummonerDragons()) {
+            if (!dragon || dragon.type !== "fafnir" || dragon.stage === "egg") continue;
+            const role = this.getSummonerDragonRole(dragon);
+            if (dragon.stage === "juvenile") {
+                total += role === "front" ? 5 : 3;
+            }
+        }
+        return total;
+    }
+
+    getSummonerSpecialDefenseBonus() {
+        if (this.job !== "召喚士") return 0;
+        let total = 0;
+        for (const dragon of this.getSummonerDragons()) {
+            if (!dragon || dragon.type !== "fafnir" || dragon.stage !== "adult") continue;
+            const role = this.getSummonerDragonRole(dragon);
+            total += role === "front" ? 5 : 3;
+        }
+        return total;
+    }
+
+    hasSummonerFafnirReflect() {
+        if (this.job !== "召喚士") return false;
+        return this.getSummonerDragons().some(dragon =>
+            dragon?.type === "fafnir" &&
+            dragon.stage === "adult" &&
+            this.getSummonerDragonRole(dragon) === "front"
+        );
+    }
 
 
     getAlchemistFusionCandidates() {
@@ -284,6 +388,80 @@ export class Player {
         });
 
         return candidates;
+    }
+
+    getDollBoroboroCostumeEntries() {
+        if (!this.doll?.costumes) return [];
+
+        const labels = {
+            head: "帽子",
+            body: "服",
+            leg: "ズボン",
+            foot: "靴"
+        };
+
+        return Object.entries(this.doll.costumes)
+            .filter(([, costume]) => costume && costume.condition === "boroboro")
+            .map(([part, costume]) => ({
+                part,
+                label: labels[part] ?? part,
+                costume,
+            }));
+    }
+
+    pickDollRepairCostumeEntry(part = null) {
+        const entries = this.getDollBoroboroCostumeEntries();
+        if (entries.length === 0) return null;
+
+        const requested = String(part ?? "");
+        const exact = entries.find(entry => entry.part === requested);
+        if (exact) return exact;
+
+        entries.sort((a, b) => {
+            const chargeA = a.costume?.effect_type === "CHARGE" || a.costume?.effect_type === "COIN";
+            const chargeB = b.costume?.effect_type === "CHARGE" || b.costume?.effect_type === "COIN";
+            return Number(chargeB) - Number(chargeA) ||
+                Number(b.costume?.star ?? 1) - Number(a.costume?.star ?? 1);
+        });
+        return entries[0];
+    }
+
+    useDollRepairKit(part = null) {
+        if (!this.doll) return { ok: false };
+
+        this.doll.costumes ??= {
+            head: null,
+            body: null,
+            leg: null,
+            foot: null
+        };
+
+        const beforeDurability = Number(this.doll.durability ?? 0);
+        const maxDurability = Math.max(0, Number(this.doll.max_durability ?? beforeDurability));
+        this.doll.durability = Math.min(maxDurability, beforeDurability + 20);
+        this.doll.revive_guard_rounds = 0;
+
+        const repaired = this.pickDollRepairCostumeEntry(part);
+        let repairedCostume = null;
+        if (repaired?.costume) {
+            repaired.costume.condition = "normal";
+            repaired.costume.part ??= repaired.part;
+            this.updateCostumeDisplayName(repaired.costume);
+            repairedCostume = {
+                part: repaired.part,
+                label: repaired.label,
+                name: repaired.costume.name ?? "衣装"
+            };
+        }
+
+        const afterDurability = Number(this.doll.durability ?? 0);
+        return {
+            ok: true,
+            beforeDurability,
+            afterDurability,
+            healed: Math.max(0, afterDurability - beforeDurability),
+            repairedCostume,
+        };
     }
 
     // ---------------------------------------------------------
@@ -413,6 +591,7 @@ export class Player {
                 total += Number(eq.special_defense ?? 10);
             }
         }
+        total += Number(this.getSummonerSpecialDefenseBonus?.() ?? 0);
         return Math.max(0, total);
     }
 
@@ -473,6 +652,7 @@ export class Player {
                 total -= Number(debuff?.defDown ?? debuff?.power ?? 0);
             }
         }
+        total += Number(this.getSummonerDefenseBonus?.() ?? 0);
 
         return total;
     }
@@ -1045,7 +1225,7 @@ if (type === "arrow") {
 // ---------------------------------------------------------
     // ダメージ処理（修正版）
     // ---------------------------------------------------------
-    take_damage(raw_attack, ignore_def = false, attacker = null, isExtraAttack = false) {
+    take_damage(raw_attack, ignore_def = false, attacker = null, isExtraAttack = false, isReflection = false) {
         let final = 0;
         let targetType = "body"; // デフォルトは本体
         if (attacker?.has_dojo_pierce_weapon?.()) {
@@ -1173,6 +1353,30 @@ if (type === "arrow") {
 
         this.hp = Math.max(0, this.hp - final);
         log(`${this.name} は ${final} ダメージを受けた！ 残りHP: ${this.hp}/${this.max_hp}`);
+
+        if (
+            final > 0 &&
+            !isReflection &&
+            attacker &&
+            attacker !== this &&
+            this.hasSummonerFafnirReflect?.()
+        ) {
+            const reflectRaw = Math.max(1, Math.floor(final * 0.5));
+            const reflectedTargetType = this.match?.getDamageTargetType?.(attacker) ??
+                (attacker?.doll && !attacker.doll.is_broken ? "doll" : "body");
+            const reflected = attacker.take_damage?.(reflectRaw, true, this, true, true) ?? 0;
+            log(`🐲 ファフニールが ${reflected} ダメージを反射した！`);
+            if (this.match?.queueFafnirReflectEvent) {
+                this.match.queueFafnirReflectEvent(this, attacker, reflected, reflectedTargetType);
+            } else if (this.match) {
+                this.match.sendSkillEffectEvent?.(attacker, "summoner_fafnir_target", reflectedTargetType);
+                this.match.sendBattle?.(`ファフニールの反射！ ${attacker.name} に ${reflected} ダメージ！`);
+                this.match.sendDamageEvent?.(attacker, reflected, "pursuit", reflectedTargetType, {
+                    show_zero: true,
+                    action_source: "summoner_fafnir_reflect",
+                });
+            }
+        }
 
         // 被ダメ記録
         if (!isExtraAttack) {
@@ -1496,11 +1700,11 @@ if (type === "arrow") {
             return false;
         }
 
-        this.doll.durability = Math.min(
-            this.doll.max_durability,
-            Number(this.doll.durability ?? 0) + 20
-        );
-        this.doll.revive_guard_rounds = 0;
+        const repairResult = this.useDollRepairKit();
+        if (!repairResult?.ok) {
+            return false;
+        }
+        this.last_doll_repair_result = repairResult;
         return true;
     }
 
@@ -1616,6 +1820,37 @@ if (type === "arrow") {
                 const turns = d.rounds ?? d.turns ?? d.duration ?? 0;
                 list.push(`${d.name ?? "継続ダメージ"}：${d.power ?? 0}ダメージ（あと${turns}T）`);
             });
+        }
+
+        if (this.job === "召喚士" && this.isSummonerResonanceActive?.()) {
+            const turns = Math.max(0, Number(this.summoner?.resonance_turns ?? 0));
+            const frontType = String(this.getSummonerFrontType?.() ?? "");
+            const describeFrontEffect = (dragon) => {
+                if (!dragon || dragon.stage === "egg") return "";
+                const stageLabel = dragon.stage === "adult" ? "成体" : "幼体";
+                if (dragon.type === "tiamat") {
+                    const damage = dragon.stage === "adult" ? 20 : 10;
+                    return `${stageLabel}前衛：行動後、防御無視${damage}ダメージ`;
+                }
+                if (dragon.type === "nidhogg") {
+                    return dragon.stage === "adult"
+                        ? `${stageLabel}前衛：行動後、3T攻撃-2と3T毒3`
+                        : `${stageLabel}前衛：行動後、2T毒2`;
+                }
+                if (dragon.type === "fafnir") {
+                    return dragon.stage === "adult"
+                        ? `${stageLabel}前衛：特殊防御+5 / 被ダメージ50%反射`
+                        : `${stageLabel}前衛：防御+5`;
+                }
+                return "";
+            };
+            for (const dragon of this.getSummonerDragons?.() ?? []) {
+                if (!dragon || dragon.stage === "egg" || String(dragon.type ?? "") === frontType) continue;
+                const effectText = describeFrontEffect(dragon);
+                if (!effectText) continue;
+                const name = dragon.name ?? SUMMONER_DRAGON_DATA?.[dragon.type]?.name ?? "竜";
+                list.push(`竜脈解放：${name}も前衛効果（${effectText} / あと${turns}T）`);
+            }
         }
 
         return list;
@@ -2914,7 +3149,7 @@ if (type === "arrow") {
             price: 30,
             category: "item",
             is_doll_item: true,
-            effect_text: "人形の耐久を20回復",
+            effect_text: "人形の耐久を20回復。ボロボロ衣装があれば1つ修復",
             uid: crypto.randomUUID(),
         });
         this.used_skill_set.add(stype);
