@@ -1,0 +1,7214 @@
+{
+  "createdAt": "2026-05-19T03:29:23.941Z",
+  "basePath": "cpu_ai_weights.json",
+  "matches": 540,
+  "repeats": 3,
+  "level": 10,
+  "bestPath": "C:\\Users\\CodexSandboxOffline\\.codex\\.sandbox\\cwd\\5a89c60f5ea168a0\\tmp\\cpu-ai-tuning-roundrobin-540-alljobs\\best-weights-review.json",
+  "best": {
+    "index": 2,
+    "score": 79.18,
+    "weightsPath": "tmp\\cpu-ai-tuning-roundrobin-540-alljobs/candidate-2-weights.json",
+    "logPath": "tmp\\cpu-ai-tuning-roundrobin-540-alljobs/candidate-2-sim.json",
+    "summary": {
+      "matches": 540,
+      "p1Wins": 272,
+      "p2Wins": 250,
+      "draws": 18,
+      "averageTurns": 15.17,
+      "sameJobMatches": 0,
+      "differentJobMatches": 540,
+      "byTurnOrder": {
+        "first": {
+          "games": 540,
+          "wins": 251,
+          "losses": 271,
+          "draws": 18,
+          "turns": 8190,
+          "winRate": 0.465,
+          "averageTurns": 15.17
+        },
+        "second": {
+          "games": 540,
+          "wins": 271,
+          "losses": 251,
+          "draws": 18,
+          "turns": 8190,
+          "winRate": 0.502,
+          "averageTurns": 15.17
+        }
+      },
+      "byJob": {
+        "戦士": {
+          "games": 108,
+          "wins": 61,
+          "losses": 47,
+          "draws": 0,
+          "turns": 1571,
+          "winRate": 0.565,
+          "averageTurns": 14.55
+        },
+        "騎士": {
+          "games": 108,
+          "wins": 46,
+          "losses": 59,
+          "draws": 3,
+          "turns": 1891,
+          "winRate": 0.426,
+          "averageTurns": 17.51
+        },
+        "僧侶": {
+          "games": 108,
+          "wins": 37,
+          "losses": 69,
+          "draws": 2,
+          "turns": 1808,
+          "winRate": 0.343,
+          "averageTurns": 16.74
+        },
+        "盗賊": {
+          "games": 108,
+          "wins": 66,
+          "losses": 38,
+          "draws": 4,
+          "turns": 1550,
+          "winRate": 0.611,
+          "averageTurns": 14.35
+        },
+        "魔導士": {
+          "games": 108,
+          "wins": 44,
+          "losses": 60,
+          "draws": 4,
+          "turns": 1759,
+          "winRate": 0.407,
+          "averageTurns": 16.29
+        },
+        "陰陽師": {
+          "games": 108,
+          "wins": 33,
+          "losses": 73,
+          "draws": 2,
+          "turns": 1726,
+          "winRate": 0.306,
+          "averageTurns": 15.98
+        },
+        "錬金術師": {
+          "games": 108,
+          "wins": 51,
+          "losses": 39,
+          "draws": 18,
+          "turns": 1579,
+          "winRate": 0.472,
+          "averageTurns": 14.62
+        },
+        "弓兵": {
+          "games": 108,
+          "wins": 58,
+          "losses": 49,
+          "draws": 1,
+          "turns": 1359,
+          "winRate": 0.537,
+          "averageTurns": 12.58
+        },
+        "召喚士": {
+          "games": 108,
+          "wins": 71,
+          "losses": 36,
+          "draws": 1,
+          "turns": 1418,
+          "winRate": 0.657,
+          "averageTurns": 13.13
+        },
+        "狂人": {
+          "games": 108,
+          "wins": 55,
+          "losses": 52,
+          "draws": 1,
+          "turns": 1719,
+          "winRate": 0.509,
+          "averageTurns": 15.92
+        }
+      },
+      "byJobOpponent": {
+        "戦士": {
+          "騎士": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 201,
+            "winRate": 0.75,
+            "averageTurns": 16.75
+          },
+          "僧侶": {
+            "games": 12,
+            "wins": 8,
+            "losses": 4,
+            "draws": 0,
+            "turns": 191,
+            "winRate": 0.667,
+            "averageTurns": 15.92
+          },
+          "盗賊": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 164,
+            "winRate": 0.25,
+            "averageTurns": 13.67
+          },
+          "魔導士": {
+            "games": 12,
+            "wins": 8,
+            "losses": 4,
+            "draws": 0,
+            "turns": 184,
+            "winRate": 0.667,
+            "averageTurns": 15.33
+          },
+          "陰陽師": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 167,
+            "winRate": 0.75,
+            "averageTurns": 13.92
+          },
+          "錬金術師": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 186,
+            "winRate": 0.5,
+            "averageTurns": 15.5
+          },
+          "弓兵": {
+            "games": 12,
+            "wins": 8,
+            "losses": 4,
+            "draws": 0,
+            "turns": 142,
+            "winRate": 0.667,
+            "averageTurns": 11.83
+          },
+          "召喚士": {
+            "games": 12,
+            "wins": 8,
+            "losses": 4,
+            "draws": 0,
+            "turns": 169,
+            "winRate": 0.667,
+            "averageTurns": 14.08
+          },
+          "狂人": {
+            "games": 12,
+            "wins": 2,
+            "losses": 10,
+            "draws": 0,
+            "turns": 167,
+            "winRate": 0.167,
+            "averageTurns": 13.92
+          }
+        },
+        "騎士": {
+          "戦士": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 201,
+            "winRate": 0.25,
+            "averageTurns": 16.75
+          },
+          "僧侶": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 237,
+            "winRate": 0.5,
+            "averageTurns": 19.75
+          },
+          "盗賊": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 216,
+            "winRate": 0.5,
+            "averageTurns": 18
+          },
+          "魔導士": {
+            "games": 12,
+            "wins": 5,
+            "losses": 7,
+            "draws": 0,
+            "turns": 254,
+            "winRate": 0.417,
+            "averageTurns": 21.17
+          },
+          "陰陽師": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 242,
+            "winRate": 0.75,
+            "averageTurns": 20.17
+          },
+          "錬金術師": {
+            "games": 12,
+            "wins": 2,
+            "losses": 7,
+            "draws": 3,
+            "turns": 182,
+            "winRate": 0.167,
+            "averageTurns": 15.17
+          },
+          "弓兵": {
+            "games": 12,
+            "wins": 10,
+            "losses": 2,
+            "draws": 0,
+            "turns": 197,
+            "winRate": 0.833,
+            "averageTurns": 16.42
+          },
+          "召喚士": {
+            "games": 12,
+            "wins": 0,
+            "losses": 12,
+            "draws": 0,
+            "turns": 153,
+            "winRate": 0,
+            "averageTurns": 12.75
+          },
+          "狂人": {
+            "games": 12,
+            "wins": 5,
+            "losses": 7,
+            "draws": 0,
+            "turns": 209,
+            "winRate": 0.417,
+            "averageTurns": 17.42
+          }
+        },
+        "僧侶": {
+          "戦士": {
+            "games": 12,
+            "wins": 4,
+            "losses": 8,
+            "draws": 0,
+            "turns": 191,
+            "winRate": 0.333,
+            "averageTurns": 15.92
+          },
+          "騎士": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 237,
+            "winRate": 0.5,
+            "averageTurns": 19.75
+          },
+          "盗賊": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 204,
+            "winRate": 0.25,
+            "averageTurns": 17
+          },
+          "魔導士": {
+            "games": 12,
+            "wins": 4,
+            "losses": 8,
+            "draws": 0,
+            "turns": 211,
+            "winRate": 0.333,
+            "averageTurns": 17.58
+          },
+          "陰陽師": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 226,
+            "winRate": 0.75,
+            "averageTurns": 18.83
+          },
+          "錬金術師": {
+            "games": 12,
+            "wins": 2,
+            "losses": 8,
+            "draws": 2,
+            "turns": 191,
+            "winRate": 0.167,
+            "averageTurns": 15.92
+          },
+          "弓兵": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 169,
+            "winRate": 0.25,
+            "averageTurns": 14.08
+          },
+          "召喚士": {
+            "games": 12,
+            "wins": 0,
+            "losses": 12,
+            "draws": 0,
+            "turns": 164,
+            "winRate": 0,
+            "averageTurns": 13.67
+          },
+          "狂人": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 215,
+            "winRate": 0.5,
+            "averageTurns": 17.92
+          }
+        },
+        "盗賊": {
+          "戦士": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 164,
+            "winRate": 0.75,
+            "averageTurns": 13.67
+          },
+          "騎士": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 216,
+            "winRate": 0.5,
+            "averageTurns": 18
+          },
+          "僧侶": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 204,
+            "winRate": 0.75,
+            "averageTurns": 17
+          },
+          "魔導士": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 180,
+            "winRate": 0.75,
+            "averageTurns": 15
+          },
+          "陰陽師": {
+            "games": 12,
+            "wins": 8,
+            "losses": 4,
+            "draws": 0,
+            "turns": 180,
+            "winRate": 0.667,
+            "averageTurns": 15
+          },
+          "錬金術師": {
+            "games": 12,
+            "wins": 5,
+            "losses": 3,
+            "draws": 4,
+            "turns": 156,
+            "winRate": 0.417,
+            "averageTurns": 13
+          },
+          "弓兵": {
+            "games": 12,
+            "wins": 5,
+            "losses": 7,
+            "draws": 0,
+            "turns": 136,
+            "winRate": 0.417,
+            "averageTurns": 11.33
+          },
+          "召喚士": {
+            "games": 12,
+            "wins": 7,
+            "losses": 5,
+            "draws": 0,
+            "turns": 138,
+            "winRate": 0.583,
+            "averageTurns": 11.5
+          },
+          "狂人": {
+            "games": 12,
+            "wins": 8,
+            "losses": 4,
+            "draws": 0,
+            "turns": 176,
+            "winRate": 0.667,
+            "averageTurns": 14.67
+          }
+        },
+        "魔導士": {
+          "戦士": {
+            "games": 12,
+            "wins": 4,
+            "losses": 8,
+            "draws": 0,
+            "turns": 184,
+            "winRate": 0.333,
+            "averageTurns": 15.33
+          },
+          "騎士": {
+            "games": 12,
+            "wins": 7,
+            "losses": 5,
+            "draws": 0,
+            "turns": 254,
+            "winRate": 0.583,
+            "averageTurns": 21.17
+          },
+          "僧侶": {
+            "games": 12,
+            "wins": 8,
+            "losses": 4,
+            "draws": 0,
+            "turns": 211,
+            "winRate": 0.667,
+            "averageTurns": 17.58
+          },
+          "盗賊": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 180,
+            "winRate": 0.25,
+            "averageTurns": 15
+          },
+          "陰陽師": {
+            "games": 12,
+            "wins": 5,
+            "losses": 7,
+            "draws": 0,
+            "turns": 196,
+            "winRate": 0.417,
+            "averageTurns": 16.33
+          },
+          "錬金術師": {
+            "games": 12,
+            "wins": 4,
+            "losses": 4,
+            "draws": 4,
+            "turns": 172,
+            "winRate": 0.333,
+            "averageTurns": 14.33
+          },
+          "弓兵": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 144,
+            "winRate": 0.25,
+            "averageTurns": 12
+          },
+          "召喚士": {
+            "games": 12,
+            "wins": 5,
+            "losses": 7,
+            "draws": 0,
+            "turns": 202,
+            "winRate": 0.417,
+            "averageTurns": 16.83
+          },
+          "狂人": {
+            "games": 12,
+            "wins": 5,
+            "losses": 7,
+            "draws": 0,
+            "turns": 216,
+            "winRate": 0.417,
+            "averageTurns": 18
+          }
+        },
+        "陰陽師": {
+          "戦士": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 167,
+            "winRate": 0.25,
+            "averageTurns": 13.92
+          },
+          "騎士": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 242,
+            "winRate": 0.25,
+            "averageTurns": 20.17
+          },
+          "僧侶": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 226,
+            "winRate": 0.25,
+            "averageTurns": 18.83
+          },
+          "盗賊": {
+            "games": 12,
+            "wins": 4,
+            "losses": 8,
+            "draws": 0,
+            "turns": 180,
+            "winRate": 0.333,
+            "averageTurns": 15
+          },
+          "魔導士": {
+            "games": 12,
+            "wins": 7,
+            "losses": 5,
+            "draws": 0,
+            "turns": 196,
+            "winRate": 0.583,
+            "averageTurns": 16.33
+          },
+          "錬金術師": {
+            "games": 12,
+            "wins": 3,
+            "losses": 7,
+            "draws": 2,
+            "turns": 202,
+            "winRate": 0.25,
+            "averageTurns": 16.83
+          },
+          "弓兵": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 165,
+            "winRate": 0.5,
+            "averageTurns": 13.75
+          },
+          "召喚士": {
+            "games": 12,
+            "wins": 0,
+            "losses": 12,
+            "draws": 0,
+            "turns": 135,
+            "winRate": 0,
+            "averageTurns": 11.25
+          },
+          "狂人": {
+            "games": 12,
+            "wins": 4,
+            "losses": 8,
+            "draws": 0,
+            "turns": 213,
+            "winRate": 0.333,
+            "averageTurns": 17.75
+          }
+        },
+        "錬金術師": {
+          "戦士": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 186,
+            "winRate": 0.5,
+            "averageTurns": 15.5
+          },
+          "騎士": {
+            "games": 12,
+            "wins": 7,
+            "losses": 2,
+            "draws": 3,
+            "turns": 182,
+            "winRate": 0.583,
+            "averageTurns": 15.17
+          },
+          "僧侶": {
+            "games": 12,
+            "wins": 8,
+            "losses": 2,
+            "draws": 2,
+            "turns": 191,
+            "winRate": 0.667,
+            "averageTurns": 15.92
+          },
+          "盗賊": {
+            "games": 12,
+            "wins": 3,
+            "losses": 5,
+            "draws": 4,
+            "turns": 156,
+            "winRate": 0.25,
+            "averageTurns": 13
+          },
+          "魔導士": {
+            "games": 12,
+            "wins": 4,
+            "losses": 4,
+            "draws": 4,
+            "turns": 172,
+            "winRate": 0.333,
+            "averageTurns": 14.33
+          },
+          "陰陽師": {
+            "games": 12,
+            "wins": 7,
+            "losses": 3,
+            "draws": 2,
+            "turns": 202,
+            "winRate": 0.583,
+            "averageTurns": 16.83
+          },
+          "弓兵": {
+            "games": 12,
+            "wins": 7,
+            "losses": 4,
+            "draws": 1,
+            "turns": 150,
+            "winRate": 0.583,
+            "averageTurns": 12.5
+          },
+          "召喚士": {
+            "games": 12,
+            "wins": 0,
+            "losses": 11,
+            "draws": 1,
+            "turns": 150,
+            "winRate": 0,
+            "averageTurns": 12.5
+          },
+          "狂人": {
+            "games": 12,
+            "wins": 9,
+            "losses": 2,
+            "draws": 1,
+            "turns": 190,
+            "winRate": 0.75,
+            "averageTurns": 15.83
+          }
+        },
+        "弓兵": {
+          "戦士": {
+            "games": 12,
+            "wins": 4,
+            "losses": 8,
+            "draws": 0,
+            "turns": 142,
+            "winRate": 0.333,
+            "averageTurns": 11.83
+          },
+          "騎士": {
+            "games": 12,
+            "wins": 2,
+            "losses": 10,
+            "draws": 0,
+            "turns": 197,
+            "winRate": 0.167,
+            "averageTurns": 16.42
+          },
+          "僧侶": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 169,
+            "winRate": 0.75,
+            "averageTurns": 14.08
+          },
+          "盗賊": {
+            "games": 12,
+            "wins": 7,
+            "losses": 5,
+            "draws": 0,
+            "turns": 136,
+            "winRate": 0.583,
+            "averageTurns": 11.33
+          },
+          "魔導士": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 144,
+            "winRate": 0.75,
+            "averageTurns": 12
+          },
+          "陰陽師": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 165,
+            "winRate": 0.5,
+            "averageTurns": 13.75
+          },
+          "錬金術師": {
+            "games": 12,
+            "wins": 4,
+            "losses": 7,
+            "draws": 1,
+            "turns": 150,
+            "winRate": 0.333,
+            "averageTurns": 12.5
+          },
+          "召喚士": {
+            "games": 12,
+            "wins": 7,
+            "losses": 5,
+            "draws": 0,
+            "turns": 115,
+            "winRate": 0.583,
+            "averageTurns": 9.58
+          },
+          "狂人": {
+            "games": 12,
+            "wins": 10,
+            "losses": 2,
+            "draws": 0,
+            "turns": 141,
+            "winRate": 0.833,
+            "averageTurns": 11.75
+          }
+        },
+        "召喚士": {
+          "戦士": {
+            "games": 12,
+            "wins": 4,
+            "losses": 8,
+            "draws": 0,
+            "turns": 169,
+            "winRate": 0.333,
+            "averageTurns": 14.08
+          },
+          "騎士": {
+            "games": 12,
+            "wins": 12,
+            "losses": 0,
+            "draws": 0,
+            "turns": 153,
+            "winRate": 1,
+            "averageTurns": 12.75
+          },
+          "僧侶": {
+            "games": 12,
+            "wins": 12,
+            "losses": 0,
+            "draws": 0,
+            "turns": 164,
+            "winRate": 1,
+            "averageTurns": 13.67
+          },
+          "盗賊": {
+            "games": 12,
+            "wins": 5,
+            "losses": 7,
+            "draws": 0,
+            "turns": 138,
+            "winRate": 0.417,
+            "averageTurns": 11.5
+          },
+          "魔導士": {
+            "games": 12,
+            "wins": 7,
+            "losses": 5,
+            "draws": 0,
+            "turns": 202,
+            "winRate": 0.583,
+            "averageTurns": 16.83
+          },
+          "陰陽師": {
+            "games": 12,
+            "wins": 12,
+            "losses": 0,
+            "draws": 0,
+            "turns": 135,
+            "winRate": 1,
+            "averageTurns": 11.25
+          },
+          "錬金術師": {
+            "games": 12,
+            "wins": 11,
+            "losses": 0,
+            "draws": 1,
+            "turns": 150,
+            "winRate": 0.917,
+            "averageTurns": 12.5
+          },
+          "弓兵": {
+            "games": 12,
+            "wins": 5,
+            "losses": 7,
+            "draws": 0,
+            "turns": 115,
+            "winRate": 0.417,
+            "averageTurns": 9.58
+          },
+          "狂人": {
+            "games": 12,
+            "wins": 3,
+            "losses": 9,
+            "draws": 0,
+            "turns": 192,
+            "winRate": 0.25,
+            "averageTurns": 16
+          }
+        },
+        "狂人": {
+          "戦士": {
+            "games": 12,
+            "wins": 10,
+            "losses": 2,
+            "draws": 0,
+            "turns": 167,
+            "winRate": 0.833,
+            "averageTurns": 13.92
+          },
+          "騎士": {
+            "games": 12,
+            "wins": 7,
+            "losses": 5,
+            "draws": 0,
+            "turns": 209,
+            "winRate": 0.583,
+            "averageTurns": 17.42
+          },
+          "僧侶": {
+            "games": 12,
+            "wins": 6,
+            "losses": 6,
+            "draws": 0,
+            "turns": 215,
+            "winRate": 0.5,
+            "averageTurns": 17.92
+          },
+          "盗賊": {
+            "games": 12,
+            "wins": 4,
+            "losses": 8,
+            "draws": 0,
+            "turns": 176,
+            "winRate": 0.333,
+            "averageTurns": 14.67
+          },
+          "魔導士": {
+            "games": 12,
+            "wins": 7,
+            "losses": 5,
+            "draws": 0,
+            "turns": 216,
+            "winRate": 0.583,
+            "averageTurns": 18
+          },
+          "陰陽師": {
+            "games": 12,
+            "wins": 8,
+            "losses": 4,
+            "draws": 0,
+            "turns": 213,
+            "winRate": 0.667,
+            "averageTurns": 17.75
+          },
+          "錬金術師": {
+            "games": 12,
+            "wins": 2,
+            "losses": 9,
+            "draws": 1,
+            "turns": 190,
+            "winRate": 0.167,
+            "averageTurns": 15.83
+          },
+          "弓兵": {
+            "games": 12,
+            "wins": 2,
+            "losses": 10,
+            "draws": 0,
+            "turns": 141,
+            "winRate": 0.167,
+            "averageTurns": 11.75
+          },
+          "召喚士": {
+            "games": 12,
+            "wins": 9,
+            "losses": 3,
+            "draws": 0,
+            "turns": 192,
+            "winRate": 0.75,
+            "averageTurns": 16
+          }
+        }
+      },
+      "matchupHighlights": {
+        "戦士": {
+          "best": [
+            {
+              "opponent": "陰陽師",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 167,
+              "winRate": 0.75,
+              "averageTurns": 13.92
+            },
+            {
+              "opponent": "騎士",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.75,
+              "averageTurns": 16.75
+            },
+            {
+              "opponent": "弓兵",
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 142,
+              "winRate": 0.667,
+              "averageTurns": 11.83
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "狂人",
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 167,
+              "winRate": 0.167,
+              "averageTurns": 13.92
+            },
+            {
+              "opponent": "盗賊",
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 0.25,
+              "averageTurns": 13.67
+            },
+            {
+              "opponent": "錬金術師",
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 186,
+              "winRate": 0.5,
+              "averageTurns": 15.5
+            }
+          ]
+        },
+        "騎士": {
+          "best": [
+            {
+              "opponent": "弓兵",
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 197,
+              "winRate": 0.833,
+              "averageTurns": 16.42
+            },
+            {
+              "opponent": "陰陽師",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 242,
+              "winRate": 0.75,
+              "averageTurns": 20.17
+            },
+            {
+              "opponent": "僧侶",
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 237,
+              "winRate": 0.5,
+              "averageTurns": 19.75
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "召喚士",
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 153,
+              "winRate": 0,
+              "averageTurns": 12.75
+            },
+            {
+              "opponent": "錬金術師",
+              "games": 12,
+              "wins": 2,
+              "losses": 7,
+              "draws": 3,
+              "turns": 182,
+              "winRate": 0.167,
+              "averageTurns": 15.17
+            },
+            {
+              "opponent": "戦士",
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.25,
+              "averageTurns": 16.75
+            }
+          ]
+        },
+        "僧侶": {
+          "best": [
+            {
+              "opponent": "陰陽師",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 226,
+              "winRate": 0.75,
+              "averageTurns": 18.83
+            },
+            {
+              "opponent": "騎士",
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 237,
+              "winRate": 0.5,
+              "averageTurns": 19.75
+            },
+            {
+              "opponent": "狂人",
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 215,
+              "winRate": 0.5,
+              "averageTurns": 17.92
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "召喚士",
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 0,
+              "averageTurns": 13.67
+            },
+            {
+              "opponent": "錬金術師",
+              "games": 12,
+              "wins": 2,
+              "losses": 8,
+              "draws": 2,
+              "turns": 191,
+              "winRate": 0.167,
+              "averageTurns": 15.92
+            },
+            {
+              "opponent": "盗賊",
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 204,
+              "winRate": 0.25,
+              "averageTurns": 17
+            }
+          ]
+        },
+        "盗賊": {
+          "best": [
+            {
+              "opponent": "戦士",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 0.75,
+              "averageTurns": 13.67
+            },
+            {
+              "opponent": "僧侶",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 204,
+              "winRate": 0.75,
+              "averageTurns": 17
+            },
+            {
+              "opponent": "魔導士",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 180,
+              "winRate": 0.75,
+              "averageTurns": 15
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "錬金術師",
+              "games": 12,
+              "wins": 5,
+              "losses": 3,
+              "draws": 4,
+              "turns": 156,
+              "winRate": 0.417,
+              "averageTurns": 13
+            },
+            {
+              "opponent": "弓兵",
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 136,
+              "winRate": 0.417,
+              "averageTurns": 11.33
+            },
+            {
+              "opponent": "騎士",
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 216,
+              "winRate": 0.5,
+              "averageTurns": 18
+            }
+          ]
+        },
+        "魔導士": {
+          "best": [
+            {
+              "opponent": "僧侶",
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 211,
+              "winRate": 0.667,
+              "averageTurns": 17.58
+            },
+            {
+              "opponent": "騎士",
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 254,
+              "winRate": 0.583,
+              "averageTurns": 21.17
+            },
+            {
+              "opponent": "陰陽師",
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 196,
+              "winRate": 0.417,
+              "averageTurns": 16.33
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "盗賊",
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 180,
+              "winRate": 0.25,
+              "averageTurns": 15
+            },
+            {
+              "opponent": "弓兵",
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 144,
+              "winRate": 0.25,
+              "averageTurns": 12
+            },
+            {
+              "opponent": "錬金術師",
+              "games": 12,
+              "wins": 4,
+              "losses": 4,
+              "draws": 4,
+              "turns": 172,
+              "winRate": 0.333,
+              "averageTurns": 14.33
+            }
+          ]
+        },
+        "陰陽師": {
+          "best": [
+            {
+              "opponent": "魔導士",
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 196,
+              "winRate": 0.583,
+              "averageTurns": 16.33
+            },
+            {
+              "opponent": "弓兵",
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 165,
+              "winRate": 0.5,
+              "averageTurns": 13.75
+            },
+            {
+              "opponent": "狂人",
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 213,
+              "winRate": 0.333,
+              "averageTurns": 17.75
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "召喚士",
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 135,
+              "winRate": 0,
+              "averageTurns": 11.25
+            },
+            {
+              "opponent": "錬金術師",
+              "games": 12,
+              "wins": 3,
+              "losses": 7,
+              "draws": 2,
+              "turns": 202,
+              "winRate": 0.25,
+              "averageTurns": 16.83
+            },
+            {
+              "opponent": "僧侶",
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 226,
+              "winRate": 0.25,
+              "averageTurns": 18.83
+            }
+          ]
+        },
+        "錬金術師": {
+          "best": [
+            {
+              "opponent": "狂人",
+              "games": 12,
+              "wins": 9,
+              "losses": 2,
+              "draws": 1,
+              "turns": 190,
+              "winRate": 0.75,
+              "averageTurns": 15.83
+            },
+            {
+              "opponent": "僧侶",
+              "games": 12,
+              "wins": 8,
+              "losses": 2,
+              "draws": 2,
+              "turns": 191,
+              "winRate": 0.667,
+              "averageTurns": 15.92
+            },
+            {
+              "opponent": "陰陽師",
+              "games": 12,
+              "wins": 7,
+              "losses": 3,
+              "draws": 2,
+              "turns": 202,
+              "winRate": 0.583,
+              "averageTurns": 16.83
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "召喚士",
+              "games": 12,
+              "wins": 0,
+              "losses": 11,
+              "draws": 1,
+              "turns": 150,
+              "winRate": 0,
+              "averageTurns": 12.5
+            },
+            {
+              "opponent": "盗賊",
+              "games": 12,
+              "wins": 3,
+              "losses": 5,
+              "draws": 4,
+              "turns": 156,
+              "winRate": 0.25,
+              "averageTurns": 13
+            },
+            {
+              "opponent": "魔導士",
+              "games": 12,
+              "wins": 4,
+              "losses": 4,
+              "draws": 4,
+              "turns": 172,
+              "winRate": 0.333,
+              "averageTurns": 14.33
+            }
+          ]
+        },
+        "弓兵": {
+          "best": [
+            {
+              "opponent": "狂人",
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 141,
+              "winRate": 0.833,
+              "averageTurns": 11.75
+            },
+            {
+              "opponent": "僧侶",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 169,
+              "winRate": 0.75,
+              "averageTurns": 14.08
+            },
+            {
+              "opponent": "魔導士",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 144,
+              "winRate": 0.75,
+              "averageTurns": 12
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "騎士",
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 197,
+              "winRate": 0.167,
+              "averageTurns": 16.42
+            },
+            {
+              "opponent": "錬金術師",
+              "games": 12,
+              "wins": 4,
+              "losses": 7,
+              "draws": 1,
+              "turns": 150,
+              "winRate": 0.333,
+              "averageTurns": 12.5
+            },
+            {
+              "opponent": "戦士",
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 142,
+              "winRate": 0.333,
+              "averageTurns": 11.83
+            }
+          ]
+        },
+        "召喚士": {
+          "best": [
+            {
+              "opponent": "陰陽師",
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 135,
+              "winRate": 1,
+              "averageTurns": 11.25
+            },
+            {
+              "opponent": "騎士",
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 153,
+              "winRate": 1,
+              "averageTurns": 12.75
+            },
+            {
+              "opponent": "僧侶",
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 1,
+              "averageTurns": 13.67
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "狂人",
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 192,
+              "winRate": 0.25,
+              "averageTurns": 16
+            },
+            {
+              "opponent": "戦士",
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 169,
+              "winRate": 0.333,
+              "averageTurns": 14.08
+            },
+            {
+              "opponent": "盗賊",
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 138,
+              "winRate": 0.417,
+              "averageTurns": 11.5
+            }
+          ]
+        },
+        "狂人": {
+          "best": [
+            {
+              "opponent": "戦士",
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 167,
+              "winRate": 0.833,
+              "averageTurns": 13.92
+            },
+            {
+              "opponent": "召喚士",
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 192,
+              "winRate": 0.75,
+              "averageTurns": 16
+            },
+            {
+              "opponent": "陰陽師",
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 213,
+              "winRate": 0.667,
+              "averageTurns": 17.75
+            }
+          ],
+          "worst": [
+            {
+              "opponent": "錬金術師",
+              "games": 12,
+              "wins": 2,
+              "losses": 9,
+              "draws": 1,
+              "turns": 190,
+              "winRate": 0.167,
+              "averageTurns": 15.83
+            },
+            {
+              "opponent": "弓兵",
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 141,
+              "winRate": 0.167,
+              "averageTurns": 11.75
+            },
+            {
+              "opponent": "盗賊",
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 176,
+              "winRate": 0.333,
+              "averageTurns": 14.67
+            }
+          ]
+        }
+      },
+      "byAiLevel": {
+        "10": {
+          "games": 1080,
+          "wins": 522,
+          "losses": 522,
+          "draws": 36,
+          "turns": 16380,
+          "winRate": 0.483,
+          "averageTurns": 15.17
+        }
+      },
+      "byAiStyle": {
+        "aggro": {
+          "games": 324,
+          "wins": 163,
+          "losses": 156,
+          "draws": 5,
+          "turns": 4689,
+          "winRate": 0.503,
+          "averageTurns": 14.47
+        },
+        "survival": {
+          "games": 216,
+          "wins": 83,
+          "losses": 128,
+          "draws": 5,
+          "turns": 3699,
+          "winRate": 0.384,
+          "averageTurns": 17.13
+        },
+        "combo": {
+          "games": 324,
+          "wins": 192,
+          "losses": 126,
+          "draws": 6,
+          "turns": 4687,
+          "winRate": 0.593,
+          "averageTurns": 14.47
+        },
+        "economy": {
+          "games": 216,
+          "wins": 84,
+          "losses": 112,
+          "draws": 20,
+          "turns": 3305,
+          "winRate": 0.389,
+          "averageTurns": 15.3
+        }
+      },
+      "summonerFrontPerformance": {
+        "byPrimaryFront": {
+          "fafnir": {
+            "games": 36,
+            "wins": 14,
+            "losses": 22,
+            "draws": 0,
+            "turns": 563,
+            "winRate": 0.389,
+            "averageTurns": 15.64
+          },
+          "tiamat": {
+            "games": 48,
+            "wins": 34,
+            "losses": 14,
+            "draws": 0,
+            "turns": 541,
+            "winRate": 0.708,
+            "averageTurns": 11.27
+          },
+          "nidhogg": {
+            "games": 24,
+            "wins": 23,
+            "losses": 0,
+            "draws": 1,
+            "turns": 314,
+            "winRate": 0.958,
+            "averageTurns": 13.08
+          }
+        },
+        "byFinalActionFront": {
+          "fafnir": {
+            "samples": 332,
+            "wins": 130,
+            "losses": 202,
+            "draws": 0,
+            "winRate": 0.392
+          },
+          "tiamat": {
+            "samples": 585,
+            "wins": 411,
+            "losses": 174,
+            "draws": 0,
+            "winRate": 0.703
+          },
+          "nidhogg": {
+            "samples": 211,
+            "wins": 206,
+            "losses": 0,
+            "draws": 5,
+            "winRate": 0.976
+          }
+        }
+      },
+      "dollChargeChoices": {
+        "job": "人形使い",
+        "games": 0,
+        "wins": 0,
+        "losses": 0,
+        "draws": 0,
+        "turns": 0,
+        "winRate": 0,
+        "averageTurns": 0,
+        "choices": {
+          "all": {
+            "total": 0,
+            "byChoice": {},
+            "share": {}
+          },
+          "wins": {
+            "total": 0,
+            "byChoice": {},
+            "share": {}
+          },
+          "losses": {
+            "total": 0,
+            "byChoice": {},
+            "share": {}
+          },
+          "draws": {
+            "total": 0,
+            "byChoice": {},
+            "share": {}
+          },
+          "preRampage": {
+            "all": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "wins": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "losses": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "draws": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            }
+          },
+          "rampage": {
+            "all": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "wins": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "losses": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "draws": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            }
+          }
+        },
+        "byOpponent": {}
+      }
+    }
+  },
+  "ranking": [
+    {
+      "index": 2,
+      "score": 79.18,
+      "weightsPath": "tmp\\cpu-ai-tuning-roundrobin-540-alljobs/candidate-2-weights.json",
+      "logPath": "tmp\\cpu-ai-tuning-roundrobin-540-alljobs/candidate-2-sim.json",
+      "summary": {
+        "matches": 540,
+        "p1Wins": 272,
+        "p2Wins": 250,
+        "draws": 18,
+        "averageTurns": 15.17,
+        "sameJobMatches": 0,
+        "differentJobMatches": 540,
+        "byTurnOrder": {
+          "first": {
+            "games": 540,
+            "wins": 251,
+            "losses": 271,
+            "draws": 18,
+            "turns": 8190,
+            "winRate": 0.465,
+            "averageTurns": 15.17
+          },
+          "second": {
+            "games": 540,
+            "wins": 271,
+            "losses": 251,
+            "draws": 18,
+            "turns": 8190,
+            "winRate": 0.502,
+            "averageTurns": 15.17
+          }
+        },
+        "byJob": {
+          "戦士": {
+            "games": 108,
+            "wins": 61,
+            "losses": 47,
+            "draws": 0,
+            "turns": 1571,
+            "winRate": 0.565,
+            "averageTurns": 14.55
+          },
+          "騎士": {
+            "games": 108,
+            "wins": 46,
+            "losses": 59,
+            "draws": 3,
+            "turns": 1891,
+            "winRate": 0.426,
+            "averageTurns": 17.51
+          },
+          "僧侶": {
+            "games": 108,
+            "wins": 37,
+            "losses": 69,
+            "draws": 2,
+            "turns": 1808,
+            "winRate": 0.343,
+            "averageTurns": 16.74
+          },
+          "盗賊": {
+            "games": 108,
+            "wins": 66,
+            "losses": 38,
+            "draws": 4,
+            "turns": 1550,
+            "winRate": 0.611,
+            "averageTurns": 14.35
+          },
+          "魔導士": {
+            "games": 108,
+            "wins": 44,
+            "losses": 60,
+            "draws": 4,
+            "turns": 1759,
+            "winRate": 0.407,
+            "averageTurns": 16.29
+          },
+          "陰陽師": {
+            "games": 108,
+            "wins": 33,
+            "losses": 73,
+            "draws": 2,
+            "turns": 1726,
+            "winRate": 0.306,
+            "averageTurns": 15.98
+          },
+          "錬金術師": {
+            "games": 108,
+            "wins": 51,
+            "losses": 39,
+            "draws": 18,
+            "turns": 1579,
+            "winRate": 0.472,
+            "averageTurns": 14.62
+          },
+          "弓兵": {
+            "games": 108,
+            "wins": 58,
+            "losses": 49,
+            "draws": 1,
+            "turns": 1359,
+            "winRate": 0.537,
+            "averageTurns": 12.58
+          },
+          "召喚士": {
+            "games": 108,
+            "wins": 71,
+            "losses": 36,
+            "draws": 1,
+            "turns": 1418,
+            "winRate": 0.657,
+            "averageTurns": 13.13
+          },
+          "狂人": {
+            "games": 108,
+            "wins": 55,
+            "losses": 52,
+            "draws": 1,
+            "turns": 1719,
+            "winRate": 0.509,
+            "averageTurns": 15.92
+          }
+        },
+        "byJobOpponent": {
+          "戦士": {
+            "騎士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.75,
+              "averageTurns": 16.75
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 191,
+              "winRate": 0.667,
+              "averageTurns": 15.92
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 0.25,
+              "averageTurns": 13.67
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 184,
+              "winRate": 0.667,
+              "averageTurns": 15.33
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 167,
+              "winRate": 0.75,
+              "averageTurns": 13.92
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 186,
+              "winRate": 0.5,
+              "averageTurns": 15.5
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 142,
+              "winRate": 0.667,
+              "averageTurns": 11.83
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 169,
+              "winRate": 0.667,
+              "averageTurns": 14.08
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 167,
+              "winRate": 0.167,
+              "averageTurns": 13.92
+            }
+          },
+          "騎士": {
+            "戦士": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.25,
+              "averageTurns": 16.75
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 237,
+              "winRate": 0.5,
+              "averageTurns": 19.75
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 216,
+              "winRate": 0.5,
+              "averageTurns": 18
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 254,
+              "winRate": 0.417,
+              "averageTurns": 21.17
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 242,
+              "winRate": 0.75,
+              "averageTurns": 20.17
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 2,
+              "losses": 7,
+              "draws": 3,
+              "turns": 182,
+              "winRate": 0.167,
+              "averageTurns": 15.17
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 197,
+              "winRate": 0.833,
+              "averageTurns": 16.42
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 153,
+              "winRate": 0,
+              "averageTurns": 12.75
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 209,
+              "winRate": 0.417,
+              "averageTurns": 17.42
+            }
+          },
+          "僧侶": {
+            "戦士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 191,
+              "winRate": 0.333,
+              "averageTurns": 15.92
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 237,
+              "winRate": 0.5,
+              "averageTurns": 19.75
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 204,
+              "winRate": 0.25,
+              "averageTurns": 17
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 211,
+              "winRate": 0.333,
+              "averageTurns": 17.58
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 226,
+              "winRate": 0.75,
+              "averageTurns": 18.83
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 2,
+              "losses": 8,
+              "draws": 2,
+              "turns": 191,
+              "winRate": 0.167,
+              "averageTurns": 15.92
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 169,
+              "winRate": 0.25,
+              "averageTurns": 14.08
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 0,
+              "averageTurns": 13.67
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 215,
+              "winRate": 0.5,
+              "averageTurns": 17.92
+            }
+          },
+          "盗賊": {
+            "戦士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 0.75,
+              "averageTurns": 13.67
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 216,
+              "winRate": 0.5,
+              "averageTurns": 18
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 204,
+              "winRate": 0.75,
+              "averageTurns": 17
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 180,
+              "winRate": 0.75,
+              "averageTurns": 15
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 180,
+              "winRate": 0.667,
+              "averageTurns": 15
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 5,
+              "losses": 3,
+              "draws": 4,
+              "turns": 156,
+              "winRate": 0.417,
+              "averageTurns": 13
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 136,
+              "winRate": 0.417,
+              "averageTurns": 11.33
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 138,
+              "winRate": 0.583,
+              "averageTurns": 11.5
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 176,
+              "winRate": 0.667,
+              "averageTurns": 14.67
+            }
+          },
+          "魔導士": {
+            "戦士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 184,
+              "winRate": 0.333,
+              "averageTurns": 15.33
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 254,
+              "winRate": 0.583,
+              "averageTurns": 21.17
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 211,
+              "winRate": 0.667,
+              "averageTurns": 17.58
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 180,
+              "winRate": 0.25,
+              "averageTurns": 15
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 196,
+              "winRate": 0.417,
+              "averageTurns": 16.33
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 4,
+              "losses": 4,
+              "draws": 4,
+              "turns": 172,
+              "winRate": 0.333,
+              "averageTurns": 14.33
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 144,
+              "winRate": 0.25,
+              "averageTurns": 12
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 202,
+              "winRate": 0.417,
+              "averageTurns": 16.83
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 216,
+              "winRate": 0.417,
+              "averageTurns": 18
+            }
+          },
+          "陰陽師": {
+            "戦士": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 167,
+              "winRate": 0.25,
+              "averageTurns": 13.92
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 242,
+              "winRate": 0.25,
+              "averageTurns": 20.17
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 226,
+              "winRate": 0.25,
+              "averageTurns": 18.83
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 180,
+              "winRate": 0.333,
+              "averageTurns": 15
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 196,
+              "winRate": 0.583,
+              "averageTurns": 16.33
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 3,
+              "losses": 7,
+              "draws": 2,
+              "turns": 202,
+              "winRate": 0.25,
+              "averageTurns": 16.83
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 165,
+              "winRate": 0.5,
+              "averageTurns": 13.75
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 135,
+              "winRate": 0,
+              "averageTurns": 11.25
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 213,
+              "winRate": 0.333,
+              "averageTurns": 17.75
+            }
+          },
+          "錬金術師": {
+            "戦士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 186,
+              "winRate": 0.5,
+              "averageTurns": 15.5
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 2,
+              "draws": 3,
+              "turns": 182,
+              "winRate": 0.583,
+              "averageTurns": 15.17
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 8,
+              "losses": 2,
+              "draws": 2,
+              "turns": 191,
+              "winRate": 0.667,
+              "averageTurns": 15.92
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 5,
+              "draws": 4,
+              "turns": 156,
+              "winRate": 0.25,
+              "averageTurns": 13
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 4,
+              "draws": 4,
+              "turns": 172,
+              "winRate": 0.333,
+              "averageTurns": 14.33
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 7,
+              "losses": 3,
+              "draws": 2,
+              "turns": 202,
+              "winRate": 0.583,
+              "averageTurns": 16.83
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 7,
+              "losses": 4,
+              "draws": 1,
+              "turns": 150,
+              "winRate": 0.583,
+              "averageTurns": 12.5
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 11,
+              "draws": 1,
+              "turns": 150,
+              "winRate": 0,
+              "averageTurns": 12.5
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 9,
+              "losses": 2,
+              "draws": 1,
+              "turns": 190,
+              "winRate": 0.75,
+              "averageTurns": 15.83
+            }
+          },
+          "弓兵": {
+            "戦士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 142,
+              "winRate": 0.333,
+              "averageTurns": 11.83
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 197,
+              "winRate": 0.167,
+              "averageTurns": 16.42
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 169,
+              "winRate": 0.75,
+              "averageTurns": 14.08
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 136,
+              "winRate": 0.583,
+              "averageTurns": 11.33
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 144,
+              "winRate": 0.75,
+              "averageTurns": 12
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 165,
+              "winRate": 0.5,
+              "averageTurns": 13.75
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 4,
+              "losses": 7,
+              "draws": 1,
+              "turns": 150,
+              "winRate": 0.333,
+              "averageTurns": 12.5
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 115,
+              "winRate": 0.583,
+              "averageTurns": 9.58
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 141,
+              "winRate": 0.833,
+              "averageTurns": 11.75
+            }
+          },
+          "召喚士": {
+            "戦士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 169,
+              "winRate": 0.333,
+              "averageTurns": 14.08
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 153,
+              "winRate": 1,
+              "averageTurns": 12.75
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 1,
+              "averageTurns": 13.67
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 138,
+              "winRate": 0.417,
+              "averageTurns": 11.5
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 202,
+              "winRate": 0.583,
+              "averageTurns": 16.83
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 135,
+              "winRate": 1,
+              "averageTurns": 11.25
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 11,
+              "losses": 0,
+              "draws": 1,
+              "turns": 150,
+              "winRate": 0.917,
+              "averageTurns": 12.5
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 115,
+              "winRate": 0.417,
+              "averageTurns": 9.58
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 192,
+              "winRate": 0.25,
+              "averageTurns": 16
+            }
+          },
+          "狂人": {
+            "戦士": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 167,
+              "winRate": 0.833,
+              "averageTurns": 13.92
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 209,
+              "winRate": 0.583,
+              "averageTurns": 17.42
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 215,
+              "winRate": 0.5,
+              "averageTurns": 17.92
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 176,
+              "winRate": 0.333,
+              "averageTurns": 14.67
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 216,
+              "winRate": 0.583,
+              "averageTurns": 18
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 213,
+              "winRate": 0.667,
+              "averageTurns": 17.75
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 2,
+              "losses": 9,
+              "draws": 1,
+              "turns": 190,
+              "winRate": 0.167,
+              "averageTurns": 15.83
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 141,
+              "winRate": 0.167,
+              "averageTurns": 11.75
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 192,
+              "winRate": 0.75,
+              "averageTurns": 16
+            }
+          }
+        },
+        "matchupHighlights": {
+          "戦士": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 167,
+                "winRate": 0.75,
+                "averageTurns": 13.92
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 201,
+                "winRate": 0.75,
+                "averageTurns": 16.75
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 8,
+                "losses": 4,
+                "draws": 0,
+                "turns": 142,
+                "winRate": 0.667,
+                "averageTurns": 11.83
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 167,
+                "winRate": 0.167,
+                "averageTurns": 13.92
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 164,
+                "winRate": 0.25,
+                "averageTurns": 13.67
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 186,
+                "winRate": 0.5,
+                "averageTurns": 15.5
+              }
+            ]
+          },
+          "騎士": {
+            "best": [
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 197,
+                "winRate": 0.833,
+                "averageTurns": 16.42
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 242,
+                "winRate": 0.75,
+                "averageTurns": 20.17
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 237,
+                "winRate": 0.5,
+                "averageTurns": 19.75
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 153,
+                "winRate": 0,
+                "averageTurns": 12.75
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 2,
+                "losses": 7,
+                "draws": 3,
+                "turns": 182,
+                "winRate": 0.167,
+                "averageTurns": 15.17
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 201,
+                "winRate": 0.25,
+                "averageTurns": 16.75
+              }
+            ]
+          },
+          "僧侶": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 226,
+                "winRate": 0.75,
+                "averageTurns": 18.83
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 237,
+                "winRate": 0.5,
+                "averageTurns": 19.75
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 215,
+                "winRate": 0.5,
+                "averageTurns": 17.92
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 164,
+                "winRate": 0,
+                "averageTurns": 13.67
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 2,
+                "losses": 8,
+                "draws": 2,
+                "turns": 191,
+                "winRate": 0.167,
+                "averageTurns": 15.92
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 204,
+                "winRate": 0.25,
+                "averageTurns": 17
+              }
+            ]
+          },
+          "盗賊": {
+            "best": [
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 164,
+                "winRate": 0.75,
+                "averageTurns": 13.67
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 204,
+                "winRate": 0.75,
+                "averageTurns": 17
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 180,
+                "winRate": 0.75,
+                "averageTurns": 15
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 5,
+                "losses": 3,
+                "draws": 4,
+                "turns": 156,
+                "winRate": 0.417,
+                "averageTurns": 13
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 136,
+                "winRate": 0.417,
+                "averageTurns": 11.33
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 216,
+                "winRate": 0.5,
+                "averageTurns": 18
+              }
+            ]
+          },
+          "魔導士": {
+            "best": [
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 8,
+                "losses": 4,
+                "draws": 0,
+                "turns": 211,
+                "winRate": 0.667,
+                "averageTurns": 17.58
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 254,
+                "winRate": 0.583,
+                "averageTurns": 21.17
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 196,
+                "winRate": 0.417,
+                "averageTurns": 16.33
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 180,
+                "winRate": 0.25,
+                "averageTurns": 15
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 144,
+                "winRate": 0.25,
+                "averageTurns": 12
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 4,
+                "losses": 4,
+                "draws": 4,
+                "turns": 172,
+                "winRate": 0.333,
+                "averageTurns": 14.33
+              }
+            ]
+          },
+          "陰陽師": {
+            "best": [
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 196,
+                "winRate": 0.583,
+                "averageTurns": 16.33
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 165,
+                "winRate": 0.5,
+                "averageTurns": 13.75
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 213,
+                "winRate": 0.333,
+                "averageTurns": 17.75
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 135,
+                "winRate": 0,
+                "averageTurns": 11.25
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 3,
+                "losses": 7,
+                "draws": 2,
+                "turns": 202,
+                "winRate": 0.25,
+                "averageTurns": 16.83
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 226,
+                "winRate": 0.25,
+                "averageTurns": 18.83
+              }
+            ]
+          },
+          "錬金術師": {
+            "best": [
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 9,
+                "losses": 2,
+                "draws": 1,
+                "turns": 190,
+                "winRate": 0.75,
+                "averageTurns": 15.83
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 8,
+                "losses": 2,
+                "draws": 2,
+                "turns": 191,
+                "winRate": 0.667,
+                "averageTurns": 15.92
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 7,
+                "losses": 3,
+                "draws": 2,
+                "turns": 202,
+                "winRate": 0.583,
+                "averageTurns": 16.83
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 11,
+                "draws": 1,
+                "turns": 150,
+                "winRate": 0,
+                "averageTurns": 12.5
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 3,
+                "losses": 5,
+                "draws": 4,
+                "turns": 156,
+                "winRate": 0.25,
+                "averageTurns": 13
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 4,
+                "losses": 4,
+                "draws": 4,
+                "turns": 172,
+                "winRate": 0.333,
+                "averageTurns": 14.33
+              }
+            ]
+          },
+          "弓兵": {
+            "best": [
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 141,
+                "winRate": 0.833,
+                "averageTurns": 11.75
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 169,
+                "winRate": 0.75,
+                "averageTurns": 14.08
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 144,
+                "winRate": 0.75,
+                "averageTurns": 12
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 197,
+                "winRate": 0.167,
+                "averageTurns": 16.42
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 4,
+                "losses": 7,
+                "draws": 1,
+                "turns": 150,
+                "winRate": 0.333,
+                "averageTurns": 12.5
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 142,
+                "winRate": 0.333,
+                "averageTurns": 11.83
+              }
+            ]
+          },
+          "召喚士": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 12,
+                "losses": 0,
+                "draws": 0,
+                "turns": 135,
+                "winRate": 1,
+                "averageTurns": 11.25
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 12,
+                "losses": 0,
+                "draws": 0,
+                "turns": 153,
+                "winRate": 1,
+                "averageTurns": 12.75
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 12,
+                "losses": 0,
+                "draws": 0,
+                "turns": 164,
+                "winRate": 1,
+                "averageTurns": 13.67
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 192,
+                "winRate": 0.25,
+                "averageTurns": 16
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 169,
+                "winRate": 0.333,
+                "averageTurns": 14.08
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 138,
+                "winRate": 0.417,
+                "averageTurns": 11.5
+              }
+            ]
+          },
+          "狂人": {
+            "best": [
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 167,
+                "winRate": 0.833,
+                "averageTurns": 13.92
+              },
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 192,
+                "winRate": 0.75,
+                "averageTurns": 16
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 8,
+                "losses": 4,
+                "draws": 0,
+                "turns": 213,
+                "winRate": 0.667,
+                "averageTurns": 17.75
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 2,
+                "losses": 9,
+                "draws": 1,
+                "turns": 190,
+                "winRate": 0.167,
+                "averageTurns": 15.83
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 141,
+                "winRate": 0.167,
+                "averageTurns": 11.75
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 176,
+                "winRate": 0.333,
+                "averageTurns": 14.67
+              }
+            ]
+          }
+        },
+        "byAiLevel": {
+          "10": {
+            "games": 1080,
+            "wins": 522,
+            "losses": 522,
+            "draws": 36,
+            "turns": 16380,
+            "winRate": 0.483,
+            "averageTurns": 15.17
+          }
+        },
+        "byAiStyle": {
+          "aggro": {
+            "games": 324,
+            "wins": 163,
+            "losses": 156,
+            "draws": 5,
+            "turns": 4689,
+            "winRate": 0.503,
+            "averageTurns": 14.47
+          },
+          "survival": {
+            "games": 216,
+            "wins": 83,
+            "losses": 128,
+            "draws": 5,
+            "turns": 3699,
+            "winRate": 0.384,
+            "averageTurns": 17.13
+          },
+          "combo": {
+            "games": 324,
+            "wins": 192,
+            "losses": 126,
+            "draws": 6,
+            "turns": 4687,
+            "winRate": 0.593,
+            "averageTurns": 14.47
+          },
+          "economy": {
+            "games": 216,
+            "wins": 84,
+            "losses": 112,
+            "draws": 20,
+            "turns": 3305,
+            "winRate": 0.389,
+            "averageTurns": 15.3
+          }
+        },
+        "summonerFrontPerformance": {
+          "byPrimaryFront": {
+            "fafnir": {
+              "games": 36,
+              "wins": 14,
+              "losses": 22,
+              "draws": 0,
+              "turns": 563,
+              "winRate": 0.389,
+              "averageTurns": 15.64
+            },
+            "tiamat": {
+              "games": 48,
+              "wins": 34,
+              "losses": 14,
+              "draws": 0,
+              "turns": 541,
+              "winRate": 0.708,
+              "averageTurns": 11.27
+            },
+            "nidhogg": {
+              "games": 24,
+              "wins": 23,
+              "losses": 0,
+              "draws": 1,
+              "turns": 314,
+              "winRate": 0.958,
+              "averageTurns": 13.08
+            }
+          },
+          "byFinalActionFront": {
+            "fafnir": {
+              "samples": 332,
+              "wins": 130,
+              "losses": 202,
+              "draws": 0,
+              "winRate": 0.392
+            },
+            "tiamat": {
+              "samples": 585,
+              "wins": 411,
+              "losses": 174,
+              "draws": 0,
+              "winRate": 0.703
+            },
+            "nidhogg": {
+              "samples": 211,
+              "wins": 206,
+              "losses": 0,
+              "draws": 5,
+              "winRate": 0.976
+            }
+          }
+        },
+        "dollChargeChoices": {
+          "job": "人形使い",
+          "games": 0,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "turns": 0,
+          "winRate": 0,
+          "averageTurns": 0,
+          "choices": {
+            "all": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "wins": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "losses": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "draws": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "preRampage": {
+              "all": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "wins": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "losses": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "draws": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              }
+            },
+            "rampage": {
+              "all": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "wins": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "losses": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "draws": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              }
+            }
+          },
+          "byOpponent": {}
+        }
+      }
+    },
+    {
+      "index": 1,
+      "score": 66.43,
+      "weightsPath": "tmp\\cpu-ai-tuning-roundrobin-540-alljobs/candidate-1-weights.json",
+      "logPath": "tmp\\cpu-ai-tuning-roundrobin-540-alljobs/candidate-1-sim.json",
+      "summary": {
+        "matches": 540,
+        "p1Wins": 270,
+        "p2Wins": 260,
+        "draws": 10,
+        "averageTurns": 15.26,
+        "sameJobMatches": 0,
+        "differentJobMatches": 540,
+        "byTurnOrder": {
+          "first": {
+            "games": 540,
+            "wins": 259,
+            "losses": 271,
+            "draws": 10,
+            "turns": 8240,
+            "winRate": 0.48,
+            "averageTurns": 15.26
+          },
+          "second": {
+            "games": 540,
+            "wins": 271,
+            "losses": 259,
+            "draws": 10,
+            "turns": 8240,
+            "winRate": 0.502,
+            "averageTurns": 15.26
+          }
+        },
+        "byJob": {
+          "戦士": {
+            "games": 108,
+            "wins": 68,
+            "losses": 37,
+            "draws": 3,
+            "turns": 1556,
+            "winRate": 0.63,
+            "averageTurns": 14.41
+          },
+          "騎士": {
+            "games": 108,
+            "wins": 47,
+            "losses": 60,
+            "draws": 1,
+            "turns": 1883,
+            "winRate": 0.435,
+            "averageTurns": 17.44
+          },
+          "僧侶": {
+            "games": 108,
+            "wins": 29,
+            "losses": 79,
+            "draws": 0,
+            "turns": 1852,
+            "winRate": 0.269,
+            "averageTurns": 17.15
+          },
+          "盗賊": {
+            "games": 108,
+            "wins": 71,
+            "losses": 34,
+            "draws": 3,
+            "turns": 1573,
+            "winRate": 0.657,
+            "averageTurns": 14.56
+          },
+          "魔導士": {
+            "games": 108,
+            "wins": 41,
+            "losses": 66,
+            "draws": 1,
+            "turns": 1794,
+            "winRate": 0.38,
+            "averageTurns": 16.61
+          },
+          "陰陽師": {
+            "games": 108,
+            "wins": 34,
+            "losses": 74,
+            "draws": 0,
+            "turns": 1713,
+            "winRate": 0.315,
+            "averageTurns": 15.86
+          },
+          "錬金術師": {
+            "games": 108,
+            "wins": 54,
+            "losses": 44,
+            "draws": 10,
+            "turns": 1622,
+            "winRate": 0.5,
+            "averageTurns": 15.02
+          },
+          "弓兵": {
+            "games": 108,
+            "wins": 60,
+            "losses": 48,
+            "draws": 0,
+            "turns": 1380,
+            "winRate": 0.556,
+            "averageTurns": 12.78
+          },
+          "召喚士": {
+            "games": 108,
+            "wins": 65,
+            "losses": 43,
+            "draws": 0,
+            "turns": 1410,
+            "winRate": 0.602,
+            "averageTurns": 13.06
+          },
+          "狂人": {
+            "games": 108,
+            "wins": 61,
+            "losses": 45,
+            "draws": 2,
+            "turns": 1697,
+            "winRate": 0.565,
+            "averageTurns": 15.71
+          }
+        },
+        "byJobOpponent": {
+          "戦士": {
+            "騎士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 193,
+              "winRate": 0.667,
+              "averageTurns": 16.08
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 11,
+              "losses": 1,
+              "draws": 0,
+              "turns": 196,
+              "winRate": 0.917,
+              "averageTurns": 16.33
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 166,
+              "winRate": 0.333,
+              "averageTurns": 13.83
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 11,
+              "losses": 1,
+              "draws": 0,
+              "turns": 184,
+              "winRate": 0.917,
+              "averageTurns": 15.33
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 11,
+              "losses": 1,
+              "draws": 0,
+              "turns": 188,
+              "winRate": 0.917,
+              "averageTurns": 15.67
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 3,
+              "losses": 6,
+              "draws": 3,
+              "turns": 156,
+              "winRate": 0.25,
+              "averageTurns": 13
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 127,
+              "winRate": 0.417,
+              "averageTurns": 10.58
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 11,
+              "losses": 1,
+              "draws": 0,
+              "turns": 171,
+              "winRate": 0.917,
+              "averageTurns": 14.25
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 175,
+              "winRate": 0.333,
+              "averageTurns": 14.58
+            }
+          },
+          "騎士": {
+            "戦士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 193,
+              "winRate": 0.333,
+              "averageTurns": 16.08
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 249,
+              "winRate": 0.5,
+              "averageTurns": 20.75
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 238,
+              "winRate": 0.417,
+              "averageTurns": 19.83
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 237,
+              "winRate": 0.5,
+              "averageTurns": 19.75
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 213,
+              "winRate": 0.833,
+              "averageTurns": 17.75
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 2,
+              "losses": 9,
+              "draws": 1,
+              "turns": 198,
+              "winRate": 0.167,
+              "averageTurns": 16.5
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 193,
+              "winRate": 0.833,
+              "averageTurns": 16.08
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 151,
+              "winRate": 0,
+              "averageTurns": 12.58
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 211,
+              "winRate": 0.333,
+              "averageTurns": 17.58
+            }
+          },
+          "僧侶": {
+            "戦士": {
+              "games": 12,
+              "wins": 1,
+              "losses": 11,
+              "draws": 0,
+              "turns": 196,
+              "winRate": 0.083,
+              "averageTurns": 16.33
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 249,
+              "winRate": 0.5,
+              "averageTurns": 20.75
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 191,
+              "winRate": 0.25,
+              "averageTurns": 15.92
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 228,
+              "winRate": 0.25,
+              "averageTurns": 19
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 210,
+              "winRate": 0.25,
+              "averageTurns": 17.5
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 222,
+              "winRate": 0.167,
+              "averageTurns": 18.5
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 175,
+              "winRate": 0.333,
+              "averageTurns": 14.58
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 157,
+              "winRate": 0,
+              "averageTurns": 13.08
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 224,
+              "winRate": 0.583,
+              "averageTurns": 18.67
+            }
+          },
+          "盗賊": {
+            "戦士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 166,
+              "winRate": 0.667,
+              "averageTurns": 13.83
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 238,
+              "winRate": 0.583,
+              "averageTurns": 19.83
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 191,
+              "winRate": 0.75,
+              "averageTurns": 15.92
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 184,
+              "winRate": 0.833,
+              "averageTurns": 15.33
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 185,
+              "winRate": 0.75,
+              "averageTurns": 15.42
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 7,
+              "losses": 2,
+              "draws": 3,
+              "turns": 155,
+              "winRate": 0.583,
+              "averageTurns": 12.92
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 145,
+              "winRate": 0.583,
+              "averageTurns": 12.08
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 137,
+              "winRate": 0.583,
+              "averageTurns": 11.42
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 172,
+              "winRate": 0.583,
+              "averageTurns": 14.33
+            }
+          },
+          "魔導士": {
+            "戦士": {
+              "games": 12,
+              "wins": 1,
+              "losses": 11,
+              "draws": 0,
+              "turns": 184,
+              "winRate": 0.083,
+              "averageTurns": 15.33
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 237,
+              "winRate": 0.5,
+              "averageTurns": 19.75
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 228,
+              "winRate": 0.75,
+              "averageTurns": 19
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 184,
+              "winRate": 0.167,
+              "averageTurns": 15.33
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.5,
+              "averageTurns": 16.75
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 5,
+              "losses": 6,
+              "draws": 1,
+              "turns": 198,
+              "winRate": 0.417,
+              "averageTurns": 16.5
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 160,
+              "winRate": 0.167,
+              "averageTurns": 13.33
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.5,
+              "averageTurns": 16.75
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.333,
+              "averageTurns": 16.75
+            }
+          },
+          "陰陽師": {
+            "戦士": {
+              "games": 12,
+              "wins": 1,
+              "losses": 11,
+              "draws": 0,
+              "turns": 188,
+              "winRate": 0.083,
+              "averageTurns": 15.67
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 213,
+              "winRate": 0.167,
+              "averageTurns": 17.75
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 210,
+              "winRate": 0.75,
+              "averageTurns": 17.5
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 185,
+              "winRate": 0.25,
+              "averageTurns": 15.42
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.5,
+              "averageTurns": 16.75
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 219,
+              "winRate": 0.25,
+              "averageTurns": 18.25
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 161,
+              "winRate": 0.5,
+              "averageTurns": 13.42
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 136,
+              "winRate": 0,
+              "averageTurns": 11.33
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 200,
+              "winRate": 0.333,
+              "averageTurns": 16.67
+            }
+          },
+          "錬金術師": {
+            "戦士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 3,
+              "draws": 3,
+              "turns": 156,
+              "winRate": 0.5,
+              "averageTurns": 13
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 2,
+              "draws": 1,
+              "turns": 198,
+              "winRate": 0.75,
+              "averageTurns": 16.5
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 222,
+              "winRate": 0.833,
+              "averageTurns": 18.5
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 2,
+              "losses": 7,
+              "draws": 3,
+              "turns": 155,
+              "winRate": 0.167,
+              "averageTurns": 12.92
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 5,
+              "draws": 1,
+              "turns": 198,
+              "winRate": 0.5,
+              "averageTurns": 16.5
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 219,
+              "winRate": 0.75,
+              "averageTurns": 18.25
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 154,
+              "winRate": 0.583,
+              "averageTurns": 12.83
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 147,
+              "winRate": 0,
+              "averageTurns": 12.25
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 5,
+              "losses": 5,
+              "draws": 2,
+              "turns": 173,
+              "winRate": 0.417,
+              "averageTurns": 14.42
+            }
+          },
+          "弓兵": {
+            "戦士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 127,
+              "winRate": 0.583,
+              "averageTurns": 10.58
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 193,
+              "winRate": 0.167,
+              "averageTurns": 16.08
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 175,
+              "winRate": 0.667,
+              "averageTurns": 14.58
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 145,
+              "winRate": 0.417,
+              "averageTurns": 12.08
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 160,
+              "winRate": 0.833,
+              "averageTurns": 13.33
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 161,
+              "winRate": 0.5,
+              "averageTurns": 13.42
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 154,
+              "winRate": 0.417,
+              "averageTurns": 12.83
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 117,
+              "winRate": 0.667,
+              "averageTurns": 9.75
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 148,
+              "winRate": 0.75,
+              "averageTurns": 12.33
+            }
+          },
+          "召喚士": {
+            "戦士": {
+              "games": 12,
+              "wins": 1,
+              "losses": 11,
+              "draws": 0,
+              "turns": 171,
+              "winRate": 0.083,
+              "averageTurns": 14.25
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 151,
+              "winRate": 1,
+              "averageTurns": 12.58
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 157,
+              "winRate": 1,
+              "averageTurns": 13.08
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 137,
+              "winRate": 0.417,
+              "averageTurns": 11.42
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.5,
+              "averageTurns": 16.75
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 136,
+              "winRate": 1,
+              "averageTurns": 11.33
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 147,
+              "winRate": 1,
+              "averageTurns": 12.25
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 117,
+              "winRate": 0.333,
+              "averageTurns": 9.75
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 1,
+              "losses": 11,
+              "draws": 0,
+              "turns": 193,
+              "winRate": 0.083,
+              "averageTurns": 16.08
+            }
+          },
+          "狂人": {
+            "戦士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 175,
+              "winRate": 0.667,
+              "averageTurns": 14.58
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 211,
+              "winRate": 0.667,
+              "averageTurns": 17.58
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 224,
+              "winRate": 0.417,
+              "averageTurns": 18.67
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 172,
+              "winRate": 0.417,
+              "averageTurns": 14.33
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 201,
+              "winRate": 0.667,
+              "averageTurns": 16.75
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 200,
+              "winRate": 0.667,
+              "averageTurns": 16.67
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 5,
+              "losses": 5,
+              "draws": 2,
+              "turns": 173,
+              "winRate": 0.417,
+              "averageTurns": 14.42
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 148,
+              "winRate": 0.25,
+              "averageTurns": 12.33
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 11,
+              "losses": 1,
+              "draws": 0,
+              "turns": 193,
+              "winRate": 0.917,
+              "averageTurns": 16.08
+            }
+          }
+        },
+        "matchupHighlights": {
+          "戦士": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 11,
+                "losses": 1,
+                "draws": 0,
+                "turns": 188,
+                "winRate": 0.917,
+                "averageTurns": 15.67
+              },
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 11,
+                "losses": 1,
+                "draws": 0,
+                "turns": 171,
+                "winRate": 0.917,
+                "averageTurns": 14.25
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 11,
+                "losses": 1,
+                "draws": 0,
+                "turns": 196,
+                "winRate": 0.917,
+                "averageTurns": 16.33
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 3,
+                "losses": 6,
+                "draws": 3,
+                "turns": 156,
+                "winRate": 0.25,
+                "averageTurns": 13
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 166,
+                "winRate": 0.333,
+                "averageTurns": 13.83
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 175,
+                "winRate": 0.333,
+                "averageTurns": 14.58
+              }
+            ]
+          },
+          "騎士": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 213,
+                "winRate": 0.833,
+                "averageTurns": 17.75
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 193,
+                "winRate": 0.833,
+                "averageTurns": 16.08
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 249,
+                "winRate": 0.5,
+                "averageTurns": 20.75
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 151,
+                "winRate": 0,
+                "averageTurns": 12.58
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 2,
+                "losses": 9,
+                "draws": 1,
+                "turns": 198,
+                "winRate": 0.167,
+                "averageTurns": 16.5
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 193,
+                "winRate": 0.333,
+                "averageTurns": 16.08
+              }
+            ]
+          },
+          "僧侶": {
+            "best": [
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 224,
+                "winRate": 0.583,
+                "averageTurns": 18.67
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 249,
+                "winRate": 0.5,
+                "averageTurns": 20.75
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 175,
+                "winRate": 0.333,
+                "averageTurns": 14.58
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 157,
+                "winRate": 0,
+                "averageTurns": 13.08
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 1,
+                "losses": 11,
+                "draws": 0,
+                "turns": 196,
+                "winRate": 0.083,
+                "averageTurns": 16.33
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 222,
+                "winRate": 0.167,
+                "averageTurns": 18.5
+              }
+            ]
+          },
+          "盗賊": {
+            "best": [
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 184,
+                "winRate": 0.833,
+                "averageTurns": 15.33
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 185,
+                "winRate": 0.75,
+                "averageTurns": 15.42
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 191,
+                "winRate": 0.75,
+                "averageTurns": 15.92
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 7,
+                "losses": 2,
+                "draws": 3,
+                "turns": 155,
+                "winRate": 0.583,
+                "averageTurns": 12.92
+              },
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 137,
+                "winRate": 0.583,
+                "averageTurns": 11.42
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 172,
+                "winRate": 0.583,
+                "averageTurns": 14.33
+              }
+            ]
+          },
+          "魔導士": {
+            "best": [
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 228,
+                "winRate": 0.75,
+                "averageTurns": 19
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 201,
+                "winRate": 0.5,
+                "averageTurns": 16.75
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 237,
+                "winRate": 0.5,
+                "averageTurns": 19.75
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 1,
+                "losses": 11,
+                "draws": 0,
+                "turns": 184,
+                "winRate": 0.083,
+                "averageTurns": 15.33
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 184,
+                "winRate": 0.167,
+                "averageTurns": 15.33
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 160,
+                "winRate": 0.167,
+                "averageTurns": 13.33
+              }
+            ]
+          },
+          "陰陽師": {
+            "best": [
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 210,
+                "winRate": 0.75,
+                "averageTurns": 17.5
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 161,
+                "winRate": 0.5,
+                "averageTurns": 13.42
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 201,
+                "winRate": 0.5,
+                "averageTurns": 16.75
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 136,
+                "winRate": 0,
+                "averageTurns": 11.33
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 1,
+                "losses": 11,
+                "draws": 0,
+                "turns": 188,
+                "winRate": 0.083,
+                "averageTurns": 15.67
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 213,
+                "winRate": 0.167,
+                "averageTurns": 17.75
+              }
+            ]
+          },
+          "錬金術師": {
+            "best": [
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 222,
+                "winRate": 0.833,
+                "averageTurns": 18.5
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 219,
+                "winRate": 0.75,
+                "averageTurns": 18.25
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 9,
+                "losses": 2,
+                "draws": 1,
+                "turns": 198,
+                "winRate": 0.75,
+                "averageTurns": 16.5
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 147,
+                "winRate": 0,
+                "averageTurns": 12.25
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 2,
+                "losses": 7,
+                "draws": 3,
+                "turns": 155,
+                "winRate": 0.167,
+                "averageTurns": 12.92
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 5,
+                "losses": 5,
+                "draws": 2,
+                "turns": 173,
+                "winRate": 0.417,
+                "averageTurns": 14.42
+              }
+            ]
+          },
+          "弓兵": {
+            "best": [
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 160,
+                "winRate": 0.833,
+                "averageTurns": 13.33
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 148,
+                "winRate": 0.75,
+                "averageTurns": 12.33
+              },
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 8,
+                "losses": 4,
+                "draws": 0,
+                "turns": 117,
+                "winRate": 0.667,
+                "averageTurns": 9.75
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 193,
+                "winRate": 0.167,
+                "averageTurns": 16.08
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 154,
+                "winRate": 0.417,
+                "averageTurns": 12.83
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 145,
+                "winRate": 0.417,
+                "averageTurns": 12.08
+              }
+            ]
+          },
+          "召喚士": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 12,
+                "losses": 0,
+                "draws": 0,
+                "turns": 136,
+                "winRate": 1,
+                "averageTurns": 11.33
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 12,
+                "losses": 0,
+                "draws": 0,
+                "turns": 151,
+                "winRate": 1,
+                "averageTurns": 12.58
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 12,
+                "losses": 0,
+                "draws": 0,
+                "turns": 157,
+                "winRate": 1,
+                "averageTurns": 13.08
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 1,
+                "losses": 11,
+                "draws": 0,
+                "turns": 171,
+                "winRate": 0.083,
+                "averageTurns": 14.25
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 1,
+                "losses": 11,
+                "draws": 0,
+                "turns": 193,
+                "winRate": 0.083,
+                "averageTurns": 16.08
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 117,
+                "winRate": 0.333,
+                "averageTurns": 9.75
+              }
+            ]
+          },
+          "狂人": {
+            "best": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 11,
+                "losses": 1,
+                "draws": 0,
+                "turns": 193,
+                "winRate": 0.917,
+                "averageTurns": 16.08
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 8,
+                "losses": 4,
+                "draws": 0,
+                "turns": 200,
+                "winRate": 0.667,
+                "averageTurns": 16.67
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 8,
+                "losses": 4,
+                "draws": 0,
+                "turns": 211,
+                "winRate": 0.667,
+                "averageTurns": 17.58
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 148,
+                "winRate": 0.25,
+                "averageTurns": 12.33
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 5,
+                "losses": 5,
+                "draws": 2,
+                "turns": 173,
+                "winRate": 0.417,
+                "averageTurns": 14.42
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 172,
+                "winRate": 0.417,
+                "averageTurns": 14.33
+              }
+            ]
+          }
+        },
+        "byAiLevel": {
+          "10": {
+            "games": 1080,
+            "wins": 530,
+            "losses": 530,
+            "draws": 20,
+            "turns": 16480,
+            "winRate": 0.491,
+            "averageTurns": 15.26
+          }
+        },
+        "byAiStyle": {
+          "aggro": {
+            "games": 324,
+            "wins": 169,
+            "losses": 151,
+            "draws": 4,
+            "turns": 4730,
+            "winRate": 0.522,
+            "averageTurns": 14.6
+          },
+          "survival": {
+            "games": 216,
+            "wins": 76,
+            "losses": 139,
+            "draws": 1,
+            "turns": 3735,
+            "winRate": 0.352,
+            "averageTurns": 17.29
+          },
+          "combo": {
+            "games": 324,
+            "wins": 197,
+            "losses": 122,
+            "draws": 5,
+            "turns": 4680,
+            "winRate": 0.608,
+            "averageTurns": 14.44
+          },
+          "economy": {
+            "games": 216,
+            "wins": 88,
+            "losses": 118,
+            "draws": 10,
+            "turns": 3335,
+            "winRate": 0.407,
+            "averageTurns": 15.44
+          }
+        },
+        "summonerFrontPerformance": {
+          "byPrimaryFront": {
+            "fafnir": {
+              "games": 36,
+              "wins": 8,
+              "losses": 28,
+              "draws": 0,
+              "turns": 565,
+              "winRate": 0.222,
+              "averageTurns": 15.69
+            },
+            "tiamat": {
+              "games": 48,
+              "wins": 33,
+              "losses": 15,
+              "draws": 0,
+              "turns": 541,
+              "winRate": 0.688,
+              "averageTurns": 11.27
+            },
+            "nidhogg": {
+              "games": 24,
+              "wins": 24,
+              "losses": 0,
+              "draws": 0,
+              "turns": 304,
+              "winRate": 1,
+              "averageTurns": 12.67
+            }
+          },
+          "byFinalActionFront": {
+            "fafnir": {
+              "samples": 345,
+              "wins": 73,
+              "losses": 272,
+              "draws": 0,
+              "winRate": 0.212
+            },
+            "tiamat": {
+              "samples": 552,
+              "wins": 363,
+              "losses": 189,
+              "draws": 0,
+              "winRate": 0.658
+            },
+            "nidhogg": {
+              "samples": 217,
+              "wins": 217,
+              "losses": 0,
+              "draws": 0,
+              "winRate": 1
+            }
+          }
+        },
+        "dollChargeChoices": {
+          "job": "人形使い",
+          "games": 0,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "turns": 0,
+          "winRate": 0,
+          "averageTurns": 0,
+          "choices": {
+            "all": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "wins": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "losses": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "draws": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "preRampage": {
+              "all": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "wins": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "losses": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "draws": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              }
+            },
+            "rampage": {
+              "all": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "wins": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "losses": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "draws": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              }
+            }
+          },
+          "byOpponent": {}
+        }
+      }
+    },
+    {
+      "index": 0,
+      "score": 61.270000000000024,
+      "weightsPath": "tmp\\cpu-ai-tuning-roundrobin-540-alljobs/candidate-0-weights.json",
+      "logPath": "tmp\\cpu-ai-tuning-roundrobin-540-alljobs/candidate-0-sim.json",
+      "summary": {
+        "matches": 540,
+        "p1Wins": 241,
+        "p2Wins": 287,
+        "draws": 12,
+        "averageTurns": 15.43,
+        "sameJobMatches": 0,
+        "differentJobMatches": 540,
+        "byTurnOrder": {
+          "first": {
+            "games": 540,
+            "wins": 269,
+            "losses": 259,
+            "draws": 12,
+            "turns": 8334,
+            "winRate": 0.498,
+            "averageTurns": 15.43
+          },
+          "second": {
+            "games": 540,
+            "wins": 259,
+            "losses": 269,
+            "draws": 12,
+            "turns": 8334,
+            "winRate": 0.48,
+            "averageTurns": 15.43
+          }
+        },
+        "byJob": {
+          "戦士": {
+            "games": 108,
+            "wins": 68,
+            "losses": 39,
+            "draws": 1,
+            "turns": 1537,
+            "winRate": 0.63,
+            "averageTurns": 14.23
+          },
+          "騎士": {
+            "games": 108,
+            "wins": 55,
+            "losses": 53,
+            "draws": 0,
+            "turns": 1913,
+            "winRate": 0.509,
+            "averageTurns": 17.71
+          },
+          "僧侶": {
+            "games": 108,
+            "wins": 33,
+            "losses": 74,
+            "draws": 1,
+            "turns": 1841,
+            "winRate": 0.306,
+            "averageTurns": 17.05
+          },
+          "盗賊": {
+            "games": 108,
+            "wins": 65,
+            "losses": 38,
+            "draws": 5,
+            "turns": 1562,
+            "winRate": 0.602,
+            "averageTurns": 14.46
+          },
+          "魔導士": {
+            "games": 108,
+            "wins": 35,
+            "losses": 71,
+            "draws": 2,
+            "turns": 1830,
+            "winRate": 0.324,
+            "averageTurns": 16.94
+          },
+          "陰陽師": {
+            "games": 108,
+            "wins": 30,
+            "losses": 76,
+            "draws": 2,
+            "turns": 1748,
+            "winRate": 0.278,
+            "averageTurns": 16.19
+          },
+          "錬金術師": {
+            "games": 108,
+            "wins": 49,
+            "losses": 47,
+            "draws": 12,
+            "turns": 1646,
+            "winRate": 0.454,
+            "averageTurns": 15.24
+          },
+          "弓兵": {
+            "games": 108,
+            "wins": 63,
+            "losses": 45,
+            "draws": 0,
+            "turns": 1415,
+            "winRate": 0.583,
+            "averageTurns": 13.1
+          },
+          "召喚士": {
+            "games": 108,
+            "wins": 70,
+            "losses": 37,
+            "draws": 1,
+            "turns": 1430,
+            "winRate": 0.648,
+            "averageTurns": 13.24
+          },
+          "狂人": {
+            "games": 108,
+            "wins": 60,
+            "losses": 48,
+            "draws": 0,
+            "turns": 1746,
+            "winRate": 0.556,
+            "averageTurns": 16.17
+          }
+        },
+        "byJobOpponent": {
+          "戦士": {
+            "騎士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 190,
+              "winRate": 0.75,
+              "averageTurns": 15.83
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 11,
+              "losses": 1,
+              "draws": 0,
+              "turns": 193,
+              "winRate": 0.917,
+              "averageTurns": 16.08
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 160,
+              "winRate": 0.25,
+              "averageTurns": 13.33
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 179,
+              "winRate": 0.833,
+              "averageTurns": 14.92
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 176,
+              "winRate": 0.583,
+              "averageTurns": 14.67
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 8,
+              "losses": 3,
+              "draws": 1,
+              "turns": 172,
+              "winRate": 0.667,
+              "averageTurns": 14.33
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 129,
+              "winRate": 0.333,
+              "averageTurns": 10.75
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 167,
+              "winRate": 0.833,
+              "averageTurns": 13.92
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 171,
+              "winRate": 0.5,
+              "averageTurns": 14.25
+            }
+          },
+          "騎士": {
+            "戦士": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 190,
+              "winRate": 0.25,
+              "averageTurns": 15.83
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 237,
+              "winRate": 0.667,
+              "averageTurns": 19.75
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 213,
+              "winRate": 0.25,
+              "averageTurns": 17.75
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 11,
+              "losses": 1,
+              "draws": 0,
+              "turns": 244,
+              "winRate": 0.917,
+              "averageTurns": 20.33
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 257,
+              "winRate": 0.833,
+              "averageTurns": 21.42
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 214,
+              "winRate": 0.333,
+              "averageTurns": 17.83
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 190,
+              "winRate": 0.667,
+              "averageTurns": 15.83
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 151,
+              "winRate": 0,
+              "averageTurns": 12.58
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 217,
+              "winRate": 0.667,
+              "averageTurns": 18.08
+            }
+          },
+          "僧侶": {
+            "戦士": {
+              "games": 12,
+              "wins": 1,
+              "losses": 11,
+              "draws": 0,
+              "turns": 193,
+              "winRate": 0.083,
+              "averageTurns": 16.08
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 237,
+              "winRate": 0.333,
+              "averageTurns": 19.75
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 216,
+              "winRate": 0.25,
+              "averageTurns": 18
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 223,
+              "winRate": 0.583,
+              "averageTurns": 18.58
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 207,
+              "winRate": 0.75,
+              "averageTurns": 17.25
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 2,
+              "losses": 9,
+              "draws": 1,
+              "turns": 210,
+              "winRate": 0.167,
+              "averageTurns": 17.5
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 176,
+              "winRate": 0.417,
+              "averageTurns": 14.67
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 162,
+              "winRate": 0,
+              "averageTurns": 13.5
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 217,
+              "winRate": 0.167,
+              "averageTurns": 18.08
+            }
+          },
+          "盗賊": {
+            "戦士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 160,
+              "winRate": 0.75,
+              "averageTurns": 13.33
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 213,
+              "winRate": 0.75,
+              "averageTurns": 17.75
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 216,
+              "winRate": 0.75,
+              "averageTurns": 18
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 194,
+              "winRate": 0.75,
+              "averageTurns": 16.17
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 175,
+              "winRate": 0.833,
+              "averageTurns": 14.58
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 3,
+              "losses": 4,
+              "draws": 5,
+              "turns": 149,
+              "winRate": 0.25,
+              "averageTurns": 12.42
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 137,
+              "winRate": 0.417,
+              "averageTurns": 11.42
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 140,
+              "winRate": 0.25,
+              "averageTurns": 11.67
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 178,
+              "winRate": 0.667,
+              "averageTurns": 14.83
+            }
+          },
+          "魔導士": {
+            "戦士": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 179,
+              "winRate": 0.167,
+              "averageTurns": 14.92
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 1,
+              "losses": 11,
+              "draws": 0,
+              "turns": 244,
+              "winRate": 0.083,
+              "averageTurns": 20.33
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 223,
+              "winRate": 0.417,
+              "averageTurns": 18.58
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 194,
+              "winRate": 0.25,
+              "averageTurns": 16.17
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 214,
+              "winRate": 0.583,
+              "averageTurns": 17.83
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 2,
+              "losses": 8,
+              "draws": 2,
+              "turns": 186,
+              "winRate": 0.167,
+              "averageTurns": 15.5
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 173,
+              "winRate": 0.417,
+              "averageTurns": 14.42
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 212,
+              "winRate": 0.583,
+              "averageTurns": 17.67
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 205,
+              "winRate": 0.25,
+              "averageTurns": 17.08
+            }
+          },
+          "陰陽師": {
+            "戦士": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 176,
+              "winRate": 0.417,
+              "averageTurns": 14.67
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 257,
+              "winRate": 0.167,
+              "averageTurns": 21.42
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 207,
+              "winRate": 0.25,
+              "averageTurns": 17.25
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 175,
+              "winRate": 0.167,
+              "averageTurns": 14.58
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 214,
+              "winRate": 0.417,
+              "averageTurns": 17.83
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 3,
+              "losses": 7,
+              "draws": 2,
+              "turns": 199,
+              "winRate": 0.25,
+              "averageTurns": 16.58
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 173,
+              "winRate": 0.417,
+              "averageTurns": 14.42
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 12,
+              "draws": 0,
+              "turns": 141,
+              "winRate": 0,
+              "averageTurns": 11.75
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 206,
+              "winRate": 0.417,
+              "averageTurns": 17.17
+            }
+          },
+          "錬金術師": {
+            "戦士": {
+              "games": 12,
+              "wins": 3,
+              "losses": 8,
+              "draws": 1,
+              "turns": 172,
+              "winRate": 0.25,
+              "averageTurns": 14.33
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 214,
+              "winRate": 0.667,
+              "averageTurns": 17.83
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 9,
+              "losses": 2,
+              "draws": 1,
+              "turns": 210,
+              "winRate": 0.75,
+              "averageTurns": 17.5
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 4,
+              "losses": 3,
+              "draws": 5,
+              "turns": 149,
+              "winRate": 0.333,
+              "averageTurns": 12.42
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 2,
+              "draws": 2,
+              "turns": 186,
+              "winRate": 0.667,
+              "averageTurns": 15.5
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 7,
+              "losses": 3,
+              "draws": 2,
+              "turns": 199,
+              "winRate": 0.583,
+              "averageTurns": 16.58
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 0.417,
+              "averageTurns": 13.67
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 0,
+              "losses": 11,
+              "draws": 1,
+              "turns": 149,
+              "winRate": 0,
+              "averageTurns": 12.42
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 203,
+              "winRate": 0.417,
+              "averageTurns": 16.92
+            }
+          },
+          "弓兵": {
+            "戦士": {
+              "games": 12,
+              "wins": 8,
+              "losses": 4,
+              "draws": 0,
+              "turns": 129,
+              "winRate": 0.667,
+              "averageTurns": 10.75
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 190,
+              "winRate": 0.333,
+              "averageTurns": 15.83
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 176,
+              "winRate": 0.583,
+              "averageTurns": 14.67
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 137,
+              "winRate": 0.583,
+              "averageTurns": 11.42
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 173,
+              "winRate": 0.583,
+              "averageTurns": 14.42
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 173,
+              "winRate": 0.583,
+              "averageTurns": 14.42
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 164,
+              "winRate": 0.583,
+              "averageTurns": 13.67
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 116,
+              "winRate": 0.583,
+              "averageTurns": 9.67
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 157,
+              "winRate": 0.75,
+              "averageTurns": 13.08
+            }
+          },
+          "召喚士": {
+            "戦士": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 167,
+              "winRate": 0.167,
+              "averageTurns": 13.92
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 151,
+              "winRate": 1,
+              "averageTurns": 12.58
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 162,
+              "winRate": 1,
+              "averageTurns": 13.5
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 140,
+              "winRate": 0.75,
+              "averageTurns": 11.67
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 212,
+              "winRate": 0.417,
+              "averageTurns": 17.67
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 12,
+              "losses": 0,
+              "draws": 0,
+              "turns": 141,
+              "winRate": 1,
+              "averageTurns": 11.75
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 11,
+              "losses": 0,
+              "draws": 1,
+              "turns": 149,
+              "winRate": 0.917,
+              "averageTurns": 12.42
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 5,
+              "losses": 7,
+              "draws": 0,
+              "turns": 116,
+              "winRate": 0.417,
+              "averageTurns": 9.67
+            },
+            "狂人": {
+              "games": 12,
+              "wins": 2,
+              "losses": 10,
+              "draws": 0,
+              "turns": 192,
+              "winRate": 0.167,
+              "averageTurns": 16
+            }
+          },
+          "狂人": {
+            "戦士": {
+              "games": 12,
+              "wins": 6,
+              "losses": 6,
+              "draws": 0,
+              "turns": 171,
+              "winRate": 0.5,
+              "averageTurns": 14.25
+            },
+            "騎士": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 217,
+              "winRate": 0.333,
+              "averageTurns": 18.08
+            },
+            "僧侶": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 217,
+              "winRate": 0.833,
+              "averageTurns": 18.08
+            },
+            "盗賊": {
+              "games": 12,
+              "wins": 4,
+              "losses": 8,
+              "draws": 0,
+              "turns": 178,
+              "winRate": 0.333,
+              "averageTurns": 14.83
+            },
+            "魔導士": {
+              "games": 12,
+              "wins": 9,
+              "losses": 3,
+              "draws": 0,
+              "turns": 205,
+              "winRate": 0.75,
+              "averageTurns": 17.08
+            },
+            "陰陽師": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 206,
+              "winRate": 0.583,
+              "averageTurns": 17.17
+            },
+            "錬金術師": {
+              "games": 12,
+              "wins": 7,
+              "losses": 5,
+              "draws": 0,
+              "turns": 203,
+              "winRate": 0.583,
+              "averageTurns": 16.92
+            },
+            "弓兵": {
+              "games": 12,
+              "wins": 3,
+              "losses": 9,
+              "draws": 0,
+              "turns": 157,
+              "winRate": 0.25,
+              "averageTurns": 13.08
+            },
+            "召喚士": {
+              "games": 12,
+              "wins": 10,
+              "losses": 2,
+              "draws": 0,
+              "turns": 192,
+              "winRate": 0.833,
+              "averageTurns": 16
+            }
+          }
+        },
+        "matchupHighlights": {
+          "戦士": {
+            "best": [
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 11,
+                "losses": 1,
+                "draws": 0,
+                "turns": 193,
+                "winRate": 0.917,
+                "averageTurns": 16.08
+              },
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 167,
+                "winRate": 0.833,
+                "averageTurns": 13.92
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 179,
+                "winRate": 0.833,
+                "averageTurns": 14.92
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 160,
+                "winRate": 0.25,
+                "averageTurns": 13.33
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 129,
+                "winRate": 0.333,
+                "averageTurns": 10.75
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 6,
+                "losses": 6,
+                "draws": 0,
+                "turns": 171,
+                "winRate": 0.5,
+                "averageTurns": 14.25
+              }
+            ]
+          },
+          "騎士": {
+            "best": [
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 11,
+                "losses": 1,
+                "draws": 0,
+                "turns": 244,
+                "winRate": 0.917,
+                "averageTurns": 20.33
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 257,
+                "winRate": 0.833,
+                "averageTurns": 21.42
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 8,
+                "losses": 4,
+                "draws": 0,
+                "turns": 190,
+                "winRate": 0.667,
+                "averageTurns": 15.83
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 151,
+                "winRate": 0,
+                "averageTurns": 12.58
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 213,
+                "winRate": 0.25,
+                "averageTurns": 17.75
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 190,
+                "winRate": 0.25,
+                "averageTurns": 15.83
+              }
+            ]
+          },
+          "僧侶": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 207,
+                "winRate": 0.75,
+                "averageTurns": 17.25
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 223,
+                "winRate": 0.583,
+                "averageTurns": 18.58
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 176,
+                "winRate": 0.417,
+                "averageTurns": 14.67
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 162,
+                "winRate": 0,
+                "averageTurns": 13.5
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 1,
+                "losses": 11,
+                "draws": 0,
+                "turns": 193,
+                "winRate": 0.083,
+                "averageTurns": 16.08
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 2,
+                "losses": 9,
+                "draws": 1,
+                "turns": 210,
+                "winRate": 0.167,
+                "averageTurns": 17.5
+              }
+            ]
+          },
+          "盗賊": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 175,
+                "winRate": 0.833,
+                "averageTurns": 14.58
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 213,
+                "winRate": 0.75,
+                "averageTurns": 17.75
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 160,
+                "winRate": 0.75,
+                "averageTurns": 13.33
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 3,
+                "losses": 4,
+                "draws": 5,
+                "turns": 149,
+                "winRate": 0.25,
+                "averageTurns": 12.42
+              },
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 140,
+                "winRate": 0.25,
+                "averageTurns": 11.67
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 137,
+                "winRate": 0.417,
+                "averageTurns": 11.42
+              }
+            ]
+          },
+          "魔導士": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 214,
+                "winRate": 0.583,
+                "averageTurns": 17.83
+              },
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 212,
+                "winRate": 0.583,
+                "averageTurns": 17.67
+              },
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 173,
+                "winRate": 0.417,
+                "averageTurns": 14.42
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 1,
+                "losses": 11,
+                "draws": 0,
+                "turns": 244,
+                "winRate": 0.083,
+                "averageTurns": 20.33
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 2,
+                "losses": 8,
+                "draws": 2,
+                "turns": 186,
+                "winRate": 0.167,
+                "averageTurns": 15.5
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 179,
+                "winRate": 0.167,
+                "averageTurns": 14.92
+              }
+            ]
+          },
+          "陰陽師": {
+            "best": [
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 173,
+                "winRate": 0.417,
+                "averageTurns": 14.42
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 206,
+                "winRate": 0.417,
+                "averageTurns": 17.17
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 176,
+                "winRate": 0.417,
+                "averageTurns": 14.67
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 12,
+                "draws": 0,
+                "turns": 141,
+                "winRate": 0,
+                "averageTurns": 11.75
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 175,
+                "winRate": 0.167,
+                "averageTurns": 14.58
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 257,
+                "winRate": 0.167,
+                "averageTurns": 21.42
+              }
+            ]
+          },
+          "錬金術師": {
+            "best": [
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 9,
+                "losses": 2,
+                "draws": 1,
+                "turns": 210,
+                "winRate": 0.75,
+                "averageTurns": 17.5
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 8,
+                "losses": 4,
+                "draws": 0,
+                "turns": 214,
+                "winRate": 0.667,
+                "averageTurns": 17.83
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 8,
+                "losses": 2,
+                "draws": 2,
+                "turns": 186,
+                "winRate": 0.667,
+                "averageTurns": 15.5
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 0,
+                "losses": 11,
+                "draws": 1,
+                "turns": 149,
+                "winRate": 0,
+                "averageTurns": 12.42
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 3,
+                "losses": 8,
+                "draws": 1,
+                "turns": 172,
+                "winRate": 0.25,
+                "averageTurns": 14.33
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 4,
+                "losses": 3,
+                "draws": 5,
+                "turns": 149,
+                "winRate": 0.333,
+                "averageTurns": 12.42
+              }
+            ]
+          },
+          "弓兵": {
+            "best": [
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 157,
+                "winRate": 0.75,
+                "averageTurns": 13.08
+              },
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 8,
+                "losses": 4,
+                "draws": 0,
+                "turns": 129,
+                "winRate": 0.667,
+                "averageTurns": 10.75
+              },
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 173,
+                "winRate": 0.583,
+                "averageTurns": 14.42
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 190,
+                "winRate": 0.333,
+                "averageTurns": 15.83
+              },
+              {
+                "opponent": "錬金術師",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 164,
+                "winRate": 0.583,
+                "averageTurns": 13.67
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 7,
+                "losses": 5,
+                "draws": 0,
+                "turns": 173,
+                "winRate": 0.583,
+                "averageTurns": 14.42
+              }
+            ]
+          },
+          "召喚士": {
+            "best": [
+              {
+                "opponent": "陰陽師",
+                "games": 12,
+                "wins": 12,
+                "losses": 0,
+                "draws": 0,
+                "turns": 141,
+                "winRate": 1,
+                "averageTurns": 11.75
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 12,
+                "losses": 0,
+                "draws": 0,
+                "turns": 151,
+                "winRate": 1,
+                "averageTurns": 12.58
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 12,
+                "losses": 0,
+                "draws": 0,
+                "turns": 162,
+                "winRate": 1,
+                "averageTurns": 13.5
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "戦士",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 167,
+                "winRate": 0.167,
+                "averageTurns": 13.92
+              },
+              {
+                "opponent": "狂人",
+                "games": 12,
+                "wins": 2,
+                "losses": 10,
+                "draws": 0,
+                "turns": 192,
+                "winRate": 0.167,
+                "averageTurns": 16
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 5,
+                "losses": 7,
+                "draws": 0,
+                "turns": 212,
+                "winRate": 0.417,
+                "averageTurns": 17.67
+              }
+            ]
+          },
+          "狂人": {
+            "best": [
+              {
+                "opponent": "召喚士",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 192,
+                "winRate": 0.833,
+                "averageTurns": 16
+              },
+              {
+                "opponent": "僧侶",
+                "games": 12,
+                "wins": 10,
+                "losses": 2,
+                "draws": 0,
+                "turns": 217,
+                "winRate": 0.833,
+                "averageTurns": 18.08
+              },
+              {
+                "opponent": "魔導士",
+                "games": 12,
+                "wins": 9,
+                "losses": 3,
+                "draws": 0,
+                "turns": 205,
+                "winRate": 0.75,
+                "averageTurns": 17.08
+              }
+            ],
+            "worst": [
+              {
+                "opponent": "弓兵",
+                "games": 12,
+                "wins": 3,
+                "losses": 9,
+                "draws": 0,
+                "turns": 157,
+                "winRate": 0.25,
+                "averageTurns": 13.08
+              },
+              {
+                "opponent": "盗賊",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 178,
+                "winRate": 0.333,
+                "averageTurns": 14.83
+              },
+              {
+                "opponent": "騎士",
+                "games": 12,
+                "wins": 4,
+                "losses": 8,
+                "draws": 0,
+                "turns": 217,
+                "winRate": 0.333,
+                "averageTurns": 18.08
+              }
+            ]
+          }
+        },
+        "byAiLevel": {
+          "10": {
+            "games": 1080,
+            "wins": 528,
+            "losses": 528,
+            "draws": 24,
+            "turns": 16668,
+            "winRate": 0.489,
+            "averageTurns": 15.43
+          }
+        },
+        "byAiStyle": {
+          "aggro": {
+            "games": 324,
+            "wins": 166,
+            "losses": 155,
+            "draws": 3,
+            "turns": 4782,
+            "winRate": 0.512,
+            "averageTurns": 14.76
+          },
+          "survival": {
+            "games": 216,
+            "wins": 88,
+            "losses": 127,
+            "draws": 1,
+            "turns": 3754,
+            "winRate": 0.407,
+            "averageTurns": 17.38
+          },
+          "combo": {
+            "games": 324,
+            "wins": 195,
+            "losses": 123,
+            "draws": 6,
+            "turns": 4738,
+            "winRate": 0.602,
+            "averageTurns": 14.62
+          },
+          "economy": {
+            "games": 216,
+            "wins": 79,
+            "losses": 123,
+            "draws": 14,
+            "turns": 3394,
+            "winRate": 0.366,
+            "averageTurns": 15.71
+          }
+        },
+        "summonerFrontPerformance": {
+          "byPrimaryFront": {
+            "fafnir": {
+              "games": 36,
+              "wins": 9,
+              "losses": 27,
+              "draws": 0,
+              "turns": 571,
+              "winRate": 0.25,
+              "averageTurns": 15.86
+            },
+            "tiamat": {
+              "games": 48,
+              "wins": 38,
+              "losses": 10,
+              "draws": 0,
+              "turns": 548,
+              "winRate": 0.792,
+              "averageTurns": 11.42
+            },
+            "nidhogg": {
+              "games": 24,
+              "wins": 23,
+              "losses": 0,
+              "draws": 1,
+              "turns": 311,
+              "winRate": 0.958,
+              "averageTurns": 12.96
+            }
+          },
+          "byFinalActionFront": {
+            "fafnir": {
+              "samples": 346,
+              "wins": 88,
+              "losses": 258,
+              "draws": 0,
+              "winRate": 0.254
+            },
+            "tiamat": {
+              "samples": 574,
+              "wins": 418,
+              "losses": 156,
+              "draws": 0,
+              "winRate": 0.728
+            },
+            "nidhogg": {
+              "samples": 218,
+              "wins": 213,
+              "losses": 0,
+              "draws": 5,
+              "winRate": 0.977
+            }
+          }
+        },
+        "dollChargeChoices": {
+          "job": "人形使い",
+          "games": 0,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "turns": 0,
+          "winRate": 0,
+          "averageTurns": 0,
+          "choices": {
+            "all": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "wins": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "losses": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "draws": {
+              "total": 0,
+              "byChoice": {},
+              "share": {}
+            },
+            "preRampage": {
+              "all": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "wins": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "losses": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "draws": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              }
+            },
+            "rampage": {
+              "all": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "wins": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "losses": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              },
+              "draws": {
+                "total": 0,
+                "byChoice": {},
+                "share": {}
+              }
+            }
+          },
+          "byOpponent": {}
+        }
+      }
+    }
+  ]
+}

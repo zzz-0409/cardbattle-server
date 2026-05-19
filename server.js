@@ -28,7 +28,7 @@ import { getMageSlot } from "./player.js";
 import { MAGE_MANA_ITEMS } from "./mage_items.js";
 import { ONMYOJI_TALISMAN_ITEMS } from "./onmyoji_items.js";
 import http from "http";
-import { mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import {
   getOrCreateAccount,
@@ -58,6 +58,73 @@ import {
 // =========================================================
 export const DEV_MODE = process.argv.includes("--dev-ai");
 const RUN_CPU_SIM = process.argv.some(arg => String(arg) === "--cpu-sim" || String(arg).startsWith("--cpu-sim"));
+
+const CPU_AI_WEIGHT_DEFAULTS = {
+  onmyoji: {
+    baseTalismanScore: 6800,
+    lowRankBonus: 750,
+    highRankBonus: 1700,
+    lowHpHighRankBonus: 1800,
+    lowHpLowRankBonus: 700,
+    enemyLowHpHighRankBonus: 1200,
+    enemyLowHpLowRankBonus: 450,
+    catVsMageBonus: 5200,
+    catVsArcherOrSummonerBonus: 900,
+    catEnemyDamagedBonus: 650,
+    kyuubiManyBuffsBonus: 5200,
+    kyuubiPerBuffBonus: 750,
+    kyuubiOneBuffBonus: 1700,
+    kyuubiVsMageOrMadBonus: 900,
+    whiteDragonTwoPoisonBonus: 7200,
+    whiteDragonOnePoisonBonus: 3600,
+    whiteDragonManyDebuffBonus: 2600,
+    whiteDragonVsArcherPoisonBonus: 2800,
+    whiteDragonLowHpBonus: 2200,
+    genbuVsPhysicalBonus: 1250,
+    tenguVsThreatBonus: 950,
+    onibiHealthyEnemyBonus: 800,
+    shopMissingTalismanBonus: 900,
+    actionShopFewTalismansScore: 4400,
+    actionShopEnoughTalismansScore: 2100,
+    actionUseItemMinimumScore: 2600,
+    actionUseItemScoreOffset: 4200,
+  },
+};
+
+function mergeCpuAiWeights(base, override) {
+  if (!override || typeof override !== "object") return base;
+  const next = Array.isArray(base) ? [...base] : { ...base };
+  for (const [key, value] of Object.entries(override)) {
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      base?.[key] &&
+      typeof base[key] === "object" &&
+      !Array.isArray(base[key])
+    ) {
+      next[key] = mergeCpuAiWeights(base[key], value);
+    } else {
+      next[key] = value;
+    }
+  }
+  return next;
+}
+
+function loadCpuAiWeights() {
+  const requested = getCliArgValue("cpu-ai-weights", process.env.CPU_AI_WEIGHTS || "cpu_ai_weights.json");
+  const resolved = requested ? path.resolve(process.cwd(), requested) : "";
+  if (!resolved || !existsSync(resolved)) return CPU_AI_WEIGHT_DEFAULTS;
+  try {
+    const parsed = JSON.parse(readFileSync(resolved, "utf8"));
+    return mergeCpuAiWeights(CPU_AI_WEIGHT_DEFAULTS, parsed);
+  } catch (err) {
+    console.warn(`[CPU_AI] failed to load weights: ${resolved}`, err?.message ?? err);
+    return CPU_AI_WEIGHT_DEFAULTS;
+  }
+}
+
+const CPU_AI_WEIGHTS = loadCpuAiWeights();
 
 
 
@@ -1130,8 +1197,10 @@ function getSummonerDragonFrontEffectText(dragon) {
   if (!dragon || dragon.stage === "egg") return "";
   const stageLabel = dragon.stage === "adult" ? "成体" : "幼体";
   if (dragon.type === "tiamat") {
-    const damage = dragon.stage === "adult" ? 20 : 10;
-    return `${stageLabel}前衛：行動後、防御無視${damage}ダメージ`;
+    const damage = dragon.stage === "adult" ? 18 : 10;
+    return dragon.stage === "adult"
+      ? `${stageLabel}前衛：行動後、防御無視${damage}ダメージ`
+      : `${stageLabel}前衛：行動後、防御50%無視${damage}ダメージ`;
   }
   if (dragon.type === "nidhogg") {
     return dragon.stage === "adult"
@@ -1141,7 +1210,7 @@ function getSummonerDragonFrontEffectText(dragon) {
   if (dragon.type === "fafnir") {
     return dragon.stage === "adult"
       ? `${stageLabel}前衛：特殊防御+5 / 被ダメージ50%反射`
-      : `${stageLabel}前衛：防御+5`;
+      : `${stageLabel}前衛：防御+3`;
   }
   return "";
 }
@@ -2585,7 +2654,7 @@ export class Match {
       return `🦊 ${actorName} は式神「九尾」を召喚。${targetName}に防御無視30ダメージ、装備破壊、バフ解除を発動`;
     }
     if (name === "白龍") {
-      return `🐉 ${actorName} は式神「白龍」を召喚。${selfName}のHPを30＋防御力分回復`;
+      return `🐉 ${actorName} は式神「白龍」を召喚。${selfName}のHPを30＋防御力分回復し、デバフを解除`;
     }
   }
 
@@ -5328,9 +5397,17 @@ export class Match {
 
   getSummonerTiamatDamage(dragon, role) {
     if (!dragon || dragon.type !== "tiamat") return 0;
-    if (dragon.stage === "adult") return role === "front" ? 20 : 10;
+    if (dragon.stage === "adult") return role === "front" ? 18 : 8;
     if (dragon.stage === "juvenile") return role === "front" ? 10 : 5;
     return 0;
+  }
+
+  getSummonerTiamatEffectiveDamage(target, dragon, role) {
+    const damage = this.getSummonerTiamatDamage(dragon, role);
+    if (damage <= 0) return 0;
+    if (dragon?.stage !== "juvenile") return damage;
+    const defense = Math.max(0, Number(target?.get_total_defense?.() ?? 0));
+    return Math.max(0, damage - Math.floor(defense * 0.5));
   }
 
   applySummonerNidhoggEffect(actor, target, dragon, role) {
@@ -5392,7 +5469,7 @@ export class Match {
     for (const { dragon, role } of entries) {
       if (target.hp <= 0 || actor.hp <= 0) break;
       if (dragon.type === "tiamat") {
-        const damage = this.getSummonerTiamatDamage(dragon, role);
+        const damage = this.getSummonerTiamatEffectiveDamage(target, dragon, role);
         if (damage > 0) {
           const targetType = this.getDamageTargetType(target);
           this.sendSkillEffectEvent(target, "summoner_tiamat_target", targetType);
@@ -5401,7 +5478,8 @@ export class Match {
             show_zero: true,
             action_source: "summoner_tiamat",
           });
-          this.sendBattle(`ティアマトの追撃！ ${target.name} に防御無視${dealt}ダメージ！`);
+          const pierceText = dragon.stage === "juvenile" ? "防御50%無視" : "防御無視";
+          this.sendBattle(`ティアマトの追撃！ ${target.name} に${pierceText}${dealt}ダメージ！`);
           changed = true;
         }
       } else if (dragon.type === "nidhogg") {
@@ -5906,7 +5984,7 @@ export class Match {
 
     if (
       actor.job === "弓兵" &&
-      (stype === "archer_1" || stype === "archer_2") &&
+      (stype === "archer_1" || stype === "archer_2" || stype === "archer_3") &&
       !actor.has_usable_arrow?.()
     ) {
       this.sendPopup("矢が装備されていないため攻撃できません。", wsPlayer, 2200);
@@ -6183,7 +6261,7 @@ export class Match {
       this.sendItemList(targetWsForItems, target);
     }
 
-    if (actor.job === "弓兵" && (stype === "archer_1" || stype === "archer_2")) {
+    if (actor.job === "弓兵" && (stype === "archer_1" || stype === "archer_2" || stype === "archer_3")) {
       if (!this.resolveArcherArrowAttack(actor, target, wsPlayer, { label: "通常攻撃" })) {
         this.skill_lock = false;
         return false;
@@ -9384,6 +9462,44 @@ function getCpuCoinEquipValue(item) {
   return Number(item.power ?? item.coin_per_turn ?? item.coin ?? 0);
 }
 
+function isCpuAttackEquip(item) {
+  const type = String(item?.effect_type ?? item?.equip_category ?? "");
+  return type.includes("攻撃") || type.toUpperCase().includes("ATK");
+}
+
+function isCpuDefenseEquip(item) {
+  const type = String(item?.effect_type ?? item?.equip_category ?? "");
+  return type.includes("防御") || type.toUpperCase().includes("DEF");
+}
+
+function countCpuAlchemistCoinEquips(P) {
+  const equips = [
+    P?.equipment,
+    ...((P?.extra_equipments ?? []).filter(Boolean)),
+    ...((P?.equipment_inventory ?? []).filter(Boolean)),
+  ];
+  return equips.filter(isCpuCoinEquip).length;
+}
+
+function getCpuAlchemistEnemyEquipBias(enemyJob, item) {
+  const enemy = String(enemyJob ?? "");
+  const attack = isCpuAttackEquip(item);
+  const defense = isCpuDefenseEquip(item);
+  if (["戦士", "狂人", "弓兵", "召喚士"].includes(enemy)) {
+    if (defense) return 1900;
+    if (attack) return 650;
+  }
+  if (["騎士", "僧侶", "錬金術師"].includes(enemy)) {
+    if (attack) return 1800;
+    if (defense) return 500;
+  }
+  if (["魔導士", "陰陽師", "盗賊"].includes(enemy)) {
+    if (attack) return 1200;
+    if (defense) return 900;
+  }
+  return 0;
+}
+
 function isCpuOnmyojiTalisman(item) {
   return !!item && (
     item.is_onmyoji_item === true ||
@@ -9395,16 +9511,82 @@ function countCpuOnmyojiTalismans(P) {
   return (P?.items ?? []).filter(isCpuOnmyojiTalisman).length;
 }
 
+function countCpuPositiveBuffs(P) {
+  return (P?.active_buffs ?? []).filter(b => {
+    if (!b) return false;
+    if (b.unremovable || b.passive) return false;
+    if (b.is_debuff || b.debuff) return false;
+    const type = String(b.type ?? b.name ?? "");
+    if (type.includes("低下") || type.includes("毒") || type.includes("封印")) return false;
+    return true;
+  }).length;
+}
+
+function countCpuPoisonDots(P) {
+  const dots = (P?.dot_effects ?? []).filter(d => {
+    const key = `${d?.name ?? ""} ${d?.type ?? ""} ${d?.source ?? ""}`.toLowerCase();
+    return key.includes("毒") || key.includes("poison");
+  }).length;
+  const buffs = (P?.active_buffs ?? []).filter(b => {
+    const key = `${b?.name ?? ""} ${b?.type ?? ""}`.toLowerCase();
+    return key.includes("毒") || key.includes("poison");
+  }).length;
+  return dots + buffs;
+}
+
+function countCpuRemovableDebuffs(P) {
+  const active = (P?.active_buffs ?? []).filter(b => {
+    if (!b || b.unremovable || b.passive) return false;
+    const type = String(b.type ?? b.name ?? "");
+    return b.is_debuff || b.debuff || type.includes("低下") || type.includes("封印") || type.includes("毒");
+  }).length;
+  const freezes = Array.isArray(P?.freeze_debuffs) ? P.freeze_debuffs.length : 0;
+  const defs = Array.isArray(P?.defense_debuffs) ? P.defense_debuffs.length : 0;
+  return active + freezes + defs + countCpuPoisonDots(P);
+}
+
 function getCpuOnmyojiTalismanScore(P, item) {
   if (!isCpuOnmyojiTalisman(item)) return -Infinity;
-  const rankBonus = item.shikigami_rank === "high" ? 1700 : 750;
+  const w = CPU_AI_WEIGHTS.onmyoji ?? {};
+  const rankBonus = item.shikigami_rank === "high"
+    ? Number(w.highRankBonus ?? 1700)
+    : Number(w.lowRankBonus ?? 750);
   const hpRate = Number(P?.hp ?? 0) / Math.max(1, Number(P?.max_hp ?? 1));
   const enemy = P?.opponent;
   const enemyHpRate = Number(enemy?.hp ?? 0) / Math.max(1, Number(enemy?.max_hp ?? 1));
-  let score = 6800 + rankBonus;
-  if (hpRate < 0.45) score += item.shikigami_rank === "high" ? 1800 : 700;
-  if (enemyHpRate < 0.5) score += item.shikigami_rank === "high" ? 1200 : 450;
-  if (getCpuJobKeyByName(enemy?.job) === 5 || getCpuJobKeyByName(enemy?.job) === 8) score += 650;
+  const enemyJobKey = getCpuJobKeyByName(enemy?.job);
+  const name = String(item.shikigami_name ?? item.name ?? "");
+  const enemyBuffs = countCpuPositiveBuffs(enemy);
+  const poisonDots = countCpuPoisonDots(P);
+  const debuffs = countCpuRemovableDebuffs(P);
+  let score = Number(w.baseTalismanScore ?? 6800) + rankBonus;
+  if (hpRate < 0.45) score += item.shikigami_rank === "high"
+    ? Number(w.lowHpHighRankBonus ?? 1800)
+    : Number(w.lowHpLowRankBonus ?? 700);
+  if (enemyHpRate < 0.5) score += item.shikigami_rank === "high"
+    ? Number(w.enemyLowHpHighRankBonus ?? 1200)
+    : Number(w.enemyLowHpLowRankBonus ?? 450);
+  if (name.includes("猫又")) {
+    if (enemyJobKey === 5) score += Number(w.catVsMageBonus ?? 5200);
+    if (enemyJobKey === 8 || isCpuSummonerJobName(enemy?.job)) score += Number(w.catVsArcherOrSummonerBonus ?? 900);
+    if (enemyHpRate < 0.7) score += Number(w.catEnemyDamagedBonus ?? 650);
+  } else if (name.includes("九尾")) {
+    if (enemyBuffs >= 2) score += Number(w.kyuubiManyBuffsBonus ?? 5200) + enemyBuffs * Number(w.kyuubiPerBuffBonus ?? 750);
+    else if (enemyBuffs === 1) score += Number(w.kyuubiOneBuffBonus ?? 1700);
+    if (enemyJobKey === 5 || enemyJobKey === 10) score += Number(w.kyuubiVsMageOrMadBonus ?? 900);
+  } else if (name.includes("白龍")) {
+    if (poisonDots >= 2) score += Number(w.whiteDragonTwoPoisonBonus ?? 7200);
+    else if (poisonDots === 1) score += Number(w.whiteDragonOnePoisonBonus ?? 3600);
+    if (debuffs >= 2) score += Number(w.whiteDragonManyDebuffBonus ?? 2600);
+    if (enemyJobKey === 8 && poisonDots > 0) score += Number(w.whiteDragonVsArcherPoisonBonus ?? 2800);
+    if (hpRate < 0.65) score += Number(w.whiteDragonLowHpBonus ?? 2200);
+  } else if (name.includes("玄武")) {
+    if ([1, 8, 10].includes(enemyJobKey)) score += Number(w.genbuVsPhysicalBonus ?? 1250);
+  } else if (name.includes("烏天狗")) {
+    if ([1, 5, 8, 10].includes(enemyJobKey)) score += Number(w.tenguVsThreatBonus ?? 950);
+  } else if (name.includes("鬼火")) {
+    if (enemyHpRate > 0.55) score += Number(w.onibiHealthyEnemyBonus ?? 800);
+  }
   return score;
 }
 
@@ -9737,6 +9919,17 @@ function isCpuPriestBlessingHealItem(item) {
   return !!item?.is_priest_item && item.priest_effect === "blessing_heal";
 }
 
+function isCpuPriestSkill3Ready(state) {
+  const blessing = Number(state?.blessingCount ?? 0);
+  const enemyHpRate = Number(state?.enemyHpRate ?? 1);
+  const hpRate = Number(state?.hpRate ?? 1);
+  if (Number(state?.level ?? 1) < 3 || !state?.canSkill3) return false;
+  if (blessing >= 18) return true;
+  if (blessing >= 12 && enemyHpRate <= 0.42) return true;
+  if (blessing >= 14 && hpRate >= 0.72 && enemyHpRate <= 0.62) return true;
+  return false;
+}
+
 function getCpuPriestRegenRounds(P) {
   return Math.max(
     0,
@@ -10004,6 +10197,7 @@ function getCpuItemUseScore(P, item) {
     const blessing = Math.max(0, Number(P?.blessing_count ?? 0));
     const enemy = P?.opponent ?? null;
     const enemyHpRate = Number(enemy?.hp ?? 0) / Math.max(1, Number(enemy?.max_hp ?? 1));
+    const usedSkill3 = hasCpuUsedSkill(P, "priest_3");
     if (isCpuPriestRegenItem(item)) {
       const regenRounds = getCpuPriestRegenRounds(P);
       if (regenRounds <= 0) return 10800;
@@ -10011,6 +10205,7 @@ function getCpuItemUseScore(P, item) {
       if (hpRate < 0.62) return 5200;
       return -Infinity;
     }
+    if (!usedSkill3) return -Infinity;
     if (isCpuPriestBlessingHealItem(item)) {
       if (blessing >= 20 && hpRate < 0.58) return 9000;
       if (blessing >= 24 && hpRate < 0.78) return 4300;
@@ -10090,6 +10285,14 @@ function shouldCpuHoldUsableItem(state) {
   const jobKey = getCpuJobKeyByName(state?.job);
   const danger = Number(state?.hpRate ?? 1) < 0.35;
   const lethalThreat = Number(state?.enemyAttack ?? 0) >= Number(state?.hp ?? 0);
+  if (
+    jobKey === 3 &&
+    state?.usableItem?.is_priest_item &&
+    !state?.usableItemIsPriestRegen &&
+    !state?.priestSkill3Used
+  ) {
+    return true;
+  }
   if (jobKey === 4 && !state?.thiefSkill3Used && !danger && !lethalThreat) {
     return true;
   }
@@ -10159,6 +10362,13 @@ function shouldCpuLevelUpEarly(state) {
     }
   }
 
+  if (jobKey === 7) {
+    const equipCount = Number(state?.alchemistEquipCount ?? 0);
+    const spareCoins = coins - shortage;
+    if (level === 1) return exp >= 11 || (equipCount >= 3 && spareCoins >= 0) || hpRate < 0.72;
+    if (level === 2) return exp >= 13 || Number(state?.alchemistFusionReady ? 1 : 0) > 0 || equipCount >= 3 || hpRate < 0.58;
+  }
+
   return false;
 }
 
@@ -10217,18 +10427,22 @@ function getCpuShopScore(P, item, state = null) {
     const blessing = Math.max(0, Number(state?.blessingCount ?? P?.blessing_count ?? 0));
     const regenCount = Number(state?.priestRegenItemCount ?? getCpuPriestRegenItemCount(P));
     const regenRounds = Number(state?.priestRegenRounds ?? getCpuPriestRegenRounds(P));
+    const usedSkill3 = hasCpuUsedSkill(P, "priest_3");
     if (isCpuPriestRegenItem(item)) {
-      score += 9800 + Math.max(0, 2 - regenCount) * 850;
-      if (regenRounds <= 0) score += 2800;
-      else if (regenRounds <= 3) score += 1700;
+      score += 12800 + Math.max(0, 2 - regenCount) * 950;
+      if (regenRounds <= 0) score += 3600;
+      else if (regenRounds <= 3) score += 2200;
     } else if (isCpuPriestBlessingHealItem(item)) {
-      score += blessing >= 16 ? 2600 : 750;
+      if (!usedSkill3) return -Infinity;
+      score += blessing >= 20 ? 2400 : 350;
     } else if (isCpuPriestBlessingAttackItem(item)) {
-      score += blessing >= 12 ? 2400 : 500;
+      if (!usedSkill3) return -Infinity;
+      score += blessing >= 14 ? 2300 : 300;
     } else if (isCpuHealItem(item)) {
       score += Number(state?.hpRate ?? 1) < 0.72 ? 3600 : 900;
     } else if (isNormalEquipmentItem(item)) {
-      score += isCpuCoinEquip(item) ? 2300 : 1200;
+      if (isCpuDefenseEquip(item)) score += 5200 + Number(item.star ?? 1) * 180;
+      else score += isCpuCoinEquip(item) ? 900 : 900;
     }
   } else if (jobKey === 4) {
     const levelPlan = getCpuLevelPlan(P);
@@ -10242,13 +10456,32 @@ function getCpuShopScore(P, item, state = null) {
     const talismanCount = countCpuOnmyojiTalismans(P);
     const hasCoinEquip = isCpuCoinEquip(P?.equipment);
     if (isCpuCoinEquip(item)) score += (hasCoinEquip ? 1800 : 9200) + getCpuCoinEquipValue(item) * 320;
-    else if (isCpuOnmyojiTalisman(item)) score += 6900 + Math.max(0, 3 - talismanCount) * 900 + (item.shikigami_rank === "high" ? 1150 : 0);
+    else if (isCpuOnmyojiTalisman(item)) {
+      const w = CPU_AI_WEIGHTS.onmyoji ?? {};
+      score += getCpuOnmyojiTalismanScore(P, item) + Math.max(0, 3 - talismanCount) * Number(w.shopMissingTalismanBonus ?? 900);
+    }
     else if (isCpuUsableInventoryItem(item)) score += 1600;
     else if (isNormalEquipmentItem(item)) score += 1200;
   } else if (jobKey === 7) {
     const equipCount = Number(state?.alchemistEquipCount ?? 0);
+    const levelPlan = getCpuLevelPlan(P);
     if (isNormalEquipmentItem(item)) {
-      score += 7200 + Math.max(0, 6 - equipCount) * 850 + Number(item.star ?? 1) * 120;
+      const star = Number(item.star ?? 1);
+      if (isCpuCoinEquip(item)) {
+        const coinCount = Number(state?.alchemistCoinEquipCount ?? countCpuAlchemistCoinEquips(P));
+        if (coinCount >= 1 || Number(state?.turnCount ?? 0) > 4) return -Infinity;
+        score += 4700 + getCpuCoinEquipValue(item) * 260 + star * 80;
+      } else {
+        score += 6900 + Math.max(0, 6 - equipCount) * 780 + star * 140;
+        score += getCpuAlchemistEnemyEquipBias(state?.enemyJob, item);
+      }
+      if (
+        levelPlan.level < 3 &&
+        levelPlan.shortage > 0 &&
+        coins - price < levelPlan.shortage
+      ) {
+        score -= levelPlan.level === 2 ? 3300 : 1800;
+      }
     } else if (item.equip_type === "alchemist_unique") {
       score += 5200;
     } else if (isCpuUsableInventoryItem(item)) {
@@ -10634,8 +10867,10 @@ function analyzeCpuState(match, ws) {
   // ★ 錬金術師：合成候補装備数
   // ============================
   let alchemistEquipCount = 0;
+  let alchemistCoinEquipCount = 0;
 
   if (P.job === "錬金術師") {
+    alchemistCoinEquipCount = countCpuAlchemistCoinEquips(P);
     if (
       P.equipment &&
       P.equipment.equip_type !== "mage_equip" &&
@@ -10880,8 +11115,8 @@ function analyzeCpuState(match, ws) {
   const summonerTiamatDamageEstimate = !summonerTiamatRole
     ? 0
     : summonerTiamat?.stage === "adult"
-      ? (summonerTiamatRole === "front" ? 20 : 10)
-      : (summonerTiamatRole === "front" ? 10 : 5);
+      ? (summonerTiamatRole === "front" ? 18 : 8)
+      : Math.max(0, (summonerTiamatRole === "front" ? 10 : 5) - Math.floor(Number(E?.get_total_defense?.() ?? E?.defense ?? 0) * 0.5));
   const priestRegenRounds = getCpuPriestRegenRounds(P);
   const priestRegenItemCount = getCpuPriestRegenItemCount(P);
   const combineEquipPair = pickCpuNormalEquipCombinePair(P);
@@ -10920,8 +11155,10 @@ function analyzeCpuState(match, ws) {
     blessingCount: Math.max(0, Number(P.blessing_count ?? 0)),
     priestRegenRounds,
     priestRegenItemCount,
+    priestSkill3Used: hasCpuUsedSkill(P, "priest_3"),
     usableItemIsPriestRegen: isCpuPriestRegenItem(usableItem),
     onmyojiTalismanCount: countCpuOnmyojiTalismans(P),
+    onmyojiUsableTalismanScore: isCpuOnmyojiTalisman(usableItem) ? getCpuOnmyojiTalismanScore(P, usableItem) : 0,
     thiefSkill3Used: hasCpuUsedSkill(P, "thief_3"),
     madIsMad: !!madState?.is_mad,
     madRemaining: Number(madState?.remaining ?? 0),
@@ -10953,6 +11190,7 @@ function analyzeCpuState(match, ws) {
     archerIdealSkill1Setup,
     
     alchemistEquipCount,   // ★ これを追加
+    alchemistCoinEquipCount,
 
     alchemistSkill1Used: hasCpuUsedSkill(P, "alchemist_1"),
     alchemistSkill2Used: hasCpuUsedSkill(P, "alchemist_2"),
@@ -11065,10 +11303,51 @@ function applyCpuAiMistake(action, state) {
   return pool[Math.floor(Math.random() * pool.length)] ?? action;
 }
 
+function summarizeCpuActionItem(item) {
+  if (!item) return null;
+  return {
+    uid: item.uid ?? null,
+    name: item.name ?? null,
+    price: item.price ?? null,
+    category: item.category ?? null,
+    equipType: item.equip_type ?? null,
+    isArrow: !!(item.is_arrow || item.equip_type === "arrow"),
+    arrowEffect: item.effect ?? item.arrow_effect ?? null,
+    arrowCount: item.arrows_remaining ?? item.arrow_count ?? null,
+    isOnmyojiTalisman: isCpuOnmyojiTalisman(item),
+    shikigamiName: item.shikigami_name ?? null,
+    shikigamiRank: item.shikigami_rank ?? null,
+    isSummonerEgg: !!item.is_summoner_egg,
+    summonerDragonType: item.summoner_dragon_type ?? null,
+    isSummonerFeed: !!item.is_summoner_feed,
+    isDollCostume: !!item.is_doll_costume,
+    dollPart: item.part ?? null,
+    dollEffectType: item.effect_type ?? null,
+    star: item.star ?? null,
+  };
+}
+
+function getCpuDecisionItemForLog(action, state) {
+  if (action?.item) return action.item;
+  if (!state) return null;
+  if (action?.type === "use_item") return state.usableItem;
+  if (action?.type === "equip") return state.equipItem;
+  if (action?.type === "special") return state.specialEquip;
+  if (action?.type === "arrow") return state.arrowEquip;
+  return null;
+}
+
 function recordCpuSimDecision(match, ws, action, state, phase) {
   if (!match?.cpuSimLog || !ws?.player || !action) return;
   const actor = ws.player;
   const enemy = actor.opponent;
+  const item = getCpuDecisionItemForLog(action, state);
+  const summonerFront = isCpuSummonerJobName(actor.job)
+    ? String(ensureSummonerState(actor)?.front ?? "")
+    : "";
+  const summonerFrontDragon = summonerFront
+    ? getSummonerDragon(actor, summonerFront)
+    : null;
   match.cpuSimLog.push({
     turn: Number(actor.turn_count ?? 0),
     phase,
@@ -11079,8 +11358,12 @@ function recordCpuSimDecision(match, ws, action, state, phase) {
     skill: action.id ?? null,
     score: action.score ?? null,
     reason: action.reason ?? "",
+    item: summarizeCpuActionItem(item),
     hp: Number(actor.hp ?? 0),
     enemyHp: Number(enemy?.hp ?? 0),
+    enemyJob: enemy?.job ?? null,
+    summonerFront: summonerFront || null,
+    summonerFrontStage: summonerFrontDragon?.stage ?? null,
   });
 }
 
@@ -11180,14 +11463,14 @@ function applyJobCpuScores(candidates, state) {
     const blessing = Number(state?.blessingCount ?? 0);
     const regenRounds = Number(state?.priestRegenRounds ?? 0);
     const regenItemCount = Number(state?.priestRegenItemCount ?? 0);
-    if (regenItemCount <= 0 && regenRounds <= 3) add("shop", 0, regenRounds <= 0 ? 5200 : 3000, "priest_buy_holy_incense");
-    if (state?.usableItemIsPriestRegen) add("use_item", 0, regenRounds <= 0 ? 6200 : 3600, "priest_use_holy_incense");
-    add("skill", 1, Number(state?.hpRate ?? 1) < 0.75 ? 3100 : 1800, "priest_blessing_regen");
-    add("skill", 2, Number(state?.hpRate ?? 1) < 0.7 ? 2600 : 1200, "priest_cleanse_regen");
-    if (blessing < 10 && Number(state?.enemyHpRate ?? 1) > 0.35) {
-      add("skill", 3, -2600, "priest_save_blessing");
-    } else if (blessing >= 14 || Number(state?.enemyHpRate ?? 1) < 0.32) {
-      add("skill", 3, 2600 + blessing * 80, "priest_blessing_burst");
+    if (regenItemCount <= 0 && regenRounds <= 4) add("shop", 0, regenRounds <= 0 ? 7600 : 4800, "priest_buy_holy_incense");
+    if (state?.usableItemIsPriestRegen) add("use_item", 0, regenRounds <= 0 ? 8200 : 5200, "priest_use_holy_incense");
+    add("skill", 1, Number(state?.hpRate ?? 1) < 0.78 ? 6200 : 5200, "priest_blessing_regen");
+    add("skill", 2, Number(state?.hpRate ?? 1) < 0.72 ? 6000 : 4800, "priest_cleanse_regen");
+    if (isCpuPriestSkill3Ready(state)) {
+      add("skill", 3, 3600 + blessing * 110, "priest_blessing_burst");
+    } else {
+      add("skill", 3, -7200, "priest_save_blessing");
     }
   } else if (jobKey === 4) {
     const itemCount = Number(state?.thiefItemCount ?? 0);
@@ -11219,9 +11502,17 @@ function applyJobCpuScores(candidates, state) {
       add("skill", 2, 1200, "mage_burst");
     }
   } else if (jobKey === 6) {
+    const w = CPU_AI_WEIGHTS.onmyoji ?? {};
     add("equip", 0, 1900, "onmyoji_coin_equip");
-    add("shop", 0, Number(state?.onmyojiTalismanCount ?? 0) < 2 ? 3600 : 1500, "onmyoji_buy_talismans");
-    if (state?.hasUsableItem) add("use_item", 0, 2600, "onmyoji_use_talisman");
+    add("shop", 0, Number(state?.onmyojiTalismanCount ?? 0) < 2
+      ? Number(w.actionShopFewTalismansScore ?? 4400)
+      : Number(w.actionShopEnoughTalismansScore ?? 2100), "onmyoji_buy_talismans");
+    if (state?.hasUsableItem) {
+      add("use_item", 0, Math.max(
+        Number(w.actionUseItemMinimumScore ?? 2600),
+        Number(state?.onmyojiUsableTalismanScore ?? 0) - Number(w.actionUseItemScoreOffset ?? 4200)
+      ), "onmyoji_use_talisman");
+    }
     add("skill", 1, 650, "onmyoji_summon");
     if (Number(state?.enemyHpRate ?? 1) < 0.45) add("skill", 3, 1300, "onmyoji_control");
   } else if (jobKey === 7) {
@@ -11248,8 +11539,8 @@ function applyJobCpuScores(candidates, state) {
     }
   } else if (jobKey === 9) {
     if (isCpuSummonerJobName(state?.job)) {
-      if (Number(state?.summonerDragonCount ?? 0) <= 0 && state?.canSkill1) {
-        add("skill", 1, 15000, "summoner_first_contract");
+      if (state?.canSkill1 && !state?.summonerSkill1Used && Number(state?.summonerDragonCount ?? 0) < 3) {
+        add("skill", 1, Number(state?.turnCount ?? 0) <= 2 ? 18000 : 9000, "summoner_first_contract");
         add("shop", 0, 3600, "summoner_buy_first_egg");
       }
       if (Number(state?.summonerDragonCount ?? 0) < 3 && state?.shopHasSummonerEgg) {
@@ -11447,6 +11738,9 @@ function applyCpuStyleScores(candidates, state) {
 
 function isCpuScoredActionAllowed(action, state) {
   const jobKey = getCpuJobKeyByName(state?.job);
+  if (jobKey === 3 && action?.type === "skill" && Number(action.id ?? 0) === 3) {
+    return isCpuPriestSkill3Ready(state);
+  }
   if (jobKey === 4 && action?.type === "skill" && Number(action.id ?? 0) === 3) {
     return isThiefSkill3Ready(state);
   }
@@ -11537,7 +11831,7 @@ function decideCpuAction(state) {
     if (state.hasUsableItem && state.usableItem?.is_summoner_feed && !shouldCpuHoldUsableItem(state)) {
       return { type: "use_item" };
     }
-    if (state.canSkill1 && Number(state.summonerDragonCount ?? 0) <= 0) {
+    if (state.canSkill1 && !state.summonerSkill1Used && Number(state.summonerDragonCount ?? 0) < 3) {
       return { type: "skill", id: 1 };
     }
     if (shouldCpuLevelUpEarly(state)) {
@@ -11837,6 +12131,7 @@ function decideCpuAction(state) {
   if (
     state.canSkill3 &&
     (jobKey !== 4 || isThiefSkill3Ready(state)) &&
+    (jobKey !== 3 || isCpuPriestSkill3Ready(state)) &&
     (jobKey !== 8 || state.archerSkill1Used || state.archerNoConsumeActive) &&
     (jobKey !== 9 || isDollSkill3Ready(state)) &&
     (
@@ -11930,7 +12225,10 @@ async function cpuStep(match, ws) {
     }
     if (preferredArrow) {
       const idx = P.shop_items.findIndex(x => x.uid === preferredArrow.uid);
-      if (idx >= 0) match.buyItem(ws, idx);
+      if (idx >= 0) {
+        match.buyItem(ws, idx);
+        recordCpuSimDecision(match, ws, { type: "buy_item", item: preferredArrow, reason: "shop_preferred_arrow" }, state, "resolved");
+      }
     } else if (isCpuArcherJob(P) && (state.needsArrowShop || state.needsArcherArrowPrep)) {
       return false;
     } else {
@@ -11939,7 +12237,10 @@ async function cpuStep(match, ws) {
       );
       const picked = pickCpuShopPurchase(P, shopCandidates, state);
       const idx = picked ? P.shop_items.findIndex(x => x.uid === picked.uid) : -1;
-      if (idx >= 0) match.buyItem(ws, idx);
+      if (idx >= 0) {
+        match.buyItem(ws, idx);
+        recordCpuSimDecision(match, ws, { type: "buy_item", item: picked, reason: "shop_purchase" }, state, "resolved");
+      }
     }
     return false;
   }
@@ -12215,6 +12516,7 @@ export async function maybeCpuTurn(match) {
             const idx = P.shop_items.findIndex(x => x.uid === preferredArrow.uid);
             if (idx >= 0) {
               match.buyItem(botWS, idx);
+              recordCpuSimDecision(match, botWS, { type: "buy_item", item: preferredArrow, reason: "shop_preferred_arrow" }, state, "resolved");
               didSomething = true;
               break;
             }
@@ -12364,6 +12666,7 @@ export async function maybeCpuTurn(match) {
             const idx = P.shop_items.findIndex(x => x.uid === it.uid);
             if (idx >= 0) {
               match.buyItem(botWS, idx);
+              recordCpuSimDecision(match, botWS, { type: "buy_item", item: it, reason: "shop_purchase" }, state, "resolved");
               didSomething = true; 
             }
           }
@@ -12542,6 +12845,10 @@ function summarizeCpuSim(results) {
     matchupHighlights: {},
     byAiLevel: {},
     byAiStyle: {},
+    summonerFrontPerformance: {
+      byPrimaryFront: {},
+      byFinalActionFront: {},
+    },
   };
 
   const addBucket = (bucket, key, won, turns) => {
@@ -12555,8 +12862,18 @@ function summarizeCpuSim(results) {
     rec.averageTurns = rec.games ? Number((rec.turns / rec.games).toFixed(2)) : 0;
     bucket[key] = rec;
   };
+  const addSampleBucket = (bucket, key, won) => {
+    const rec = bucket[key] ?? { samples: 0, wins: 0, losses: 0, draws: 0, winRate: 0 };
+    rec.samples++;
+    if (won === true) rec.wins++;
+    else if (won === false) rec.losses++;
+    else rec.draws++;
+    rec.winRate = rec.samples ? Number((rec.wins / rec.samples).toFixed(3)) : 0;
+    bucket[key] = rec;
+  };
 
   const DOLL_JOB = "人形使い";
+  const SUMMONER_JOB = "召喚士";
   const makeChoiceBucket = () => ({ total: 0, byChoice: {}, share: {} });
   const makeOutcomeChoiceSet = () => ({
     all: makeChoiceBucket(),
@@ -12647,6 +12964,22 @@ function summarizeCpuSim(results) {
     addBucket(summary.byAiLevel, String(r.p2.aiLevel), r.result === "p2" ? true : r.result === "p1" ? false : null, r.turns);
     addBucket(summary.byAiStyle, String(r.p1.aiStyle ?? "unknown"), r.result === "p1" ? true : r.result === "p2" ? false : null, r.turns);
     addBucket(summary.byAiStyle, String(r.p2.aiStyle ?? "unknown"), r.result === "p2" ? true : r.result === "p1" ? false : null, r.turns);
+
+    for (const side of ["p1", "p2"]) {
+      if (r?.[side]?.job !== SUMMONER_JOB) continue;
+      const won = r.result === "draw" ? null : r.result === side;
+      const frontCounts = {};
+      for (const decision of r.decisions ?? []) {
+        if (decision?.actor !== SUMMONER_JOB || decision?.phase !== "final" || !decision?.summonerFront) continue;
+        const front = String(decision.summonerFront);
+        frontCounts[front] = (frontCounts[front] ?? 0) + 1;
+        addSampleBucket(summary.summonerFrontPerformance.byFinalActionFront, front, won);
+      }
+      const primaryFront = Object.entries(frontCounts)
+        .sort((a, b) => Number(b[1] ?? 0) - Number(a[1] ?? 0) || String(a[0]).localeCompare(String(b[0])))
+        [0]?.[0] ?? "none";
+      addBucket(summary.summonerFrontPerformance.byPrimaryFront, primaryFront, won, r.turns);
+    }
 
     const dollSide = r.p1.job === DOLL_JOB ? "p1" : r.p2.job === DOLL_JOB ? "p2" : null;
     if (dollSide) {

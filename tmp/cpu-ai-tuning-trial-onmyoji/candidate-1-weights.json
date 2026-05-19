@@ -1,0 +1,37 @@
+{
+  "onmyoji": {
+    "baseTalismanScore": 6800,
+    "lowRankBonus": 750,
+    "highRankBonus": 1700,
+    "lowHpHighRankBonus": 1800,
+    "lowHpLowRankBonus": 700,
+    "enemyLowHpHighRankBonus": 1200,
+    "enemyLowHpLowRankBonus": 450,
+    "catVsMageBonus": 5200,
+    "catVsArcherOrSummonerBonus": 900,
+    "catEnemyDamagedBonus": 650,
+    "kyuubiManyBuffsBonus": 5200,
+    "kyuubiPerBuffBonus": 750,
+    "kyuubiOneBuffBonus": 1650,
+    "kyuubiVsMageOrMadBonus": 900,
+    "whiteDragonTwoPoisonBonus": 7100,
+    "whiteDragonOnePoisonBonus": 3700,
+    "whiteDragonManyDebuffBonus": 2600,
+    "whiteDragonVsArcherPoisonBonus": 3350,
+    "whiteDragonLowHpBonus": 2200,
+    "genbuVsPhysicalBonus": 1250,
+    "tenguVsThreatBonus": 950,
+    "onibiHealthyEnemyBonus": 800,
+    "shopMissingTalismanBonus": 900,
+    "actionShopFewTalismansScore": 3750,
+    "actionShopEnoughTalismansScore": 2100,
+    "actionUseItemMinimumScore": 2600,
+    "actionUseItemScoreOffset": 3700
+  },
+  "meta": {
+    "generatedAt": "2026-05-19T03:03:02.066Z",
+    "candidateIndex": 1,
+    "source": "dev/cpu_ai_tune.js",
+    "note": "mutated"
+  }
+}

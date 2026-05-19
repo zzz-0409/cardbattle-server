@@ -1,0 +1,1021 @@
+{
+  "accounts": {
+    "bffa521c-22bd-4bf4-a945-f92ec4d2c669": {
+      "id": "bffa521c-22bd-4bf4-a945-f92ec4d2c669",
+      "name": "zzz...",
+      "createdAt": 1769016972429,
+      "lastNameChangeAt": 1778220842868,
+      "jobs": {
+        "戦士": {
+          "rating": 1016,
+          "wins": 2,
+          "losses": 2,
+          "updatedAt": 1778767706021
+        },
+        "騎士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "僧侶": {
+          "rating": 992,
+          "wins": 0,
+          "losses": 1,
+          "updatedAt": 1778767162382
+        },
+        "盗賊": {
+          "rating": 992,
+          "wins": 0,
+          "losses": 1,
+          "updatedAt": 1778767339079
+        },
+        "魔導士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "陰陽師": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "錬金術師": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "弓兵": {
+          "rating": 1008,
+          "wins": 1,
+          "losses": 0,
+          "updatedAt": 1778995264413
+        },
+        "人形使い": {
+          "rating": 992,
+          "wins": 0,
+          "losses": 1,
+          "updatedAt": 1778765765902
+        },
+        "狂人": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "召喚士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        }
+      },
+      "dojoProgress": {
+        "戦士": {
+          "highestStage": 20,
+          "clearCount": 0,
+          "cleared": false,
+          "updatedAt": 1778833495335,
+          "savedRun": {
+            "run": {
+              "mode": "dojo",
+              "jobName": "戦士",
+              "stage": 9,
+              "highestStage": 8,
+              "startedAt": 1778818002070,
+              "lastDrops": [
+                {
+                  "type": "coin",
+                  "name": "コイン",
+                  "amount": 30,
+                  "base_amount": 17,
+                  "trail_bonus_amount": 13,
+                  "trail_bonus_percent": 80
+                },
+                {
+                  "type": "exp",
+                  "name": "EXP",
+                  "amount": 5
+                },
+                {
+                  "type": "prestige",
+                  "name": "軌跡ポイント",
+                  "amount": 4
+                },
+                {
+                  "type": "equip",
+                  "name": "★2 防御力装備",
+                  "item": {
+                    "name": "★2 防御力装備",
+                    "star": 2,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "防御力",
+                    "effect_type": "防御力",
+                    "power": 3,
+                    "price": 20,
+                    "effect_text": "防御力+3",
+                    "is_arrow": false,
+                    "uid": "db13ac77-1fd3-432f-adab-3f6a2a37d850"
+                  }
+                }
+              ],
+              "midBossPool": [
+                "kali",
+                "athena",
+                "anubis"
+              ],
+              "bigBossPool": [
+                "ashura",
+                "zeus",
+                "susanoo"
+              ],
+              "dojoTrail": {
+                "prestigePoints": 2,
+                "trailNodes": [
+                  31,
+                  32,
+                  33,
+                  34,
+                  35,
+                  36,
+                  37,
+                  38,
+                  39,
+                  40,
+                  61,
+                  62,
+                  63,
+                  64,
+                  65,
+                  66,
+                  67,
+                  68,
+                  69,
+                  70
+                ],
+                "trailAttackGrowth": 0,
+                "trailItemAttackGrowth": 0,
+                "trailCoinSpent": 150
+              },
+              "trailUpgrades": {},
+              "waiting": true,
+              "cleared": false
+            },
+            "player": {
+              "name": "zzz...",
+              "profile": {
+                "iconJobId": "1",
+                "titleJobId": "1",
+                "titleText": "見習い戦士",
+                "iconSrc": "Assets/profile/icons/warrior-face.png",
+                "frameId": "none",
+                "frameSrc": ""
+              },
+              "job": "戦士",
+              "level": 1,
+              "exp": 40,
+              "hp": 44,
+              "max_hp": 200,
+              "dojoTrailBonusesStripped": true,
+              "base_attack": 23,
+              "attack": 23,
+              "base_defense": 10,
+              "defense": 10,
+              "special_defense": 0,
+              "coins": 4,
+              "items": [],
+              "dojoStorage": {
+                "items": [
+                  {
+                    "name": "★2 攻撃力UP (2T)",
+                    "star": 2,
+                    "effect_type": "攻撃力",
+                    "power": 5,
+                    "duration": 2,
+                    "price": 12,
+                    "effect_text": "攻撃力 +5 / 2T",
+                    "is_equip": false,
+                    "uid": "7e2ce5b1-f1ac-48c8-b799-bed3e188cb90"
+                  },
+                  {
+                    "name": "★2 HP回復",
+                    "star": 2,
+                    "effect_type": "HP",
+                    "power": 15,
+                    "duration": 0,
+                    "price": 20,
+                    "effect_text": "HP +15 (即時)",
+                    "is_equip": false,
+                    "uid": "ee8e4327-0054-46ea-8bcc-49895821ba49"
+                  }
+                ],
+                "equipment": [
+                  {
+                    "name": "★1 防御力装備",
+                    "star": 1,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "防御力",
+                    "effect_type": "防御力",
+                    "power": 2,
+                    "price": 10,
+                    "effect_text": "防御力+2",
+                    "is_arrow": false,
+                    "uid": "ab85c72e-2474-4df1-a5f8-687f9848659e"
+                  },
+                  {
+                    "uid": "ca234117-d689-48d9-96ea-52e863616529",
+                    "name": "★2 攻撃力装備",
+                    "star": 2,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "equip_power": 2,
+                    "power": 3,
+                    "price": 0,
+                    "effect_text": "攻撃力+3",
+                    "is_arrow": false
+                  },
+                  {
+                    "name": "★5 攻撃力装備",
+                    "star": 5,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "power": 6,
+                    "price": 10,
+                    "effect_text": "攻撃力+6",
+                    "is_arrow": false,
+                    "uid": "c6fb1614-bf68-4e3e-8bbe-1af863955855"
+                  },
+                  {
+                    "uid": "d481fb5e-140a-42c3-8af1-884eed2829f4",
+                    "name": "★1 攻撃力装備",
+                    "star": 1,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "equip_power": 2,
+                    "power": 2,
+                    "price": 0,
+                    "effect_text": "攻撃力+2",
+                    "is_arrow": false
+                  },
+                  {
+                    "name": "★3 防御力装備",
+                    "star": 3,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "防御力",
+                    "effect_type": "防御力",
+                    "power": 4,
+                    "price": 20,
+                    "effect_text": "防御力+4",
+                    "is_arrow": false,
+                    "uid": "de2bb44a-9bf8-4ebc-b268-3ad266135e09"
+                  }
+                ],
+                "special": [
+                  {
+                    "uid": "35769c11-3a24-41b3-8db7-4de0f3370a33",
+                    "name": "デュランダル",
+                    "is_equip": true,
+                    "equip_type": "dojo_special",
+                    "dojo_special_effect": "durandal",
+                    "defense_bonus": 5,
+                    "icon_src": "Assets/dojo/trail-icons/durandal-special.png",
+                    "effect_text": "基礎防御力+5。装備中にダメージを受けると、自身の攻撃力と防御力の合計の半分だけ防御貫通の反撃ダメージを与える。"
+                  },
+                  {
+                    "uid": "cf28d64a-1fbe-473f-a78f-c4958cab599b",
+                    "name": "ムラサメ",
+                    "is_equip": true,
+                    "equip_type": "dojo_special",
+                    "dojo_special_effect": "muramasa",
+                    "attack_bonus": 10,
+                    "icon_src": "Assets/dojo/trail-icons/muramasa-special.png",
+                    "effect_text": "基礎攻撃力+10。装備中、相手にダメージを与えた時、そのダメージの1/10だけHPを回復する。"
+                  }
+                ]
+              },
+              "dojoLoadout": {
+                "items": [],
+                "equipment": [
+                  "ab85c72e-2474-4df1-a5f8-687f9848659e",
+                  "c6fb1614-bf68-4e3e-8bbe-1af863955855",
+                  "ca234117-d689-48d9-96ea-52e863616529"
+                ],
+                "special": [
+                  "35769c11-3a24-41b3-8db7-4de0f3370a33",
+                  "cf28d64a-1fbe-473f-a78f-c4958cab599b"
+                ]
+              },
+              "dojoCarrySlots": {
+                "items": 1,
+                "equipment": 5,
+                "special": 5
+              },
+              "dojoEquipSlots": {
+                "equipment": 5,
+                "special": 5
+              },
+              "equipment": null,
+              "extra_equipments": [],
+              "equipment_inventory": [],
+              "special_equipment": null,
+              "extra_special_equipments": [],
+              "special_inventory": [],
+              "arrow": null,
+              "arrow2": null,
+              "arrow_inventory": [],
+              "arrow_slots": 1,
+              "shop_items": [
+                {
+                  "name": "★2 攻撃力UP (3T)",
+                  "star": 2,
+                  "effect_type": "攻撃力",
+                  "power": 3,
+                  "duration": 3,
+                  "price": 12,
+                  "effect_text": "攻撃力 +3 / 3T",
+                  "is_equip": false
+                },
+                {
+                  "name": "★2 攻撃力装備",
+                  "star": 2,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "攻撃力",
+                  "effect_type": "攻撃力",
+                  "power": 3,
+                  "price": 20,
+                  "effect_text": "攻撃力+3",
+                  "is_arrow": false,
+                  "sold_out": true,
+                  "soldOut": true,
+                  "shop_sold_out": true
+                },
+                {
+                  "name": "★2 防御力装備",
+                  "star": 2,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "防御力",
+                  "effect_type": "防御力",
+                  "power": 3,
+                  "price": 20,
+                  "effect_text": "防御力+3",
+                  "is_arrow": false,
+                  "sold_out": true,
+                  "soldOut": true,
+                  "shop_sold_out": true
+                },
+                {
+                  "name": "★2 防御力装備",
+                  "star": 2,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "防御力",
+                  "effect_type": "防御力",
+                  "power": 3,
+                  "price": 20,
+                  "effect_text": "防御力+3",
+                  "is_arrow": false
+                },
+                {
+                  "name": "★1 防御力UP (2T)",
+                  "star": 1,
+                  "effect_type": "防御力",
+                  "power": 3,
+                  "duration": 2,
+                  "price": 8,
+                  "effect_text": "防御力 +3 / 2T",
+                  "is_equip": false
+                }
+              ]
+            },
+            "savedAt": 1778833495335
+          },
+          "prestigePoints": 18,
+          "trailNodes": [
+            1,
+            2,
+            3,
+            11
+          ],
+          "trailAttackGrowth": 0
+        }
+      }
+    },
+    "eaa0d296-567a-4331-a737-9f9e68e10c3b": {
+      "id": "eaa0d296-567a-4331-a737-9f9e68e10c3b",
+      "name": "zzz",
+      "createdAt": 1776997747362,
+      "lastNameChangeAt": 1776997747375,
+      "jobs": {
+        "戦士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "騎士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "僧侶": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "盗賊": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "魔導士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "陰陽師": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "錬金術師": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "弓兵": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "人形使い": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "狂人": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        }
+      }
+    },
+    "d072e107-7d69-4673-abe3-69054738147a": {
+      "id": "d072e107-7d69-4673-abe3-69054738147a",
+      "name": "Player",
+      "createdAt": 1778482098873,
+      "lastNameChangeAt": 1778482098917,
+      "jobs": {
+        "戦士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "騎士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "僧侶": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "盗賊": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "魔導士": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "陰陽師": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "錬金術師": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "弓兵": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "人形使い": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        },
+        "狂人": {
+          "rating": 1000,
+          "wins": 0,
+          "losses": 0,
+          "updatedAt": 0
+        }
+      },
+      "dojoProgress": {
+        "戦士": {
+          "highestStage": 1,
+          "clearCount": 0,
+          "cleared": false,
+          "updatedAt": 1778567718495,
+          "prestigePoints": 0,
+          "trailAttackGrowth": 0,
+          "trailNodes": [],
+          "savedRun": {
+            "run": {
+              "mode": "dojo",
+              "jobName": "戦士",
+              "stage": 2,
+              "highestStage": 1,
+              "startedAt": 1778567705289,
+              "lastDrops": [
+                {
+                  "type": "coin",
+                  "name": "コイン",
+                  "amount": 19,
+                  "base_amount": 19,
+                  "trail_bonus_amount": 0,
+                  "trail_bonus_percent": 0
+                },
+                {
+                  "type": "exp",
+                  "name": "EXP",
+                  "amount": 5
+                },
+                {
+                  "type": "prestige",
+                  "name": "軌跡ポイント",
+                  "amount": 5
+                },
+                {
+                  "type": "equip",
+                  "name": "★2 攻撃力装備",
+                  "item": {
+                    "name": "★2 攻撃力装備",
+                    "star": 2,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "power": 3,
+                    "price": 20,
+                    "effect_text": "攻撃力+3",
+                    "is_arrow": false,
+                    "uid": "8c9e8336-a702-4dd9-98a7-8275529a553b"
+                  }
+                }
+              ],
+              "midBossPool": [
+                "anubis",
+                "kali",
+                "athena"
+              ],
+              "bigBossPool": [
+                "thor",
+                "zeus",
+                "ashura"
+              ],
+              "dojoTrail": {
+                "prestigePoints": 5,
+                "trailNodes": [],
+                "trailAttackGrowth": 0,
+                "trailItemAttackGrowth": 0,
+                "trailCoinSpent": 0
+              },
+              "trailUpgrades": {},
+              "waiting": true,
+              "cleared": false
+            },
+            "player": {
+              "name": "Player",
+              "profile": {
+                "iconJobId": "1",
+                "titleJobId": "1",
+                "titleText": "見習い戦士",
+                "iconSrc": "Assets/shokugyousenntaku/sennsi1_facefix_transparent.png",
+                "frameId": "none",
+                "frameSrc": ""
+              },
+              "job": "戦士",
+              "level": 1,
+              "exp": 5,
+              "hp": 200,
+              "max_hp": 200,
+              "dojoTrailBonusesStripped": true,
+              "base_attack": 23,
+              "attack": 23,
+              "base_defense": 10,
+              "defense": 10,
+              "special_defense": 0,
+              "coins": 19,
+              "items": [],
+              "dojoStorage": {
+                "items": [],
+                "equipment": [
+                  {
+                    "name": "★2 攻撃力装備",
+                    "star": 2,
+                    "is_equip": true,
+                    "equip_type": "normal",
+                    "equip_category": "攻撃力",
+                    "effect_type": "攻撃力",
+                    "power": 3,
+                    "price": 20,
+                    "effect_text": "攻撃力+3",
+                    "is_arrow": false,
+                    "uid": "8c9e8336-a702-4dd9-98a7-8275529a553b"
+                  }
+                ],
+                "special": []
+              },
+              "dojoLoadout": {
+                "items": [],
+                "equipment": [],
+                "special": []
+              },
+              "dojoCarrySlots": {
+                "items": 1,
+                "equipment": 1,
+                "special": 1
+              },
+              "dojoEquipSlots": {
+                "equipment": 1,
+                "special": 1
+              },
+              "equipment": null,
+              "extra_equipments": [],
+              "equipment_inventory": [],
+              "special_equipment": null,
+              "extra_special_equipments": [],
+              "special_inventory": [],
+              "arrow": null,
+              "arrow2": null,
+              "arrow_inventory": [],
+              "arrow_slots": 1,
+              "shop_items": [
+                {
+                  "name": "★1 防御力装備",
+                  "star": 1,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "防御力",
+                  "effect_type": "防御力",
+                  "power": 2,
+                  "price": 10,
+                  "effect_text": "防御力+2",
+                  "is_arrow": false
+                },
+                {
+                  "name": "★1 防御力装備",
+                  "star": 1,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "防御力",
+                  "effect_type": "防御力",
+                  "power": 2,
+                  "price": 10,
+                  "effect_text": "防御力+2",
+                  "is_arrow": false
+                },
+                {
+                  "name": "★1 攻撃力装備",
+                  "star": 1,
+                  "is_equip": true,
+                  "equip_type": "normal",
+                  "equip_category": "攻撃力",
+                  "effect_type": "攻撃力",
+                  "power": 2,
+                  "price": 10,
+                  "effect_text": "攻撃力+2",
+                  "is_arrow": false
+                },
+                {
+                  "name": "★2 防御力UP (1R)",
+                  "star": 2,
+                  "effect_type": "防御力",
+                  "power": 9,
+                  "duration": 1,
+                  "price": 12,
+                  "effect_text": "防御力 +9 / 1R",
+                  "is_equip": false
+                },
+                {
+                  "name": "★1 HP回復",
+                  "star": 1,
+                  "effect_type": "HP",
+                  "power": 10,
+                  "duration": 0,
+                  "price": 15,
+                  "effect_text": "HP +10 (即時)",
+                  "is_equip": false
+                }
+              ]
+            },
+            "savedAt": 1778567718495
+          }
+        }
+      }
+    },
+    "codex-dojo-check": {
+      "id": "codex-dojo-check",
+      "name": "",
+      "createdAt": 1778567293066,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {
+        "戦士": {
+          "highestStage": 1,
+          "clearCount": 0,
+          "cleared": false,
+          "updatedAt": 1778567293248,
+          "prestigePoints": 0,
+          "trailAttackGrowth": 0,
+          "trailNodes": []
+        }
+      }
+    },
+    "codex-dojo-check-1778567319270": {
+      "id": "codex-dojo-check-1778567319270",
+      "name": "",
+      "createdAt": 1778567319286,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {
+        "戦士": {
+          "highestStage": 1,
+          "clearCount": 0,
+          "cleared": false,
+          "updatedAt": 1778567319355,
+          "prestigePoints": 0,
+          "trailAttackGrowth": 0,
+          "trailNodes": []
+        }
+      }
+    },
+    "codex-dojo-check-1778567339439": {
+      "id": "codex-dojo-check-1778567339439",
+      "name": "",
+      "createdAt": 1778567339453,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {
+        "戦士": {
+          "highestStage": 1,
+          "clearCount": 0,
+          "cleared": false,
+          "updatedAt": 1778567339526,
+          "prestigePoints": 0,
+          "trailAttackGrowth": 0,
+          "trailNodes": []
+        }
+      }
+    },
+    "codex-dojo-check-1778567356921": {
+      "id": "codex-dojo-check-1778567356921",
+      "name": "",
+      "createdAt": 1778567356932,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {
+        "戦士": {
+          "highestStage": 1,
+          "clearCount": 0,
+          "cleared": false,
+          "updatedAt": 1778567357001,
+          "prestigePoints": 0,
+          "trailAttackGrowth": 0,
+          "trailNodes": []
+        }
+      }
+    },
+    "cpu-test-1-1778593060351": {
+      "id": "cpu-test-1-1778593060351",
+      "name": "",
+      "createdAt": 1778593060368,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-test-2-1778593065778": {
+      "id": "cpu-test-2-1778593065778",
+      "name": "",
+      "createdAt": 1778593065792,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-test-3-1778593070926": {
+      "id": "cpu-test-3-1778593070926",
+      "name": "",
+      "createdAt": 1778593070937,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-test-4-1778593076328": {
+      "id": "cpu-test-4-1778593076328",
+      "name": "",
+      "createdAt": 1778593076341,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-test-5-1778593081727": {
+      "id": "cpu-test-5-1778593081727",
+      "name": "",
+      "createdAt": 1778593081738,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-test-6-1778593087127": {
+      "id": "cpu-test-6-1778593087127",
+      "name": "",
+      "createdAt": 1778593087141,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-test-7-1778593092505": {
+      "id": "cpu-test-7-1778593092505",
+      "name": "",
+      "createdAt": 1778593092518,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-test-8-1778593097908": {
+      "id": "cpu-test-8-1778593097908",
+      "name": "",
+      "createdAt": 1778593097923,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-test-9-1778593103282": {
+      "id": "cpu-test-9-1778593103282",
+      "name": "",
+      "createdAt": 1778593103296,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-test-10-1778593108688": {
+      "id": "cpu-test-10-1778593108688",
+      "name": "",
+      "createdAt": 1778593108699,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cpu-debug-1778593140431": {
+      "id": "cpu-debug-1778593140431",
+      "name": "",
+      "createdAt": 1778593140439,
+      "lastNameChangeAt": 0,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "dbdd9308-ad6f-40fc-9c43-9a40c6c5099e": {
+      "id": "dbdd9308-ad6f-40fc-9c43-9a40c6c5099e",
+      "name": "Player",
+      "createdAt": 1778661537871,
+      "lastNameChangeAt": 1778661537936,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "f0e7bb1a-6565-47bd-aa3e-8e77d40cf7a3": {
+      "id": "f0e7bb1a-6565-47bd-aa3e-8e77d40cf7a3",
+      "name": "Player",
+      "createdAt": 1778661602129,
+      "lastNameChangeAt": 1778661602177,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "60c12fd2-c52b-4203-b0d8-8ab22d28f9e9": {
+      "id": "60c12fd2-c52b-4203-b0d8-8ab22d28f9e9",
+      "name": "Player",
+      "createdAt": 1778661651006,
+      "lastNameChangeAt": 1778661651033,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "773a5da6-a687-44ff-9616-a2e3ea941594": {
+      "id": "773a5da6-a687-44ff-9616-a2e3ea941594",
+      "name": "Player",
+      "createdAt": 1778661826373,
+      "lastNameChangeAt": 1778661826403,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "598335a1-e530-46d4-b1b3-3c8a8245f7c2": {
+      "id": "598335a1-e530-46d4-b1b3-3c8a8245f7c2",
+      "name": "Player",
+      "createdAt": 1778661882467,
+      "lastNameChangeAt": 1778661882500,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "fea9d96c-c575-432a-a2a3-50936eff1c9a": {
+      "id": "fea9d96c-c575-432a-a2a3-50936eff1c9a",
+      "name": "Player",
+      "createdAt": 1778664230116,
+      "lastNameChangeAt": 1778664230166,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "00f17bf5-3a67-4f45-806a-ac5b2d89f6b3": {
+      "id": "00f17bf5-3a67-4f45-806a-ac5b2d89f6b3",
+      "name": "Player",
+      "createdAt": 1778664291677,
+      "lastNameChangeAt": 1778664291721,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "d1a5db9b-e59b-4a1a-a45f-8b87fc40c7a3": {
+      "id": "d1a5db9b-e59b-4a1a-a45f-8b87fc40c7a3",
+      "name": "Player",
+      "createdAt": 1778664505691,
+      "lastNameChangeAt": 1778664505745,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "2cb74f74-329d-4cf9-9c2c-91030ed413ca": {
+      "id": "2cb74f74-329d-4cf9-9c2c-91030ed413ca",
+      "name": "Player",
+      "createdAt": 1778664556722,
+      "lastNameChangeAt": 1778664556802,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "48a35671-9ea8-43a8-bf7b-166c572626b2": {
+      "id": "48a35671-9ea8-43a8-bf7b-166c572626b2",
+      "name": "Player",
+      "createdAt": 1778664703557,
+      "lastNameChangeAt": 1778664703619,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "cb770edd-faef-4946-a81b-7a668a57f3f5": {
+      "id": "cb770edd-faef-4946-a81b-7a668a57f3f5",
+      "name": "Player",
+      "createdAt": 1778664755256,
+      "lastNameChangeAt": 1778664755288,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "c9c378e6-fae4-4a1e-b4c0-9f3241992661": {
+      "id": "c9c378e6-fae4-4a1e-b4c0-9f3241992661",
+      "name": "Player",
+      "createdAt": 1778665760945,
+      "lastNameChangeAt": 1778665761033,
+      "jobs": {},
+      "dojoProgress": {}
+    },
+    "3e17fa71-1956-4a5b-aa34-4feaaa786f56": {
+      "id": "3e17fa71-1956-4a5b-aa34-4feaaa786f56",
+      "name": "Player",
+      "createdAt": 1778665907923,
+      "lastNameChangeAt": 1778665908022,
+      "jobs": {},
+      "dojoProgress": {}
+    }
+  }
+}

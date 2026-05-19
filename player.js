@@ -331,7 +331,7 @@ export class Player {
             if (!dragon || dragon.type !== "fafnir" || dragon.stage === "egg") continue;
             const role = this.getSummonerDragonRole(dragon);
             if (dragon.stage === "juvenile") {
-                total += role === "front" ? 5 : 3;
+                total += role === "front" ? 3 : 2;
             }
         }
         return total;
@@ -343,7 +343,7 @@ export class Player {
         for (const dragon of this.getSummonerDragons()) {
             if (!dragon || dragon.type !== "fafnir" || dragon.stage !== "adult") continue;
             const role = this.getSummonerDragonRole(dragon);
-            total += role === "front" ? 5 : 3;
+            total += role === "front" ? 5 : 2;
         }
         return total;
     }
@@ -1829,8 +1829,10 @@ if (type === "arrow") {
                 if (!dragon || dragon.stage === "egg") return "";
                 const stageLabel = dragon.stage === "adult" ? "成体" : "幼体";
                 if (dragon.type === "tiamat") {
-                    const damage = dragon.stage === "adult" ? 20 : 10;
-                    return `${stageLabel}前衛：行動後、防御無視${damage}ダメージ`;
+                    const damage = dragon.stage === "adult" ? 18 : 10;
+                    return dragon.stage === "adult"
+                        ? `${stageLabel}前衛：行動後、防御無視${damage}ダメージ`
+                        : `${stageLabel}前衛：行動後、防御50%無視${damage}ダメージ`;
                 }
                 if (dragon.type === "nidhogg") {
                     return dragon.stage === "adult"
@@ -1840,7 +1842,7 @@ if (type === "arrow") {
                 if (dragon.type === "fafnir") {
                     return dragon.stage === "adult"
                         ? `${stageLabel}前衛：特殊防御+5 / 被ダメージ50%反射`
-                        : `${stageLabel}前衛：防御+5`;
+                        : `${stageLabel}前衛：防御+3`;
                 }
                 return "";
             };
@@ -2770,7 +2772,17 @@ if (type === "arrow") {
         if (name === "白龍") {
             const heal = 30 + this.get_total_defense();
             const before = this.hp;
+            const poisonBefore = Array.isArray(this.dot_effects)
+                ? this.dot_effects.filter(d => String(d?.name ?? d?.type ?? "").includes("毒")).length
+                : 0;
             const healed = this.restore_hp(heal);
+            this.remove_debuffs();
+            if (Array.isArray(this.dot_effects)) {
+                this.dot_effects = this.dot_effects.filter(d => !String(d?.name ?? d?.type ?? "").includes("毒"));
+            }
+            if (poisonBefore > 0) {
+                log(`🔔 毒を ${poisonBefore} 個解除した。`);
+            }
             log(healed > 0
                 ? `🐉 式神「白龍」を召喚！ ${selfName}のHPを${healed}回復（30＋防御力） HP ${before}→${this.hp}`
                 : `🐉 式神「白龍」を召喚！ ${selfName}は回復できなかった`);
@@ -2950,12 +2962,15 @@ if (type === "arrow") {
             }
 
             // ----------------------------------
-            // ★ 完成品は「特殊装備インベントリ」へ
+            // ★ 完成品はそのまま特殊装備枠へ
             // ----------------------------------
-            this.special_inventory.push(newEquip);
+            if (this.alchemist_equip) {
+                this.special_inventory.push(this.alchemist_equip);
+            }
+            this.alchemist_equip = newEquip;
 
 
-            log(`✨ 特殊武器『${newEquip.name}』を錬成した！`);
+            log(`✨ 特殊武器『${newEquip.name}』を錬成し、装備した！`);
 
             this.used_skill_set.add(stype);
             return true;
@@ -3009,7 +3024,7 @@ if (type === "arrow") {
             this.archer_no_consume_permanent = true;
             this.archer_pierce_rounds = 0;
             this.archer_next_pierce = false;
-            log("🎯 無尽射撃！ 以後、矢を消費せずに攻撃できる！");
+            log("🎯 無尽射撃！ 以後、矢を消費せずに攻撃できる！ さらに通常攻撃を行う！");
             this.used_skill_set.add(stype);
             return true;
         }

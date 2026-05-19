@@ -1,0 +1,42 @@
+{
+  "onmyoji": {
+    "baseTalismanScore": 6800,
+    "lowRankBonus": 750,
+    "highRankBonus": 1700,
+    "lowHpHighRankBonus": 1800,
+    "lowHpLowRankBonus": 700,
+    "enemyLowHpHighRankBonus": 1200,
+    "enemyLowHpLowRankBonus": 450,
+    "catVsMageBonus": 5200,
+    "catVsArcherOrSummonerBonus": 900,
+    "catEnemyDamagedBonus": 650,
+    "kyuubiManyBuffsBonus": 5200,
+    "kyuubiPerBuffBonus": 800,
+    "kyuubiOneBuffBonus": 1700,
+    "kyuubiVsMageOrMadBonus": 900,
+    "whiteDragonTwoPoisonBonus": 6950,
+    "whiteDragonOnePoisonBonus": 3600,
+    "whiteDragonManyDebuffBonus": 2600,
+    "whiteDragonVsArcherPoisonBonus": 2800,
+    "whiteDragonLowHpBonus": 2200,
+    "genbuVsPhysicalBonus": 1250,
+    "tenguVsThreatBonus": 950,
+    "onibiHealthyEnemyBonus": 800,
+    "shopMissingTalismanBonus": 900,
+    "actionShopFewTalismansScore": 4400,
+    "actionShopEnoughTalismansScore": 2100,
+    "actionUseItemMinimumScore": 2600,
+    "actionUseItemScoreOffset": 4200
+  },
+  "meta": {
+    "generatedAt": "2026-05-19T04:28:17.007Z",
+    "candidateIndex": 1,
+    "source": "dev/cpu_ai_tune.js",
+    "note": "mutated",
+    "bestSavedAt": "2026-05-19T04:29:48.040Z",
+    "bestPlayQualityScore": 17.370516666666436,
+    "bestBalanceDiagnostic": 74.14000000000001,
+    "bestLogPath": "tmp\\cpu-ai-tuning-winrate-quality-smoke/candidate-1-sim.json",
+    "humanReviewRequired": true
+  }
+}

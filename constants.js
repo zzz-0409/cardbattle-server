@@ -17,7 +17,7 @@ export const JOB_TEMPLATE = {
   6: { name: "陰陽師", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
   7: { name: "錬金術師", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
   8: { name: "弓兵", coin: 10, atk_bonus: -7, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
-  9: { name: "召喚士", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
+  9: { name: "召喚士", coin: 10, atk_bonus: -3, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 },
   10:{ name: "狂人", coin: 10, atk_bonus: 0, def_bonus: 0, heal_bonus: 0, coin_per_turn_bonus: 0, skill_bonus: 0 }
 
 };
@@ -347,9 +347,9 @@ export const JOB_SKILLS = {
 // =========================================================
 export const SUMMONER_HATCH_TURNS = 3;
 export const SUMMONER_GROWTH_MAX = 10;
-export const SUMMONER_EGG_PRICE = 20;
+export const SUMMONER_EGG_PRICE = 30;
 export const SUMMONER_FEED_PRICE = 10;
-export const SUMMONER_FEED_GROWTH = 2;
+export const SUMMONER_FEED_GROWTH = 1;
 
 export const SUMMONER_DRAGON_DATA = {
   tiamat: {

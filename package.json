@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "cpu:report": "node dev/cpu_sim_report.js",
+    "cpu:tune": "node dev/cpu_ai_tune.js"
   },
   "dependencies": {
     "ws": "^8.18.0"

@@ -1,47 +1,47 @@
 export const ONMYOJI_TALISMAN_ITEMS = [
   {
     name: "鬼火のお札",
-    price: 30,
+    price: 25,
     effect_type: "ONMYOJI_TALISMAN",
     is_equip: false,
     is_onmyoji_item: true,
-    consumes_turn: true,
+    consumes_turn: false,
     shikigami_name: "鬼火",
     shikigami_rank: "low",
-    effect_text: "鬼火を召喚する / ターン消費あり"
+    effect_text: "鬼火を召喚する / ターン消費なし"
   },
   {
     name: "猫又のお札",
-    price: 30,
+    price: 25,
     effect_type: "ONMYOJI_TALISMAN",
     is_equip: false,
     is_onmyoji_item: true,
-    consumes_turn: true,
+    consumes_turn: false,
     shikigami_name: "猫又",
     shikigami_rank: "low",
-    effect_text: "猫又を召喚する / ターン消費あり"
+    effect_text: "猫又を召喚する / ターン消費なし"
   },
   {
     name: "玄武のお札",
-    price: 30,
+    price: 25,
     effect_type: "ONMYOJI_TALISMAN",
     is_equip: false,
     is_onmyoji_item: true,
-    consumes_turn: true,
+    consumes_turn: false,
     shikigami_name: "玄武",
     shikigami_rank: "low",
-    effect_text: "玄武を召喚する / ターン消費あり"
+    effect_text: "玄武を召喚する / ターン消費なし"
   },
   {
     name: "烏天狗のお札",
-    price: 30,
+    price: 25,
     effect_type: "ONMYOJI_TALISMAN",
     is_equip: false,
     is_onmyoji_item: true,
-    consumes_turn: true,
+    consumes_turn: false,
     shikigami_name: "烏天狗",
     shikigami_rank: "low",
-    effect_text: "烏天狗を召喚する / ターン消費あり"
+    effect_text: "烏天狗を召喚する / ターン消費なし"
   },
   {
     name: "九尾のお札",
