@@ -50,7 +50,8 @@ import {
   clearSavedDojoRun,
   importJobRecordBackup,
   importDojoProgressBackup,
-  exportDojoProgressBackup
+  exportDojoProgressBackup,
+  hydrateAccountStoreFromRemote
 } from "./account_store.js";
 
 // =========================================================
@@ -1970,6 +1971,7 @@ server.on("request", (req, res) => {
 const PORT = RUN_CPU_SIM ? 0 : (process.env.PORT || 8080);
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+await hydrateAccountStoreFromRemote();
 server.listen(PORT, () => {
   if (!RUN_CPU_SIM) console.log(`Listening on port ${PORT}`);
 });

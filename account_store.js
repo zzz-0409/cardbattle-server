@@ -1,6 +1,11 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import {
+  getGitHubAccountStorageInfo,
+  pullGitHubAccounts,
+  scheduleGitHubAccountsPush
+} from "./github_account_storage.js";
 
 // =========================================================
 // アカウント + 職業別戦績/レート 永続ストア
@@ -110,7 +115,7 @@ function rotateGenerationBackups() {
   }
 }
 
-function saveJsonSafe(data) {
+function saveJsonSafe(data, { skipRemote = false } = {}) {
   try {
     ensureDir();
 
@@ -124,6 +129,10 @@ function saveJsonSafe(data) {
 
     fs.writeFileSync(DATA_TMP_FILE, json, "utf-8");
     fs.renameSync(DATA_TMP_FILE, DATA_FILE);
+
+    if (!skipRemote) {
+      scheduleGitHubAccountsPush(() => loadJsonSafe());
+    }
 
     console.log("💾 accounts.json 保存成功");
     return true;
@@ -179,7 +188,8 @@ export function getAccountStoreInfo() {
       persistenceWarning: process.env.RENDER && !isLikelyPersistentDataDir()
         ? "Render local filesystem is ephemeral unless this path is a persistent disk."
         : "",
-      writable: checkWritableDataDir()
+      writable: checkWritableDataDir(),
+      github: getGitHubAccountStorageInfo()
     };
   }
 
@@ -196,8 +206,126 @@ export function getAccountStoreInfo() {
     writable: checkWritableDataDir(),
     dataFileExists,
     dataFileMtimeMs,
-    accountCount
+    accountCount,
+    github: getGitHubAccountStorageInfo()
   };
+}
+
+function dbText(data) {
+  return JSON.stringify(normalizeDb(cloneJsonSafe(data) || { accounts: {} }));
+}
+
+function recordProgressTime(record) {
+  return Math.max(0, Number(record?.updatedAt ?? record?.savedAt ?? record?.savedRun?.savedAt ?? 0) || 0);
+}
+
+function chooseNewerRecord(localRecord, remoteRecord) {
+  if (!localRecord) return cloneJsonSafe(remoteRecord);
+  if (!remoteRecord) return cloneJsonSafe(localRecord);
+  const lt = recordProgressTime(localRecord);
+  const rt = recordProgressTime(remoteRecord);
+  if (rt > lt) return cloneJsonSafe(remoteRecord);
+  if (lt > rt) return cloneJsonSafe(localRecord);
+
+  const localProgress = (Number(localRecord.wins ?? 0) || 0) + (Number(localRecord.losses ?? 0) || 0);
+  const remoteProgress = (Number(remoteRecord.wins ?? 0) || 0) + (Number(remoteRecord.losses ?? 0) || 0);
+  return cloneJsonSafe(remoteProgress > localProgress ? remoteRecord : localRecord);
+}
+
+function mergeDojoSlot(localSlot = {}, remoteSlot = {}) {
+  const lt = recordProgressTime(localSlot);
+  const rt = recordProgressTime(remoteSlot);
+  const primary = rt > lt ? remoteSlot : localSlot;
+  const secondary = rt > lt ? localSlot : remoteSlot;
+  const merged = {
+    ...cloneJsonSafe(secondary || {}),
+    ...cloneJsonSafe(primary || {}),
+    highestStage: Math.max(Number(localSlot?.highestStage ?? 0) || 0, Number(remoteSlot?.highestStage ?? 0) || 0),
+    clearCount: Math.max(Number(localSlot?.clearCount ?? 0) || 0, Number(remoteSlot?.clearCount ?? 0) || 0),
+    cleared: Boolean(localSlot?.cleared || remoteSlot?.cleared),
+    trailNodes: normalizeDojoTrailNodes([...(localSlot?.trailNodes || []), ...(remoteSlot?.trailNodes || [])]),
+    updatedAt: Math.max(lt, rt)
+  };
+
+  const localSavedAt = Math.max(0, Number(localSlot?.savedRun?.savedAt ?? localSlot?.savedAt ?? 0) || 0);
+  const remoteSavedAt = Math.max(0, Number(remoteSlot?.savedRun?.savedAt ?? remoteSlot?.savedAt ?? 0) || 0);
+  if (remoteSavedAt > localSavedAt) {
+    merged.savedRun = cloneJsonSafe(remoteSlot.savedRun || null);
+  } else if (localSavedAt > 0) {
+    merged.savedRun = cloneJsonSafe(localSlot.savedRun || null);
+  } else if (!merged.savedRun) {
+    merged.savedRun = null;
+  }
+
+  return merged;
+}
+
+function mergeAccount(localAccount = {}, remoteAccount = {}) {
+  const local = cloneJsonSafe(localAccount) || {};
+  const remote = cloneJsonSafe(remoteAccount) || {};
+  const merged = { ...remote, ...local };
+
+  const localNameAt = Math.max(0, Number(local.lastNameChangeAt ?? local.createdAt ?? 0) || 0);
+  const remoteNameAt = Math.max(0, Number(remote.lastNameChangeAt ?? remote.createdAt ?? 0) || 0);
+  if (remoteNameAt > localNameAt || (!merged.name && remote.name)) {
+    merged.name = remote.name || "";
+    merged.lastNameChangeAt = remote.lastNameChangeAt || remoteNameAt;
+  }
+
+  merged.jobs = {};
+  const jobNames = new Set([...Object.keys(local.jobs || {}), ...Object.keys(remote.jobs || {})]);
+  for (const job of jobNames) {
+    merged.jobs[job] = chooseNewerRecord(local.jobs?.[job], remote.jobs?.[job]);
+  }
+
+  merged.dojoProgress = {};
+  const dojoJobs = new Set([...Object.keys(local.dojoProgress || {}), ...Object.keys(remote.dojoProgress || {})]);
+  for (const job of dojoJobs) {
+    merged.dojoProgress[job] = mergeDojoSlot(local.dojoProgress?.[job] || {}, remote.dojoProgress?.[job] || {});
+  }
+
+  return merged;
+}
+
+function mergeAccountDbs(localDb, remoteDb) {
+  const local = normalizeDb(cloneJsonSafe(localDb) || { accounts: {} });
+  const remote = normalizeDb(cloneJsonSafe(remoteDb) || { accounts: {} });
+  const merged = { ...remote, ...local, accounts: {} };
+  const accountIds = new Set([...Object.keys(local.accounts || {}), ...Object.keys(remote.accounts || {})]);
+  for (const accountId of accountIds) {
+    merged.accounts[accountId] = mergeAccount(local.accounts?.[accountId], remote.accounts?.[accountId]);
+    merged.accounts[accountId].id = merged.accounts[accountId].id || accountId;
+  }
+  return merged;
+}
+
+export async function hydrateAccountStoreFromRemote() {
+  const pulled = await pullGitHubAccounts();
+  if (!pulled.enabled) return { ok: true, enabled: false };
+  if (!pulled.ok) {
+    console.warn("GitHub account storage pull failed:", pulled.reason);
+    return pulled;
+  }
+
+  const localDb = loadJsonSafe();
+  if (!pulled.exists) {
+    const hasLocalAccounts = Object.keys(localDb.accounts || {}).length > 0;
+    if (hasLocalAccounts) scheduleGitHubAccountsPush(() => loadJsonSafe(), 0);
+    return { ok: true, enabled: true, pulled: false, pushedLocal: hasLocalAccounts };
+  }
+
+  const merged = mergeAccountDbs(localDb, pulled.data);
+  const localChanged = dbText(merged) !== dbText(localDb);
+  const remoteChanged = dbText(merged) !== dbText(pulled.data);
+
+  if (localChanged) {
+    saveJsonSafe(merged, { skipRemote: true });
+  }
+  if (remoteChanged) {
+    scheduleGitHubAccountsPush(() => loadJsonSafe(), 0);
+  }
+
+  return { ok: true, enabled: true, pulled: true, localChanged, remoteChanged };
 }
 
 export function validateAccountName(name) {

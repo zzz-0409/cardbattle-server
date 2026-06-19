@@ -1,5 +1,42 @@
 # cardbattle-js (deployment bundle)
 
+## Render + GitHub account/ranking persistence
+
+`accounts.json` can now be mirrored to GitHub so rankings, names, and dojo
+progress survive Render restarts/redeploys even without a persistent disk.
+
+Set these Render environment variables:
+
+- Recommended: use a separate private data repository. If you use the same
+  repository that Render auto-deploys from, every data commit can trigger a
+  redeploy.
+- `GILSYS_GITHUB_TOKEN`
+  - GitHub fine-grained personal access token with `Contents: Read and write`
+    permission for the target repository.
+- `GILSYS_GITHUB_REPOSITORY`
+  - Repository in `owner/repo` format.
+- `GILSYS_GITHUB_BRANCH`
+  - Optional. Defaults to `main`.
+- `GILSYS_GITHUB_DATA_PATH`
+  - Optional. Defaults to `data/accounts.json`.
+
+Startup behavior:
+
+- If the GitHub file exists, the server merges GitHub data with local
+  `accounts.json` before opening the port.
+- If the GitHub file does not exist and local accounts exist, the server creates
+  it.
+- Every local save is still immediate; GitHub writes are debounced in the
+  background.
+- If GitHub variables are missing, the server falls back to the old local/Render
+  disk behavior.
+
+After deploy, open:
+
+`/api/ranking/storage_status`
+
+Check `github.enabled`, `github.lastPull`, `github.lastPush`, and `accountCount`.
+
 ## Render ranking persistence
 
 Ranking data is stored in `accounts.json`.
