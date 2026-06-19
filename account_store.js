@@ -362,9 +362,6 @@ export function validateLoginUsername(username) {
   if (!/^[a-z0-9_.-]+$/.test(normalized)) {
     return { ok: false, reason: "ユーザー名は英数字、_、-、. のみ使えます" };
   }
-  if (/^[_.-]|[_.-]$/.test(normalized)) {
-    return { ok: false, reason: "ユーザー名の先頭と末尾に記号は使えません" };
-  }
   return { ok: true, username: normalized };
 }
 
