@@ -33,6 +33,8 @@ import path from "path";
 import {
   getOrCreateAccount,
   registerAccount,
+  registerPasswordAccount,
+  loginPasswordAccount,
   changeAccountName,
   getAccountSummary,
   getJobTopRankings,
@@ -1881,6 +1883,65 @@ server.on("request", (req, res) => {
     const data = exportDojoProgressBackup(accountId, jobs);
     res.writeHead(data?.ok ? 200 : 404, { "Content-Type": "application/json" });
     res.end(JSON.stringify(data));
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/api/auth/register") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      try {
+        const j = JSON.parse(body || "{}");
+        const username = String(j.username || "");
+        const password = String(j.password || "");
+        const name = String(j.name || "");
+        const backupJobs = (j.backup_jobs && typeof j.backup_jobs === "object") ? j.backup_jobs : null;
+        const backupDojoProgress = (j.backup_dojo_progress && typeof j.backup_dojo_progress === "object") ? j.backup_dojo_progress : null;
+        const data = registerPasswordAccount({ username, password, name });
+
+        if (data?.ok && data.account?.id) {
+          if (backupJobs) {
+            try {
+              importJobRecordBackup(data.account.id, backupJobs);
+            } catch (e) {
+              console.warn("auth register importJobRecordBackup failed:", e);
+            }
+          }
+          if (backupDojoProgress) {
+            try {
+              importDojoProgressBackup(data.account.id, backupDojoProgress);
+            } catch (e) {
+              console.warn("auth register importDojoProgressBackup failed:", e);
+            }
+          }
+        }
+
+        res.writeHead(data?.ok ? 200 : 400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, reason: "invalid json" }));
+      }
+    });
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/api/auth/login") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      try {
+        const j = JSON.parse(body || "{}");
+        const username = String(j.username || "");
+        const password = String(j.password || "");
+        const data = loginPasswordAccount({ username, password });
+        res.writeHead(data?.ok ? 200 : 401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, reason: "invalid json" }));
+      }
+    });
     return;
   }
 

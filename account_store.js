@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import {
   getGitHubAccountStorageInfo,
@@ -42,6 +43,10 @@ const MIN_RATING = 500;
 const NAME_MIN = 2;
 const NAME_MAX = 12;
 const NAME_CHANGE_COOLDOWN_MS = 0; // 名前変更のクールダウンなし
+const USERNAME_MIN = 3;
+const USERNAME_MAX = 24;
+const PASSWORD_MIN = 8;
+const PASSWORD_HASH_ITERATIONS = 120000;
 
 function nowMs() {
   return Date.now();
@@ -345,6 +350,123 @@ export function validateAccountName(name) {
   return { ok: true };
 }
 
+export function normalizeLoginUsername(username) {
+  return String(username || "").trim().toLowerCase();
+}
+
+export function validateLoginUsername(username) {
+  const normalized = normalizeLoginUsername(username);
+  if (normalized.length < USERNAME_MIN || normalized.length > USERNAME_MAX) {
+    return { ok: false, reason: `ユーザー名は${USERNAME_MIN}〜${USERNAME_MAX}文字です` };
+  }
+  if (!/^[a-z0-9_.-]+$/.test(normalized)) {
+    return { ok: false, reason: "ユーザー名は英数字、_、-、. のみ使えます" };
+  }
+  if (/^[_.-]|[_.-]$/.test(normalized)) {
+    return { ok: false, reason: "ユーザー名の先頭と末尾に記号は使えません" };
+  }
+  return { ok: true, username: normalized };
+}
+
+export function validateLoginPassword(password) {
+  const value = String(password || "");
+  if (value.length < PASSWORD_MIN) {
+    return { ok: false, reason: `パスワードは${PASSWORD_MIN}文字以上です` };
+  }
+  if (value.length > 128) {
+    return { ok: false, reason: "パスワードが長すぎます" };
+  }
+  return { ok: true };
+}
+
+function hashPassword(password, salt = crypto.randomBytes(16).toString("hex"), iterations = PASSWORD_HASH_ITERATIONS) {
+  const hash = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256").toString("hex");
+  return { salt, hash, iterations };
+}
+
+function timingSafeEqualHex(a, b) {
+  try {
+    const ab = Buffer.from(String(a || ""), "hex");
+    const bb = Buffer.from(String(b || ""), "hex");
+    return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+  } catch {
+    return false;
+  }
+}
+
+function findAccountByLoginUsername(db, username) {
+  const normalized = normalizeLoginUsername(username);
+  return Object.values(db.accounts || {}).find(acc =>
+    normalizeLoginUsername(acc?.auth?.username || "") === normalized
+  ) || null;
+}
+
+function publicAccount(acc) {
+  return {
+    id: acc.id,
+    name: acc.name || "",
+    username: acc.auth?.username || "",
+    nextNameChangeAt: 0
+  };
+}
+
+export function registerPasswordAccount({ username, password, name }) {
+  const uv = validateLoginUsername(username);
+  if (!uv.ok) return { ok: false, reason: uv.reason };
+  const pv = validateLoginPassword(password);
+  if (!pv.ok) return { ok: false, reason: pv.reason };
+  const nv = validateAccountName(name);
+  if (!nv.ok) return { ok: false, reason: nv.reason };
+
+  const db = loadJsonSafe();
+  if (findAccountByLoginUsername(db, uv.username)) {
+    return { ok: false, reason: "このユーザー名はすでに使われています" };
+  }
+
+  const passwordHash = hashPassword(password);
+  const accountId = crypto.randomUUID();
+  db.accounts[accountId] = {
+    id: accountId,
+    name,
+    createdAt: nowMs(),
+    lastNameChangeAt: nowMs(),
+    jobs: {},
+    dojoProgress: {},
+    auth: {
+      username: uv.username,
+      passwordHash: passwordHash.hash,
+      passwordSalt: passwordHash.salt,
+      passwordIterations: passwordHash.iterations,
+      createdAt: nowMs(),
+      updatedAt: nowMs()
+    }
+  };
+
+  saveJsonSafe(db);
+  return { ok: true, account: publicAccount(db.accounts[accountId]) };
+}
+
+export function loginPasswordAccount({ username, password }) {
+  const uv = validateLoginUsername(username);
+  if (!uv.ok) return { ok: false, reason: "ユーザー名またはパスワードが違います" };
+  const db = loadJsonSafe();
+  const acc = findAccountByLoginUsername(db, uv.username);
+  const auth = acc?.auth || null;
+  if (!acc || !auth?.passwordHash || !auth?.passwordSalt) {
+    return { ok: false, reason: "ユーザー名またはパスワードが違います" };
+  }
+
+  const iterations = Math.max(1, Number(auth.passwordIterations ?? PASSWORD_HASH_ITERATIONS) || PASSWORD_HASH_ITERATIONS);
+  const check = hashPassword(password, auth.passwordSalt, iterations);
+  if (!timingSafeEqualHex(check.hash, auth.passwordHash)) {
+    return { ok: false, reason: "ユーザー名またはパスワードが違います" };
+  }
+
+  auth.lastLoginAt = nowMs();
+  saveJsonSafe(db);
+  return { ok: true, account: publicAccount(acc) };
+}
+
 function ensureJobSlot(account, jobName) {
   if (!account.jobs) account.jobs = {};
   if (!account.jobs[jobName]) {
@@ -490,6 +612,7 @@ export function registerAccount({ accountId, name }) {
     account: {
       id: db.accounts[accountId].id,
       name: db.accounts[accountId].name,
+      username: db.accounts[accountId].auth?.username || "",
       nextNameChangeAt: 0
     }
   };
@@ -690,7 +813,7 @@ export function changeAccountName({ accountId, name }) {
   acc.lastNameChangeAt = now;
 
   saveJsonSafe(db);
-  return { ok: true, account: { id: acc.id, name: acc.name, nextNameChangeAt: 0 } };
+  return { ok: true, account: { id: acc.id, name: acc.name, username: acc.auth?.username || "", nextNameChangeAt: 0 } };
 }
 
 // 職業別の戦績+レートを返す（クライアントの職業カード用）
@@ -728,6 +851,7 @@ export function getAccountSummary(accountId, jobNames = []) {
     account: {
       id: acc.id,
       name: acc.name,
+      username: acc.auth?.username || "",
       nextNameChangeAt: 0
     },
     jobs: out,
@@ -1082,5 +1206,8 @@ export const ACCOUNT_STORE_CONST = {
   MIN_RATING,
   NAME_MIN,
   NAME_MAX,
-  NAME_CHANGE_COOLDOWN_MS
+  NAME_CHANGE_COOLDOWN_MS,
+  USERNAME_MIN,
+  USERNAME_MAX,
+  PASSWORD_MIN
 };
